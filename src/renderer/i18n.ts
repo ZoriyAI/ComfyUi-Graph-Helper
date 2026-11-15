@@ -85,9 +85,7 @@ export function startI18n(language: AppLanguage) {
       react: { useSuspense: false },
       ...(pseudoWanted() ? { postProcess: ['pseudo'] } : {}),
     };
-    // The first render must already have its texts. initImmediate is the option's old name: the installed i18next
-    // reads initAsync instead and ignores it. Init is synchronous anyway, because the resources are passed inline.
-    (options as InitOptions & { initImmediate: boolean }).initImmediate = false;
+    // The first render must already have its texts: init is synchronous because the resources are passed inline.
     i18n.init(options);
   } else {
     void i18n.changeLanguage(language);

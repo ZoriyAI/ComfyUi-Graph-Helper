@@ -9,7 +9,7 @@ import { X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import styles from './Toast.module.css';
 import { cx } from './cx';
-import { showToast, useToastStore, type ToastInput } from './toastStore';
+import { useToastStore } from './toastStore';
 
 export { showToast, type ToastInput, type ToastTone } from './toastStore';
 
@@ -18,12 +18,6 @@ export { showToast, type ToastInput, type ToastTone } from './toastStore';
  * polite live region instead, so assistive tech hears it once and the text exists once in the DOM.
  */
 const EXCLUDE = { 'data-radix-toast-announce-exclude': '' } as Record<string, string>;
-
-/** show and dismiss as a hook, for components; no component in the app uses it at present. */
-export function useToast() {
-  const dismiss = useToastStore((state) => state.dismiss);
-  return { show: (input: ToastInput) => showToast(input), dismiss };
-}
 
 /**
  * The left edge and width of the canvas (`.graph-pane`), so toasts sit in its lower left corner: never over the

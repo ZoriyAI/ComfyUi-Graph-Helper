@@ -17,7 +17,7 @@ import { accessErrorText, detectionNote, type DetectionNote } from '../mcpAccess
 import McpAccess from './McpAccess';
 import { isLoopbackHost, isPlausibleHost, mcpUrlNeedsHttps, withLoopbackScheme } from '../../../../shared/mcp/loopback';
 import styles from '../SettingsPanel.module.css';
-import { fieldClass, Group, hintClass, rowClass, SectionHead, type DraftProps } from './common';
+import { errorSummary, fieldClass, Group, hintClass, rowClass, SectionHead, type DraftProps } from './common';
 import { addressSuggestions } from './pickerItems';
 
 /** The badge colour for each knowledge sync state. */
@@ -162,9 +162,15 @@ export default function ConnectionSection({ values, setValues, saved, fieldError
   const profile = status?.mcpUrl.trim() === mcpUrl && mcpUrl !== '' ? status?.mcpProfile ?? null : null;
 
   const readNow = async () => {
-    // The "in progress" line reuses the catalog's "Saving…" text while the read runs.
-    setActionNote(String(t('settings.saving')));
-    const result = await window.electronAPI.readMcp();
+    setActionNote(String(t('settings.readingMcp')));
+    let result: Awaited<ReturnType<typeof window.electronAPI.readMcp>>;
+    try {
+      result = await window.electronAPI.readMcp();
+    } catch (error) {
+      // The call itself failed: replace "Reading…" with why, never leave it standing.
+      setActionNote(errorSummary(translate, error));
+      return;
+    }
     if (!result.ok) {
       setActionNote(accessErrorText(result.error, status, translate));
       return;

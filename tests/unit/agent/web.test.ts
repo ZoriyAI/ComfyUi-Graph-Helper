@@ -140,8 +140,7 @@ describe('page text', () => {
     await expect(fetchPageText('http://127.0.0.1:18188/', inward, PUBLIC)).rejects.toThrow('Only public http(s) addresses can be read.');
   });
 
-  // The byte cap is PAGE_BYTE_CAP (10 MB now); the test name keeps an older figure.
-  it('caps the body at 2 MB and refuses binary pages', async () => {
+  it('caps the body at PAGE_BYTE_CAP (10 MB) and refuses binary pages', async () => {
     const big = 'a'.repeat(PAGE_BYTE_CAP + 1000);
     const fetchImpl = fakeFetch({
       'https://big.example/': () => new Response(big, { headers: { 'content-type': 'text/plain' } }),

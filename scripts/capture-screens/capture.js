@@ -236,48 +236,7 @@ async function captureToolbarAndHelp(page, prefix) {
   // Description cards: a few explanations with different sources, cards collapsed at the fit zoom, then one
   // card expanded at 100 %.
   await step('descriptions', async () => {
-    await page.evaluate/** Opens each menu of the menu bar with the mouse (and the View ▸ Motion submenu) and captures it. */
-async function captureMenus(page, prefix, names) {
-  const triggers = page.locator('[role="menubar"] [role="menuitem"]');
-  const count = await triggers.count();
-  for (let i = 0; i < count; i += 1) {
-    if (names && !names.includes(i)) continue;
-    await step(`${prefix}-menu-${i}`, async () => {
-      await triggers.nth(i).click();
-      await page.waitForTimeout(250);
-      if (i === 2) {
-        // View: open the Motion submenu too.
-        const sub = page.locator('[role="menu"] [aria-haspopup="menu"]').last();
-        await sub.hover();
-        await page.waitForTimeout(350);
-      }
-      await shot(page, `${prefix}-menu-${i + 1}`);
-      await page.keyboard.press('Escape');
-      await page.keyboard.press('Escape');
-      await page.waitForTimeout(150);
-    });
-  }
-}
-
-/** The toolbar with a tooltip, the shortcuts dialog and the about dialog. */
-async function captureToolbarAndHelp(page, prefix) {
-  await step(`${prefix}-toolbar-hint`, async () => {
-    await page.locator('.workspace-toolbar [data-command="file.import"]').hover();
-    await page.waitForTimeout(900);
-    await shot(page, `${prefix}-toolbar-hint`);
-    await page.mouse.move(700, 500);
-  });
-  await step(`${prefix}-shortcuts`, async () => {
-    await page.locator('.react-flow__pane').click({ position: { x: 20, y: 300 } }).catch(() => undefined);
-    await page.keyboard.press('F1');
-    await page.waitForTimeout(500);
-    await shot(page, `${prefix}-shortcuts`);
-    await page.keyboard.press('Escape');
-    await page.waitForTimeout(300);
-  });
-}
-
-(async () => {
+    await page.evaluate(async () => {
       const api = window.electronAPI;
       const projection = await api.readProjection('desktop');
       const revisionId = projection.currentRevisionId;

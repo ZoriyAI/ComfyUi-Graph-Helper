@@ -1,8 +1,0 @@
-/* The layered surfaces by elevation (ui/Surface.tsx). */
-.surface { border: 1px solid var(--border-subtle); color: var(--text); }
-.e0 { background: var(--surface-canvas); box-shadow: var(--elev-0); }
-.e1 { background: linear-gradient(180deg, rgba(255, 255, 255, 0.012), transparent 40%), var(--surface-panel); box-shadow: var(--elev-1); }
-.e2 { background: linear-gradient(180deg, rgba(255, 255, 255, 0.018), transparent 40%), var(--surface-raised); border-color: var(--border); box-shadow: var(--elev-2); }
-.e3 { background: linear-gradient(180deg, rgba(255, 255, 255, 0.024), transparent 40%), var(--surface-overlay); border-color: var(--border); box-shadow: var(--elev-3); }
-.rounded { border-radius: var(--radius-lg); }
-.flush { border: 0; border-radius: 0; }

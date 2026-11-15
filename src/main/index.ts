@@ -112,7 +112,7 @@ setMcpCallObserver((note) => {
   else log.warn(`[MCP] ${tool} ${note.args} failed: ${note.error ?? 'error'}${tail}`);
 });
 log.info(
-  `[App] Start ${DISPLAY_NAME} ${app.getVersion()} electron=${process.versions.electron} chrome=${process.versions.chrome} `
+  `[App] Start ${DISPLAY_NAME} ${displayVersion()} electron=${process.versions.electron} chrome=${process.versions.chrome} `
   + `node=${process.versions.node} platform=${process.platform}/${process.arch} packaged=${app.isPackaged}`,
 );
 log.info(`[App] Paths userData=${app.getPath('userData')} logs=${logsDir()}`);

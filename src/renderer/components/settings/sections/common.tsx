@@ -6,6 +6,7 @@
 import React from 'react';
 import type { NonSecretSettings } from '../../../../shared/config/schema';
 import type { Preferences } from '../../../../shared/config/preferences';
+import { explainError, type Translator } from '../../../../shared/i18n';
 import { cx } from '../../../ui/cx';
 import styles from '../SettingsPanel.module.css';
 
@@ -28,6 +29,14 @@ export interface DraftProps {
   pending: boolean;
   /** True while the draft differs from what is stored. */
   dirty: boolean;
+}
+
+/**
+ * The translated sentence for a call to main that threw (not a result main sent back). Sections use it in their
+ * catch blocks so a failed call ends in a readable failure line, never in a state that waits forever.
+ */
+export function errorSummary(translate: Translator, error: unknown): string {
+  return explainError(translate, error instanceof Error ? error.message : String(error)).summary;
 }
 
 /** Merges `patch` into one flat preferences section of the draft. */

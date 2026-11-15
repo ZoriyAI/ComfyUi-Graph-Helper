@@ -1,17 +1,15 @@
 /**
  * The names of the IPC channels between the window and main. Main's handlers register on these names (main/ipc.ts
  * and main/ipc/*.ts, main/knowledge/handlers.ts, main/lessons/lessonsIpc.ts and others). The sandboxed preload
- * cannot import this file, so src/preload/index.ts repeats the names it uses; a renamed channel changes both.
+ * cannot import this file, so src/preload/index.ts repeats the whole list; tests/unit/ipcChannelCopy.test.ts keeps
+ * the two equal, so a channel added, renamed or removed here must change there too.
  */
 export const IPC_CHANNELS = {
   // Database operations
-  DB_SAVE_PROJECT: 'db:save-project',
   DB_LOAD_PROJECT: 'db:load-project',
   DB_LIST_PROJECTS: 'db:list-projects',
-  DB_DELETE_PROJECT: 'db:delete-project',
   
   // Graph operations
-  GRAPH_SAVE_REVISION: 'graph:save-revision',
   GRAPH_LOAD_REVISION: 'graph:load-revision',
   GRAPH_LIST_REVISIONS: 'graph:list-revisions',
   
@@ -44,7 +42,6 @@ export const IPC_CHANNELS = {
   /** The journey cards' links: the saved ComfyUI address or a fixed download page, opened in the browser on a click. */
   JOURNEY_OPEN_LINK: 'journey:open-link',
   JOURNEY_COMFY_KNOWN: 'journey:comfy-known',
-  FILE_SELECT_DIRECTORY: 'file:select-directory',
   
   // Non-secret settings. Secret saves are rejected without a write.
   SETTINGS_GET: 'settings:get',
@@ -129,12 +126,6 @@ export const IPC_CHANNELS = {
   PROPOSALS_LIST: 'proposals:list',
   PROPOSALS_RESOLVE: 'proposals:resolve',
   PROPOSALS_EVENT: 'proposals:event',
-
-  // Action executor control
-  ACTION_PAUSE: 'action:pause',
-  ACTION_RESUME: 'action:resume',
-  ACTION_CANCEL: 'action:cancel',
-  ACTION_GET_STATUS: 'action:get-status',
 
   // Diagnostics: log folder, redacted report, renderer error reports
   DIAGNOSTICS_COLLECT: 'diagnostics:collect',

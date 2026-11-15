@@ -2,7 +2,7 @@
  * Trigger-word counts for the model rows on screen. ModelLibrary.tsx shows them in each row and clears the cache
  * after a sync. Only the rows on screen are read, since one detail request per file of a large library would be slow.
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ModelDetail, ModelSummary } from '../../../shared/contracts';
 import { modelKey } from './libraryModel';
 
@@ -20,8 +20,16 @@ export function clearModelDetailCache(): void {
 export function useTriggerCounts(visible: ModelSummary[]): Map<string, number> {
   const [, setTick] = useState(0);
   const keys = visible.map(modelKey).join('\n');
+  // Alive for the component's whole life, not per effect run: when the rows change while a read is in flight, the
+  // next run skips that file as "in flight", so the answer of the earlier run must still re-render.
+  const mounted = useRef(true);
   useEffect(() => {
-    let cancelled = false;
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+  useEffect(() => {
     for (const model of visible) {
       const key = modelKey(model);
       if (cache.has(key) || inflight.has(key)) continue;
@@ -35,12 +43,9 @@ export function useTriggerCounts(visible: ModelSummary[]): Map<string, number> {
         })
         .finally(() => {
           inflight.delete(key);
-          if (!cancelled) setTick((value) => value + 1);
+          if (mounted.current) setTick((value) => value + 1);
         });
     }
-    return () => {
-      cancelled = true;
-    };
   }, [keys]);
   return cache;
 }

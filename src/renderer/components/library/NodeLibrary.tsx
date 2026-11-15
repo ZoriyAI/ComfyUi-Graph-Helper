@@ -45,8 +45,9 @@ export async function addNodeFromLibrary(node: Pick<NodeClassSummary, 'classType
 
 /** The add itself, once trackCommit has taken it; it lands on the level the add began on, or nowhere. */
 async function addNow(node: Pick<NodeClassSummary, 'classType' | 'displayName'>, messages: { added: string; failed: string }, origin: EditOrigin) {
-  const position = await placeNewNode(null, { classType: node.classType });
   try {
+    // Inside the try: a failed placement is a failed add, and the person gets the "add failed" toast for it.
+    const position = await placeNewNode(null, { classType: node.classType });
     // Into the level on screen: the root graph, or the open subgraph.
     const result = await commitAtOrigin(origin, {
       type: 'add-node',

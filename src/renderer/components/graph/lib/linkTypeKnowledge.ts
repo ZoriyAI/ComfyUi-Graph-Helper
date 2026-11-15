@@ -4,7 +4,7 @@
  * (explain/ExplainPanel.tsx), so a link with no notes of its own still teaches what a MODEL or a LATENT is.
  */
 import type { Explanation } from '../../../../shared/contracts/knowledge';
-import type { ObjectRef } from '../../../../shared/contracts/objects';
+import { inSubgraph, type ObjectRef } from '../../../../shared/contracts/objects';
 import { linkTypeRef } from '../../../../shared/knowledge/coreKnowledge';
 
 /** The knowledge owner of a link data type ('MODEL', 'LATENT', ...), re-exported for the renderer. */
@@ -24,9 +24,13 @@ export function edgeKnowledge(own: readonly Explanation[] | undefined, byType: r
   return [...(byType ?? [])];
 }
 
-/** The owners to load for an edge: the edge, then its data type when it has a concrete one. */
-export function edgeKnowledgeRefs(edgeId: string, dataType: string | null | undefined): { edge: ObjectRef; type: ObjectRef | null } {
-  return { edge: { kind: 'edge', id: edgeId }, type: linkTypeRef(dataType) };
+/**
+ * The owners to load for an edge: the edge, then its data type when it has a concrete one. `subgraphId`: the
+ * subgraph open on the canvas; link ids inside a definition repeat those of the main canvas, so the edge's ref
+ * names its definition, as the "Why" question and the Explain panel do.
+ */
+export function edgeKnowledgeRefs(edgeId: string, dataType: string | null | undefined, subgraphId?: string | null): { edge: ObjectRef; type: ObjectRef | null } {
+  return { edge: inSubgraph({ kind: 'edge', id: edgeId }, subgraphId), type: linkTypeRef(dataType) };
 }
 
 /**
@@ -37,8 +41,9 @@ export async function resolveEdgeKnowledge(
   list: (owner: ObjectRef) => Promise<Explanation[]>,
   edgeId: string,
   dataType: string | null | undefined,
+  subgraphId?: string | null,
 ): Promise<Explanation[]> {
-  const refs = edgeKnowledgeRefs(edgeId, dataType);
+  const refs = edgeKnowledgeRefs(edgeId, dataType, subgraphId);
   const own = await list(refs.edge).catch(() => []);
   if (own.length > 0 || !refs.type) return own;
   return list(refs.type).catch(() => []);

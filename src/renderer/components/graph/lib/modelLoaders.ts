@@ -77,8 +77,8 @@ export function modelFromDrop(read: (type: string) => string): { directory: stri
 }
 
 /**
- * Drag data types of the library: a node class, and a model file. library/libraryModel.ts declares the same node
- * type for the node library; the two strings must stay equal.
+ * Drag data types of the library: a node class, and a model file. The one declaration: library/libraryModel.ts
+ * re-exports these for the drag side (NodeLibrary, ModelLibrary).
  */
 export const NODE_DRAG_TYPE = 'application/x-helper-node';
 export const MODEL_DRAG_TYPE = 'application/x-helper-model';

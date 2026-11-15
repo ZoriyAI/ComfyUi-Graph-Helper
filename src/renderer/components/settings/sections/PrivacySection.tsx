@@ -8,6 +8,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BookOpen, Eraser, ShieldCheck, Trash2 } from 'lucide-react';
 import { DESKTOP_PROJECT_ID } from '../../../../shared/project';
+import type { Translator } from '../../../../shared/i18n';
 import { adultContentOn } from '../../../../shared/config/preferences';
 import { contentRules } from '../../../../shared/content/rules';
 import { FETCH_PAGE_BYTE_CAP, FETCH_PAGE_TEXT_CAP, megabytes } from '../../../../shared/agent/limits';
@@ -36,7 +37,7 @@ import { cx } from '../../../ui/cx';
 import { useChatStore } from '../../../state/chatState';
 import { openHelp } from '../../../services/help';
 import styles from '../SettingsPanel.module.css';
-import { Group, hintClass, patchSection, rowClass, SectionHead, type DraftProps } from './common';
+import { errorSummary, Group, hintClass, patchSection, rowClass, SectionHead, type DraftProps } from './common';
 import ConfirmDialog from './ConfirmDialog';
 import PreviewCacheRow from './PreviewCacheRow';
 import type { SecretInventoryReport } from '../../../../preload';
@@ -44,6 +45,7 @@ import type { SecretInventoryReport } from '../../../../preload';
 /** Settings ▸ Privacy: what the model sees, whether chat is kept, and a plain account of where secrets live. */
 export default function PrivacySection({ prefs, setPrefs, container }: DraftProps) {
   const { t, i18n } = useTranslation();
+  const translate: Translator = (key, options) => (options ? String(t(key, options)) : String(t(key)));
   const privacy = prefs.privacy;
   const [askAdult, setAskAdult] = useState(false);
   const rules = contentRules(i18n.language);
@@ -123,7 +125,17 @@ export default function PrivacySection({ prefs, setPrefs, container }: DraftProp
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const forgetEverything = async () => {
-    const result = await window.electronAPI.forgetAllSecrets();
+    let result: Awaited<ReturnType<typeof window.electronAPI.forgetAllSecrets>>;
+    try {
+      result = await window.electronAPI.forgetAllSecrets();
+    } catch (error) {
+      // Part may already be gone: re-read the table and say that not everything was forgotten.
+      await refreshKeys();
+      await refreshToken();
+      await refreshInventory();
+      setForgetNote(String(t('preferences.forgetFailed', { reason: errorSummary(translate, error) })));
+      return;
+    }
     // Every key is gone in main: show that at once, before the slower re-reads below.
     useProviderStore.getState().setKeySources(NO_KEYS);
     await refreshKeys();

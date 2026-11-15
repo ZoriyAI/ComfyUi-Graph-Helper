@@ -112,6 +112,12 @@ export interface ChatMessage {
    * the question with its context so "Retry" (chat.retry) can send it again. Not persisted.
    */
   turnError?: ChatTurnError;
+  /**
+   * Set by the chat service on the message that says a turn failed, also when the failure has no known kind
+   * (no turnError). Message draws the failed-turn card from this, never from the text, because a real answer may
+   * start with the word "Error". Not persisted: a failed turn from an earlier run reads back as plain text.
+   */
+  failed?: boolean;
   /** The person stopped this answer (Stop): its build card says stopped, not done. Not persisted. */
   stopped?: boolean;
 }

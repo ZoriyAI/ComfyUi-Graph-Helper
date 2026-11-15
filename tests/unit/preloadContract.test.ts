@@ -17,7 +17,6 @@ describe('Preload API Contract', () => {
       },
       importWorkflow: vi.fn(),
       exportWorkflow: vi.fn(),
-      saveProject: vi.fn(),
       loadProject: vi.fn(),
       listProjects: vi.fn(),
       llmSetConfig: vi.fn(),

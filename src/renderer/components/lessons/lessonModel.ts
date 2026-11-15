@@ -31,6 +31,7 @@ import { useGraphStore } from '../../state/graphState';
 import { showToast } from '../../ui/toastStore';
 import { i18n } from '../../i18n';
 import { useKnowledgeStore } from '../../state/knowledgeState';
+import { useUiStore } from '../../state/uiState';
 import { fieldValue } from '../fields/fieldModel';
 import { useCanvasStore } from '../graph/canvasStore';
 import { commitManual } from '../graph/commit';
@@ -143,8 +144,21 @@ interface FileFacts {
   triggers: string[];
   family: BaseModelFamily;
 }
-/** Facts by `folder/name`, kept for the whole session: a file's description is asked of main only once. */
+/**
+ * Facts by `folder/name`: a file's description is asked of main once per state of the app's knowledge of files.
+ * A sync, newly read file metadata or a new catalog (the stamp of the same events the model library listens to)
+ * clears it, so metadata learned later reaches the lessons without a restart.
+ */
 const fileCache = new Map<string, FileFacts>();
+/** The knowledge stamp fileCache was filled under. */
+let fileCacheStamp = '';
+
+/** Changes when what the app knows about model files may have changed: a sync, enriched models, a new catalog. */
+function useFilesStamp(): string {
+  const syncPart = useKnowledgeStore((state) => `${state.sync?.lastSyncAt ?? 0}:${state.sync?.counts.models ?? 0}:${state.sync?.counts.enrichedModels ?? 0}`);
+  const catalogVersion = useUiStore((state) => state.catalogVersion);
+  return `${syncPart}:${catalogVersion}`;
+}
 
 /**
  * The model files chosen on the canvas, with the folder the catalog found them in: the LoRAs of the core loaders,
@@ -171,13 +185,20 @@ export function useLessonFacts(graph: LessonGraph, details: Details = {}): Lesso
   const files = useMemo(() => modelFilesOf(graph, details), [graph, details]);
   const key = files.map((file) => `${file.directory}/${file.name}`).join('\n');
   const [version, setVersion] = useState(0);
+  const stamp = useFilesStamp();
   useEffect(() => {
     let live = true;
+    if (stamp !== fileCacheStamp) {
+      fileCache.clear();
+      fileCacheStamp = stamp;
+    }
     const bridge = typeof window !== 'undefined' ? window.electronAPI : undefined;
     for (const file of files) {
       const id = `${file.directory}/${file.name}`;
       if (fileCache.has(id) || !bridge?.modelDetail) continue;
       void bridge.modelDetail(file.directory, file.name).catch(() => null).then((detail) => {
+        // An answer asked under an older stamp may be stale: the read under the new stamp fills the entry.
+        if (fileCacheStamp !== stamp) return;
         // A family guessed only from the file name is not trusted: the lesson would judge the file by its name.
         fileCache.set(id, { triggers: detail?.triggerWords ?? [], family: detail && detail.baseModelEvidence !== 'filename' ? detail.baseModel : 'unknown' });
         if (live) setVersion((value) => value + 1);
@@ -186,9 +207,9 @@ export function useLessonFacts(graph: LessonGraph, details: Details = {}): Lesso
     return () => {
       live = false;
     };
-    // `key` stands for the list of files.
+    // `key` stands for the list of files; `stamp` for what is known about them.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key]);
+  }, [key, stamp]);
   return useMemo(() => {
     const triggers: Record<string, string[]> = {};
     const families: Record<string, BaseModelFamily> = {};

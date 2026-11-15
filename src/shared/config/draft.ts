@@ -79,11 +79,20 @@ export function textCarriesSecret(text: string): boolean {
 }
 
 /**
+ * The shortest held value (a key, a token) that is redacted wherever it appears. The one minimum for every exact
+ * redactor (this file and shared/agent/redact.ts). Four, not more: a short key of a person's own server ("token",
+ * "secret1") must still never reach a model or a log, and a held value under four characters is too short to tell
+ * from ordinary text.
+ */
+export const EXACT_MATCH_MIN_LENGTH = 4;
+
+/**
  * A redactor for values this process holds (a provider key, an MCP token): every exact occurrence is replaced,
- * whatever it looks like. Values shorter than four characters are ignored so that they cannot blank ordinary text.
+ * whatever it looks like. Values shorter than EXACT_MATCH_MIN_LENGTH are ignored so that they cannot blank ordinary
+ * text.
  */
 export function exactMatchRedactor(values: ReadonlyArray<string | null | undefined>): (text: string) => string {
-  const held = [...new Set(values.filter((value): value is string => typeof value === 'string' && value.length >= 4))]
+  const held = [...new Set(values.filter((value): value is string => typeof value === 'string' && value.length >= EXACT_MATCH_MIN_LENGTH))]
     .sort((left, right) => right.length - left.length);
   return (text: string) => {
     if (typeof text !== 'string' || held.length === 0) return text;

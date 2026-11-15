@@ -2,12 +2,14 @@
  * The preload script of the window (main/index.ts loads its build, dist/preload/index.js): the one bridge between
  * the page and the main process. It exposes window.electronAPI, a fixed list of calls, each one IPC channel; the
  * page gets no ipcRenderer and no Node. The whole renderer calls through it, and ElectronAPI below is the type it
- * reads. The window runs sandboxed, so this file cannot import the app's own modules at run time: only types, and
- * the channel names are copied here (they must match src/shared/ipc-channels.ts).
+ * reads. The window runs sandboxed and this file is compiled without a bundler, so it cannot import the app's own
+ * modules at run time: only types, and the channel names are copied here (tests/unit/ipcChannelCopy.test.ts checks
+ * they equal src/shared/ipc-channels.ts).
  */
 import { contextBridge, ipcRenderer, webFrame, webUtils } from 'electron';
 import type { ChatRuntimeConfig, NonSecretSettings, SettingsRead } from '../shared/config/schema';
 import type { Preferences } from '../shared/config/preferences';
+import type { KeyProvider } from '../shared/config/keyOrigin';
 import type { AboutInfo, HelpPage, HelpSearchHit, HelpTree, IssueDraft, ProjectLinkKind, ThirdPartyComponent } from '../shared/contracts/about';
 import type { UpdateLink, UpdateStatus } from '../shared/contracts/updates';
 import type { LessonDraft, LessonDraftResolution, LessonExportOutcome, LessonImportOutcome, MyLesson } from '../shared/lessons/share/mine';
@@ -80,7 +82,6 @@ const IPC_CHANNELS = {
   /** The journey cards' links: the saved ComfyUI address or a fixed download page, opened in the browser on a click. */
   JOURNEY_OPEN_LINK: 'journey:open-link',
   JOURNEY_COMFY_KNOWN: 'journey:comfy-known',
-  DB_SAVE_PROJECT: 'db:save-project',
   DB_LOAD_PROJECT: 'db:load-project',
   DB_LIST_PROJECTS: 'db:list-projects',
   LLM_SET_CONFIG: 'llm:set-config',
@@ -272,7 +273,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openJourneyLink: (kind: 'comfyui' | 'comfyui-download' | 'ollama-download') => ipcRenderer.invoke(IPC_CHANNELS.JOURNEY_OPEN_LINK, kind),
 
   // Project operations
-  saveProject: (project: any) => ipcRenderer.invoke(IPC_CHANNELS.DB_SAVE_PROJECT, project),
   loadProject: (id: string) => ipcRenderer.invoke(IPC_CHANNELS.DB_LOAD_PROJECT, id),
   listProjects: () => ipcRenderer.invoke(IPC_CHANNELS.DB_LIST_PROJECTS),
 
@@ -465,9 +465,13 @@ export interface StartState {
   emptied: boolean;
 }
 
-/** What Forget all removes: providers with a key, how many server tokens and browser sign-ins. */
+/**
+ * What Forget all removes: providers with a key, how many server tokens and browser sign-ins. `providers` is every
+ * provider a key can be held for (shared/config/keyOrigin KEY_PROVIDERS), a compatible service and an own server
+ * included, as main's secretInventory returns them.
+ */
 export interface SecretInventoryReport {
-  providers: Array<'openai' | 'anthropic' | 'google'>;
+  providers: KeyProvider[];
   serverTokens: number;
   signIns: number;
 }
@@ -488,7 +492,7 @@ export interface RendererErrorReport {
   stack?: string;
 }
 
-/** What "Check connection" answers (llmService.ts ProbeResult plus the completed address). */
+/** What "Test connection" answers (llmService.ts ProbeResult plus the completed address). */
 export type LlmProbeResult = (
   | { ok: true; latencyMs: number; provider: string; model: string; /** The context window a local server loaded the model with, when it says. */ contextTokens?: number }
   | { ok: false; error: string; latencyMs: number | null }
@@ -552,7 +556,6 @@ export interface ElectronAPI {
   openJourneyLink: (kind: 'comfyui' | 'comfyui-download' | 'ollama-download') => Promise<{ ok: true } | { ok: false; error: string }>;
   saveProjectFile: (secrets?: 'omit' | 'keep', options?: { saveAs?: boolean }) => Promise<{ ok: true; filePath?: string } | { ok: false; canceled?: boolean; error?: string; secrets?: SecretFieldReport[] }>;
   projectFileState: () => Promise<import('../shared/contracts/projectFile').ProjectFileState>;
-  saveProject: (project: any) => Promise<{ success: boolean }>;
   loadProject: (id: string) => Promise<any>;
   listProjects: () => Promise<any[]>;
   getSettings: () => Promise<SettingsRead>;
@@ -613,7 +616,7 @@ export interface ElectronAPI {
    */
   llmSetSessionKey: (provider: CloudKeyProvider, value: string, forBase?: string) => Promise<{ held: boolean; source: KeySourceName }>;
   llmSessionStatus: () => Promise<SessionKeyStatus>;
-  /** Settings ▸ Assistant ▸ Check connection. Errors come back redacted. */
+  /** Settings ▸ Assistant ▸ Test connection. Errors come back redacted. */
   llmProbe: (draft: { provider: string; model: string; baseURL: string }) => Promise<LlmProbeResult>;
   /** Settings ▸ Assistant: the models the draft provider or local server offers. A cloud key is used in main only. */
   llmListModels: (draft: { provider: string; model?: string; baseURL: string }) => Promise<ModelListResult>;

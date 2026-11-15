@@ -1,8 +1,8 @@
 /**
- * Types of the legacy in-window revision and action model.
+ * The type of the legacy in-window revision snapshot.
  *
- * Who uses it: state/revisionState.ts, services/graph/graphService.ts, services/actions/actionExecutor.ts,
- * services/llm/tools.ts and the conflict tests. The app's real revisions are main's (shared/contracts/revisions.ts).
+ * Who uses it: state/revisionState.ts (GraphRevision, for its legacy snapshot list). The app's real revisions are
+ * main's (shared/contracts/revisions.ts).
  */
 import { GraphNode, GraphEdge } from './graph';
 
@@ -17,32 +17,4 @@ export interface GraphRevision {
   parentRevisionId?: string;
   description?: string;
   source: 'user' | 'ai' | 'import' | 'system';
-}
-
-/**
- * Action types for graph operations
- */
-export type ActionType =
-  | 'add-node'
-  | 'remove-node'
-  | 'update-node'
-  | 'add-edge'
-  | 'remove-edge'
-  | 'update-edge'
-  | 'annotate-node';
-
-/**
- * Graph action
- */
-export interface GraphAction {
-  id: string;
-  type: ActionType;
-  timestamp: number;
-  beforeRevisionId: string;
-  afterRevisionId?: string;
-  payload: unknown;
-  source: 'user' | 'ai';
-  status: 'pending' | 'applied' | 'failed' | 'conflict' | 'cancelled';
-  error?: string;
-  result?: any; // What the action produced (for example the nodeId of add-node), for the tool's answer.
 }

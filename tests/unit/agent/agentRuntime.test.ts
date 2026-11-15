@@ -284,7 +284,7 @@ describe('secrets on the way out (item 5)', () => {
 
   it('redaction helpers keep the readable rest', () => {
     expect(redactSecrets('use sk-abcdef123 and Bearer tok.en; api_key=xyz ok')).toBe('use [redacted] and Bearer [redacted]; api_key=[redacted] ok');
-    expect(exactMatchRedactor(['plain-held-value-123', null, 'short'])('x plain-held-value-123 short')).toBe('x [redacted] short');
+    expect(exactMatchRedactor(['plain-held-value-123', null, 'abc'])('x plain-held-value-123 abc')).toBe('x [redacted] abc');
   });
 
   it('keeps the held key and secret-shaped graph values out of the prompt', async () => {

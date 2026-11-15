@@ -1,6 +1,6 @@
 /**
  * Settings > Assistant, the first section of SettingsPanel: the provider cards, the provider's key (KeyPanel), the
- * model and address with live pickers, Check connection, the context window advice, the helper's behaviour and the
+ * model and address with live pickers, Test connection, the context window advice, the helper's behaviour and the
  * network proxy. Provider, model and address are fields of the settings row; each provider also remembers its last
  * model and address in preferences.providers, so switching back restores them. Keys apply at once in main.
  */
@@ -47,7 +47,7 @@ const PROVIDERS: Array<{ value: NonSecretSettings['provider']; labelKey: string;
 /** The badge colour of each key state on a provider card. */
 const KEY_TONES: Record<ProviderKeyState, BadgeTone> = { none: 'neutral', test: 'ai', ok: 'ok', session: 'accent', missing: 'warn', setup: 'neutral' };
 
-/** The state of Check connection: idle, running, or its result (latency and the window the server reported). */
+/** The state of Test connection: idle, running, or its result (latency and the window the server reported). */
 type ProbeNote = { kind: 'idle' } | { kind: 'running' } | { kind: 'ok'; ms: number; contextTokens: number | null } | { kind: 'failed'; error: string };
 
 /** The live model list of the chosen provider, and the local servers that discovery found. */
@@ -70,7 +70,7 @@ export function compatibleHost(baseURL: string): string | null {
 /** Typing in the base URL asks again after a short pause, not on every key. */
 const LIST_DEBOUNCE_MS = 450;
 
-/** Settings ▸ Assistant: provider cards, model and base URL, Check connection, and how the helper behaves. */
+/** Settings ▸ Assistant: provider cards, model and base URL, Test connection, and how the helper behaves. */
 export default function AssistantSection({ values, setValues, prefs, setPrefs, container, fieldError, pending, onSession }: DraftProps & { onSession: (sources: KeySources) => void }) {
   const { t } = useTranslation();
   const translate: Translator = (key, options) => (options ? String(t(key, options)) : String(t(key)));
@@ -190,7 +190,7 @@ export default function AssistantSection({ values, setValues, prefs, setPrefs, c
       ? String(t('settings.cloudHint', { provider: provider === 'openai' ? 'OpenAI' : provider === 'anthropic' ? 'Anthropic' : 'Google' }))
       : '';
   const assistant = prefs.assistant;
-  // The window the server reported on "Check connection" is the "auto" value, the same number the helper uses.
+  // The window the server reported on "Test connection" is the "auto" value, the same number the helper uses.
   const serverWindow = probe.kind === 'ok' ? probe.contextTokens : null;
 
   const servers = discovery.kind === 'done' ? discovery.servers : [];

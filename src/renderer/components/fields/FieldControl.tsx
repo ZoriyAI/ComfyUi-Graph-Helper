@@ -18,6 +18,8 @@ import {
   filterOptions,
   isSeedField,
   isUnset,
+  numberEditStep,
+  NUMBER_EDIT_IDLE,
   randomSeed,
   readTypedNumber,
   SEARCH_THRESHOLD,
@@ -260,6 +262,14 @@ function NumberControl({ name, value, spec, variant, disabled, labelledBy, onCom
   const { t } = useTranslation();
   const [draft, setDraft] = useState(displayValue(value));
   const [editing, setEditing] = useState(false);
+  // What was typed since the last commit (numberEditStep); a ref, because Enter and the blur after it run back to back.
+  const edit = useRef(NUMBER_EDIT_IDLE);
+  const advance = (event: Parameters<typeof numberEditStep>[1]): boolean => {
+    const next = numberEditStep(edit.current, event);
+    edit.current = next.state;
+    setEditing(next.state.editing);
+    return next.commit;
+  };
   // Why the field shows something else than was typed (raised, lowered, rounded, not a number), for a moment.
   const [note, setNote] = useState<string | null>(null);
   const noteTimer = useRef<number | null>(null);
@@ -279,11 +289,13 @@ function NumberControl({ name, value, spec, variant, disabled, labelledBy, onCom
   };
   const unset = isUnset(value);
   const commit = (raw: string) => {
-    setEditing(false);
     if (cancelled.current) {
       cancelled.current = false;
+      advance('cancel');
       return;
     }
+    // Nothing typed since the last commit (the blur after Enter, or a visit without typing): nothing to send.
+    if (!advance('commit')) return;
     const typed = readTypedNumber(raw, spec, kind);
     if (typed.kind !== 'value') {
       setDraft(displayValue(value));
@@ -324,8 +336,11 @@ function NumberControl({ name, value, spec, variant, disabled, labelledBy, onCom
           placeholder={unset ? String(t('field.unset')) : undefined}
           disabled={disabled}
           {...nameProps({ labelledBy, name })}
-          onFocus={() => setEditing(true)}
-          onChange={(event) => setDraft(event.target.value)}
+          onFocus={() => advance('focus')}
+          onChange={(event) => {
+            advance('type');
+            setDraft(event.target.value);
+          }}
           onBlur={(event) => commit(event.target.value)}
           onKeyDown={(event) => {
             if (event.key === 'Enter') {

@@ -148,6 +148,11 @@ export function savedToolCall(call: ToolCall): Record<string, unknown> {
   };
 }
 
+/** The message says a turn failed: the chat service's flag or a known error kind, never the text it starts with. */
+export function isFailedTurn(message: Pick<ChatMessage, 'failed' | 'turnError'>): boolean {
+  return message.failed === true || message.turnError !== undefined;
+}
+
 /** A chat message as main stores it (one chat_messages row). */
 export function chatRecordFromMessage(message: ChatMessage, projectId: string, graphRevisionId: string | null): ChatRecord {
   const calls = message.toolCalls ?? [];

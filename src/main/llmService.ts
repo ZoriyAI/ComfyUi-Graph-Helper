@@ -190,14 +190,14 @@ export function toolsForSend<T>(tools: Record<string, T>, options: StreamOptions
   return next;
 }
 
-/** A draft runtime the Settings ▸ Assistant "Check connection" button probes. */
+/** A draft runtime the Settings ▸ Assistant "Test connection" button probes. */
 export interface ProbeDraft {
   provider?: unknown;
   model?: unknown;
   baseURL?: unknown;
 }
 
-/** What "Check connection" shows: the time the answer took, or a redacted error. */
+/** What "Test connection" shows: the time the answer took, or a redacted error. */
 export type ProbeResult =
   | { ok: true; latencyMs: number; provider: string; model: string; /** The window the server loaded the model with, when it says. */ contextTokens?: number }
   | { ok: false; error: string; latencyMs: number | null };
@@ -509,7 +509,7 @@ class MainLLMService {
   }
 
   /**
-   * Settings ▸ Assistant ▸ Check connection: one tiny request with the draft provider, model and base URL and
+   * Settings ▸ Assistant ▸ Test connection: one tiny request with the draft provider, model and base URL and
    * the key held for this session. The same send rules apply as for chat (no cloud key to http, no empty model).
    * Returns the latency or a redacted error. The held configuration does not change.
    */

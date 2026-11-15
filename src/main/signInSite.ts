@@ -17,11 +17,38 @@ export function differentSite(signInUrl: string, mcpUrl: string): { site: string
   } catch {
     return null;
   }
-  // "Same site" is the last two labels (auth.example.org and mcp.example.org match). A suffix such as co.uk is not
-  // known here, so two sites under one such suffix count as the same site.
-  const base = (host: string) => host.split('.').slice(-2).join('.');
-  if (site === server || base(site) === base(server)) return null;
+  if (site === server || siteOf(site) === siteOf(server)) return null;
   return { site, server };
+}
+
+/**
+ * Common two-label public suffixes: under these, anyone can register a name, so a.co.uk and b.co.uk belong to
+ * different owners. This is a SHORT list of the most used ones (country second levels and shared hosting), not the
+ * full public suffix list, which the app does not ship; a suffix missing here still makes two sites under it look
+ * like one, so the warning is then not shown.
+ */
+const TWO_LABEL_SUFFIXES = new Set([
+  'co.uk', 'org.uk', 'ac.uk', 'gov.uk', 'me.uk',
+  'com.au', 'net.au', 'org.au', 'edu.au',
+  'co.jp', 'ne.jp', 'or.jp',
+  'com.br', 'com.cn', 'com.tw', 'com.hk', 'com.sg', 'com.mx', 'com.ar', 'com.tr', 'com.ua',
+  'co.nz', 'co.za', 'co.in', 'co.kr', 'co.il', 'co.id',
+  'github.io', 'gitlab.io', 'pages.dev', 'workers.dev', 'vercel.app', 'netlify.app', 'herokuapp.com', 'web.app',
+  'firebaseapp.com', 'azurewebsites.net', 'cloudfront.net', 'ngrok.io', 'ngrok-free.app', 'hf.space',
+]);
+
+/**
+ * The registrable "site" of a host: its last two labels (auth.example.org and mcp.example.org are one site), or its
+ * last three under a suffix from TWO_LABEL_SUFFIXES (a.co.uk and b.co.uk are two sites). An IP address is only
+ * ever the same site as itself.
+ */
+export function siteOf(host: string): string {
+  // An IP address has no "site" above it: 10.0.0.1 and 192.168.0.1 share their last two numbers, not an owner.
+  // URL.hostname gives an IPv6 address in brackets, so a colon is enough to know it.
+  if (host.includes(':') || /^\d+(\.\d+){3}$/.test(host)) return host;
+  const labels = host.replace(/\.+$/, '').split('.');
+  const lastTwo = labels.slice(-2).join('.');
+  return labels.slice(TWO_LABEL_SUFFIXES.has(lastTwo) ? -3 : -2).join('.');
 }
 
 /** Wraps the opener: asks before opening a sign-in page on another site; "Cancel" ends the sign-in. */
