@@ -15,7 +15,7 @@ import * as os from 'os';
 import * as path from 'path';
 import { startFakeMcp, type FakeMcp } from '../fixtures/mcp/fakeMcpServer';
 import { en } from '../../src/shared/i18n/catalog';
-import { lessonGroups } from '../../src/shared/lessons/navigation';
+import { lessonDependencies, lessonGroups } from '../../src/shared/lessons/navigation';
 import { LESSONS, ordinaryLessons } from '../../src/shared/lessons/lessons';
 import { expectSoundLayout } from './layoutProfile';
 import { useEnglish } from './locale';
@@ -127,9 +127,15 @@ test('lessons: the list fits ComfyUI, a lesson is followed by hand, and the grap
     await expect.poll(() => panel(page).locator('[data-lesson-group]').evaluateAll((sections) => sections.map((section) => section.getAttribute('data-lesson-group'))))
       .toEqual([...lessonGroups().map((group) => group.id), 'mine']);
     await expect(panel(page).locator('[data-lesson-group-closed="adult"]')).toHaveCount(1);
-    // Every dependency is navigable without completing a predecessor.
-    await panel(page).locator('[data-lesson-card="tags"]').getByRole('link').first().click();
-    await expect(panel(page).locator('[data-lesson-card="sdxl"]')).toBeFocused();
+    // Every dependency is navigable without completing a predecessor: each link of a card moves focus to the card
+    // it names (links come easiest level first, so which one is first follows the data, not this spec).
+    const tagsNeeds = lessonDependencies('tags');
+    expect(tagsNeeds).toContain('sdxl');
+    await expect(panel(page).locator('[data-lesson-card="tags"]').getByRole('link')).toHaveCount(tagsNeeds.length);
+    for (const [index, id] of tagsNeeds.entries()) {
+      await panel(page).locator('[data-lesson-card="tags"]').getByRole('link').nth(index).click();
+      await expect(panel(page).locator(`[data-lesson-card="${id}"]`)).toBeFocused();
+    }
     await panel(page).locator('[data-lesson-card="sdxl"]').getByRole('button', { name: 'Start', exact: true }).click();
     await stepIs(page, 'intro');
     await panel(page).getByRole('button', { name: 'All lessons', exact: true }).click();
