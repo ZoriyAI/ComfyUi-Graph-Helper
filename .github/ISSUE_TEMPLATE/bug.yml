@@ -1,5 +1,5 @@
 name: A problem
-description: Something in CozyGraph does not work as it should. / Что-то в CozyGraph работает не так.
+description: Something in NodeWise Studio does not work as it should. / Что-то в NodeWise Studio работает не так.
 labels: [bug]
 body:
   - type: markdown

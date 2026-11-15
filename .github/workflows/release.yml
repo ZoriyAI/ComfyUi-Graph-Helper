@@ -215,10 +215,10 @@ jobs:
         run: |
           mkdir -p "$RUNNER_TEMP/deb"
           dpkg-deb -x out/make/deb/x64/*.deb "$RUNNER_TEMP/deb"
-          desktop-file-validate "$RUNNER_TEMP/deb/usr/share/applications/comfyui-graph-builder.desktop"
+          desktop-file-validate "$RUNNER_TEMP/deb/usr/share/applications/nodewise-studio.desktop"
           mkdir -p "$RUNNER_TEMP/rpm"
           (cd "$RUNNER_TEMP/rpm" && rpm2cpio "$GITHUB_WORKSPACE"/out/make/rpm/x64/*.rpm | cpio -idm --quiet)
-          desktop-file-validate "$RUNNER_TEMP/rpm/usr/share/applications/comfyui-graph-builder.desktop"
+          desktop-file-validate "$RUNNER_TEMP/rpm/usr/share/applications/nodewise-studio.desktop"
 
       - name: Shell scripts
         run: shellcheck -s sh resources/linux/portable/*.sh resources/linux/postinst resources/linux/postrm
@@ -234,6 +234,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: node scripts/release-plan.js previous
+      # The previous release (0.9.0) was packaged under the app's old name. The new .deb replaces that package
+      # (Replaces and Conflicts, forge.config.js), so dpkg removes it while installing the new one; the app then
+      # takes over the old profile folder on its first start (src/main/profileAdoption.ts). upgrade-verify checks both.
       - name: Upgrade from the previous release keeps settings and the graph
         if: steps.previous.outputs.tag != ''
         run: |
@@ -255,7 +258,7 @@ jobs:
           version=$(node -p "require('./package.json').version")
           mkdir -p release
           cp out/make/deb/x64/*.deb out/make/rpm/x64/*.rpm out/make/portable/*.AppImage out/make/portable/*.tar.gz release/
-          node scripts/make-sbom.js "release/comfyui-graph-builder-$version.cdx.json"
+          node scripts/make-sbom.js "release/nodewise-studio-$version.cdx.json"
           (cd release && sha256sum -- * > SHA256SUMS && cat SHA256SUMS)
 
       - name: Upload release files

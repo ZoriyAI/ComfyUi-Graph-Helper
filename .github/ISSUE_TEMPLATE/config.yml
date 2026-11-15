@@ -1,11 +1,11 @@
 blank_issues_enabled: false
 contact_links:
   - name: Ideas and questions / Идеи и вопросы
-    url: https://github.com/OWNER/REPOSITORY/discussions
+    url: https://github.com/ZoriyAI/ComfyUi-Graph-Helper/discussions
     about: Open a discussion. / Откройте обсуждение.
   - name: A security problem / Проблема безопасности
-    url: https://github.com/OWNER/REPOSITORY/security/advisories/new
+    url: https://github.com/ZoriyAI/ComfyUi-Graph-Helper/security/advisories/new
     about: Report it privately. / Сообщите закрыто.
   - name: Documentation / Документация
-    url: https://github.com/OWNER/REPOSITORY/blob/HEAD/docs/wiki/Home.md
+    url: https://github.com/ZoriyAI/ComfyUi-Graph-Helper/blob/HEAD/docs/wiki/Home.md
     about: Troubleshooting, questions and answers. / Решение проблем, вопросы и ответы.

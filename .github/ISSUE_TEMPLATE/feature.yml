@@ -1,5 +1,5 @@
 name: A wish
-description: Something CozyGraph could do. For open ideas and questions, Discussions are better. / Пожелание.
+description: Something NodeWise Studio could do. For open ideas and questions, Discussions are better. / Пожелание.
 labels: [wish]
 body:
   - type: markdown

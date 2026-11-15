@@ -6,14 +6,17 @@
  *   node scripts/smoke-installed-package.js check            the installed package: package fields, desktop entry,
  *                                                            icons, copyright, --version, the window, the profile
  *                                                            path, the window class, one instance per profile
- *   node scripts/smoke-installed-package.js upgrade-prepare  with the PREVIOUS release installed: leave a setting and
- *                                                            a graph in the profile at $SMOKE_HOME
- *   node scripts/smoke-installed-package.js upgrade-verify   with the NEW release installed over it: they are still
- *                                                            there
+ *   node scripts/smoke-installed-package.js upgrade-prepare  with the PREVIOUS release (0.9, packaged under the old
+ *                                                            name) installed: leave a setting and a graph in its
+ *                                                            profile at $SMOKE_HOME
+ *   node scripts/smoke-installed-package.js upgrade-verify   with the NEW release installed over it: the old package
+ *                                                            is gone, its profile folder was taken over under the
+ *                                                            new name, and the setting and the graph are there
  *
  * SMOKE_PACKAGE: deb (default), rpm, or none (no package database: install.sh, an unpacked AppImage).
- * SMOKE_HOME (default: a new temp folder) is the HOME the app runs with; APP (default /usr/bin/comfyui-graph-builder)
- * the executable. Every failure prints one SMOKE_* line and exits 1.
+ * SMOKE_HOME (default: a new temp folder) is the HOME the app runs with; APP (default /usr/bin/nodewise-studio)
+ * the executable. Every failure prints one SMOKE_* line and exits 1. The names come from src/shared/productNames.ts
+ * and src/shared/legacyNames.ts (scripts/lib/product-names.js).
  *
  * The app is driven through its page (scripts/lib/cdp-launch.js): release builds have the inspector fuse off.
  */
@@ -23,11 +26,11 @@ const path = require('path');
 const { execFileSync } = require('child_process');
 const asar = require('@electron/asar');
 const { launchOverCdp } = require('./lib/cdp-launch');
+const { APP_ID, DISPLAY_NAME, LEGACY_APP_ID } = require('./lib/product-names');
 
-const PACKAGE = 'comfyui-graph-builder';
+const PACKAGE = APP_ID;
 const APP = process.env.APP || `/usr/bin/${PACKAGE}`;
 const KIND = process.env.SMOKE_PACKAGE || 'deb';
-const DISPLAY_NAME = 'Graph Helper for ComfyUI';
 const MARK_URL = 'https://comfy.example.com/upgrade-check/mcp';
 
 function fail(message) {
@@ -48,12 +51,13 @@ function appEnv(homeDir) {
   return env;
 }
 
-function profileOf(homeDir) {
-  return path.join(homeDir, '.config', PACKAGE);
+function profileOf(homeDir, name = PACKAGE) {
+  return path.join(homeDir, '.config', name);
 }
 
-async function launch(homeDir, legacyRendererFile) {
-  const app = await launchOverCdp({ executable: APP, env: appEnv(homeDir), userData: profileOf(homeDir), timeout: 90000, legacyRendererFile });
+/** Starts an installed app: this release by default, or the previous one (its executable and profile name). */
+async function launch(homeDir, legacyRendererFile, executable = APP, name = PACKAGE) {
+  const app = await launchOverCdp({ executable, env: appEnv(homeDir), userData: profileOf(homeDir, name), timeout: 90000, legacyRendererFile });
   await app.window.locator('.app-shell').waitFor({ timeout: 60000 });
   return app;
 }
@@ -79,6 +83,11 @@ function checkPackageFiles() {
   }
   const description = packageField('Description');
   if (!description.includes('ComfyUI') || description.split('\n').length < 3) fail('PACKAGE_DESCRIPTION');
+  // Installing this package removes the one 0.x was shipped as (forge.config.js, rpm.spec.ejs).
+  const replaces = KIND === 'rpm'
+    ? execFileSync('rpm', ['-q', '--obsoletes', PACKAGE], { encoding: 'utf8' })
+    : `${packageField('Replaces')} ${packageField('Conflicts')}`;
+  if ((replaces.match(new RegExp(`\\b${LEGACY_APP_ID}\\b`, 'g')) ?? []).length < (KIND === 'rpm' ? 1 : 2)) fail(`PACKAGE_REPLACES ${replaces.trim()}`);
 
   const desktop = fs.readFileSync(`/usr/share/applications/${PACKAGE}.desktop`, 'utf8');
   for (const line of [`Name=${DISPLAY_NAME}`, `StartupWMClass=${PACKAGE}`, `Icon=${PACKAGE}`, 'Comment[ru]=', 'GenericName[ru]=']) {
@@ -151,11 +160,18 @@ async function check() {
   }
 }
 
+/** The previous release's executable: 0.x was packaged under the old name; a later one under the current name. */
+function previousApp() {
+  const legacy = `/usr/bin/${LEGACY_APP_ID}`;
+  return fs.existsSync(legacy) ? { executable: legacy, name: LEGACY_APP_ID } : { executable: APP, name: PACKAGE };
+}
+
 async function upgradePrepare() {
   const homeDir = home();
+  const previous = previousApp();
   // v0.8.0 uses loadFile; resolve the installed executable, not the checkout or an arbitrary file:// page.
-  const legacyRendererFile = path.join(path.dirname(fs.realpathSync(APP)), 'resources', 'app.asar', 'dist', 'renderer', 'index.html');
-  const app = await launch(homeDir, legacyRendererFile);
+  const legacyRendererFile = path.join(path.dirname(fs.realpathSync(previous.executable)), 'resources', 'app.asar', 'dist', 'renderer', 'index.html');
+  const app = await launch(homeDir, legacyRendererFile, previous.executable, previous.name);
   try {
     const result = await app.window.evaluate(async (url) => {
       const api = window.electronAPI;
@@ -178,7 +194,11 @@ async function upgradePrepare() {
 
 async function upgradeVerify() {
   const homeDir = process.env.SMOKE_HOME;
-  if (!homeDir || !fs.existsSync(path.join(profileOf(homeDir), 'comfyui-desktop.db'))) fail('UPGRADE_VERIFY no prepared profile in SMOKE_HOME');
+  const legacyProfile = profileOf(homeDir || '', LEGACY_APP_ID);
+  const prepared = [profileOf(homeDir || ''), legacyProfile].some((dir) => fs.existsSync(path.join(dir, 'comfyui-desktop.db')));
+  if (!homeDir || !prepared) fail('UPGRADE_VERIFY no prepared profile in SMOKE_HOME');
+  // The old package is gone: the new one replaced it (Replaces / Conflicts, Obsoletes), not installed beside it.
+  if (fs.existsSync(`/usr/bin/${LEGACY_APP_ID}`)) fail(`UPGRADE_OLD_PACKAGE_LEFT /usr/bin/${LEGACY_APP_ID}`);
   const app = await launch(homeDir);
   try {
     const found = await app.window.evaluate(async () => {
@@ -190,7 +210,9 @@ async function upgradeVerify() {
     });
     if (found.mcpUrl !== MARK_URL) fail(`UPGRADE_LOST_SETTINGS mcpUrl=${found.mcpUrl}`);
     if (!found.titles.includes('Upgrade check')) fail(`UPGRADE_LOST_GRAPH nodes=${JSON.stringify(found.titles)}`);
-    console.log('SMOKE_UPGRADE_KEPT settings and graph');
+    // The 0.x profile was taken over (renamed), not copied: no second folder is left behind.
+    if (fs.existsSync(legacyProfile)) fail(`UPGRADE_OLD_PROFILE_LEFT ${legacyProfile}`);
+    console.log('SMOKE_UPGRADE_KEPT settings and graph; the old package and profile folder were taken over');
   } finally {
     await app.close();
   }

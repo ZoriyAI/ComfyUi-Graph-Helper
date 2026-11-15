@@ -1,15 +1,15 @@
 #!/bin/sh
-# Graph Helper for ComfyUI: remove the copy that install.sh put in your home folder.
+# NodeWise Studio: remove the copy that install.sh put in your home folder.
 #
-#   ~/.local/share/comfyui-graph-builder/uninstall.sh           remove the app, keep settings, projects and keys
-#   ~/.local/share/comfyui-graph-builder/uninstall.sh --purge   also delete ~/.config/comfyui-graph-builder
+#   ~/.local/share/nodewise-studio/uninstall.sh           remove the app, keep settings, projects and keys
+#   ~/.local/share/nodewise-studio/uninstall.sh --purge   also delete ~/.config/nodewise-studio
 #
 # Removes only what install.sh made: the app folder, the launcher in ~/.local/bin, the menu entry and the icons.
 set -eu
 
-NAME=comfyui-graph-builder
-DISPLAY_NAME='Graph Helper for ComfyUI'
-MARK='Installed by install.sh of Graph Helper for ComfyUI'
+NAME=nodewise-studio
+DISPLAY_NAME='NodeWise Studio'
+MARK='Installed by install.sh of NodeWise Studio'
 
 data_home=${XDG_DATA_HOME:-$HOME/.local/share}
 config_home=${XDG_CONFIG_HOME:-$HOME/.config}
@@ -43,7 +43,7 @@ if [ -f "$launcher" ] && grep -q "$MARK" "$launcher" 2>/dev/null; then
   rm -f "$launcher"
   removed=1
 fi
-if [ -f "$desktop_entry" ] && grep -q '^X-GraphHelper-Installer=install.sh' "$desktop_entry" 2>/dev/null; then
+if [ -f "$desktop_entry" ] && grep -q '^X-NodeWise-Installer=install.sh' "$desktop_entry" 2>/dev/null; then
   rm -f "$desktop_entry"
   removed=1
 fi

@@ -6,7 +6,7 @@ import { execFileSync } from 'child_process';
 
 const ROOT = path.join(__dirname, '..', '..');
 const PORTABLE = path.join(ROOT, 'resources', 'linux', 'portable');
-const NAME = 'comfyui-graph-builder';
+const NAME = 'nodewise-studio';
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { appRunScript, desktopEntry } = require('../../scripts/make-linux-portable.js') as { appRunScript: () => string; desktopEntry: () => string };
 // eslint-disable-next-line @typescript-eslint/no-var-requires
