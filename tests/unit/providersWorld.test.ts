@@ -193,7 +193,7 @@ describe('the proxy', () => {
   });
 
   it('never sends your own server through a proxy', () => {
-    for (const host of ['localhost', '127.0.0.1', '192.168.1.20', '10.1.2.3', '172.20.0.5', '[::1]', 'studio.local']) expect(isPrivateHost(host), host).toBe(true);
+    for (const host of ['localhost', '127.0.0.1', '192.168.1.50', '10.1.2.3', '172.20.0.5', '[::1]', 'studio.local']) expect(isPrivateHost(host), host).toBe(true);
     for (const host of ['api.openai.com', '8.8.8.8', '172.32.0.1']) expect(isPrivateHost(host), host).toBe(false);
   });
 });
