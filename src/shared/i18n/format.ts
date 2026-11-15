@@ -1,6 +1,11 @@
+/**
+ * Numbers, file sizes and dates written for the interface language and the person's system locale. Used where a
+ * text is built outside React: the model log, the library, the sync view and the lesson sharing code.
+ */
 import { en, ru } from './catalog';
 import { displayLocale, type AppLanguage } from './languages';
 
+/** The catalogs by language, for the unit words of a size. */
 const CATALOGS = { en, ru } as const;
 
 /**
@@ -25,6 +30,7 @@ export function formatByteSize(bytes: number, language: AppLanguage, locales?: r
   return `${formatNumber(value, language, { maximumFractionDigits: digits, minimumFractionDigits: digits }, locales)} ${units[order[unit]]}`;
 }
 
+/** A date and time in the chosen language, with the parts `options` asks for. */
 export function formatDateTime(timestamp: number, language: AppLanguage, options: Intl.DateTimeFormatOptions, locales?: readonly string[]): string {
   return new Intl.DateTimeFormat(displayLocale(language, locales), options).format(timestamp);
 }

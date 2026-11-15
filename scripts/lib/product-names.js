@@ -7,6 +7,7 @@
 const fs = require('fs');
 const path = require('path');
 
+/** The `export const NAME = '...';` lines of a repository file, as { NAME: value }. */
 function stringConstants(file) {
   const text = fs.readFileSync(path.join(__dirname, '..', '..', file), 'utf8');
   const found = {};

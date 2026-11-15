@@ -1,3 +1,6 @@
+/**
+ * Playwright config for the end-to-end specs in tests/e2e, which start the built Electron app.
+ */
 import { defineConfig } from '@playwright/test';
 
 /**

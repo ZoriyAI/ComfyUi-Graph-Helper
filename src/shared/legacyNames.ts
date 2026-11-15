@@ -3,7 +3,9 @@
  *
  * Who reads them: the profile adoption at start (src/main/profileAdoption.ts moves the old profile folder to the new
  * one), the project file reader (src/shared/native-project.ts accepts the old `format` id) and the save code
- * (src/main/projectFiles.ts knows the old file ending). Nothing here is ever shown to a person or written anew.
+ * (src/main/projectFiles.ts knows the old file ending), and the packaging, which declares that the new package
+ * replaces the old one (scripts/lib/product-names.js reads LEGACY_APP_ID for forge.config.js). Nothing here is ever
+ * shown to a person or written anew.
  *
  * Why a separate file: tests/unit/oldNames.test.ts fails when an old name appears anywhere else in the tracked
  * files (outside the frozen 0.x release notes and the packaging lines that remove the old package), so every

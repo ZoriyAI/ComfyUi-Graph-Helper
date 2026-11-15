@@ -1,11 +1,13 @@
 /**
  * The agent path's redaction helpers. The patterns live in src/shared/config/draft.ts (redactSecrets,
- * exactMatchRedactor); this module re-exports them so agent code keeps its import path.
+ * exactMatchRedactor); this module re-exports them so agent code keeps its import path. Used by main's agent turn,
+ * prompt and chat history, main/llmService.ts and main/llm/toolPrivacy.ts before text goes to a model or a log.
  */
 import { exactMatchRedactor as draftExactMatchRedactor, redactFieldValue, redactSecrets } from '../config/draft';
 
 export { redactSecrets };
 
+/** The text that stands in for a removed secret. */
 export const REDACTED = '[redacted]';
 
 /** Held values shorter than this are not matched exactly, so they cannot blank ordinary words. */

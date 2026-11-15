@@ -1,3 +1,9 @@
+/**
+ * The state of the project file behind the graph on screen: which file, and whether the graph differs from it.
+ * Main tracks it (main/projectFiles.ts) and the renderer reads it through the preload bridge
+ * (renderer/services/projectFile.ts) for the app bar title and the File commands.
+ */
+
 /** The project file of the graph on screen, as the app bar and the File commands read it (main/projectFiles.ts). */
 export interface ProjectFileState {
   /** The graph this is about: a new one after Open, Open workflow and New project; the restored one on undo. */

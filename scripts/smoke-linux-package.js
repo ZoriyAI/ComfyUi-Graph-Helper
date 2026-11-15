@@ -1,3 +1,9 @@
+/**
+ * Smoke test of the Linux packages from `npm run make:linux`, run by `npm run smoke:linux` and the release
+ * workflow. Checks the .deb (and .rpm where made) exist and are not truncated, the fuses, the window's security
+ * settings and the files inside app.asar, the licence file, and that the packaged app starts with no assistant
+ * provider chosen. Exits 1 with a short code naming the first failed check.
+ */
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -33,6 +39,7 @@ async function main() {
   const debs = walk(path.join(root, 'out', 'make', 'deb')).filter((file) => file.endsWith('.deb'));
   if (debs.length !== 1) fail(`DEB_COUNT ${debs.length}`);
   const debStat = fs.statSync(debs[0]);
+  // Electron alone is larger than this: a smaller file means the maker produced a broken package.
   if (debStat.size < 20 * 1024 * 1024) fail(`DEB_TOO_SMALL ${debStat.size}`);
   // The rpm is made where rpmbuild exists (CI); SMOKE_REQUIRE_RPM=1 makes its absence an error.
   const rpms = walk(path.join(root, 'out', 'make', 'rpm')).filter((file) => file.endsWith('.rpm'));

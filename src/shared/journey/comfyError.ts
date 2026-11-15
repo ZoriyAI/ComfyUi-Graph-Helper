@@ -16,9 +16,13 @@ export interface ErrorNodeRef {
   classType: string | null;
 }
 
+/** A node class name as ComfyUI writes it: a capital, then letters, digits and a few signs. */
 const CLASS = '[A-Z][A-Za-z0-9_+.-]{2,80}';
 
-/** The nodes a ComfyUI error names, each once, in the order the text names them. */
+/**
+ * The nodes a ComfyUI error names, each once: those of a JSON answer first, then those the patterns find, in the
+ * order of the patterns. At most 20.
+ */
 export function errorNodeRefs(text: string): ErrorNodeRef[] {
   const out: ErrorNodeRef[] = [];
   const add = (id: string | null, classType: string | null) => {

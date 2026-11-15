@@ -3,13 +3,18 @@
  * (`/srv/comfyui/models/loras`) or Windows (`C:\ComfyUI\models\loras`, sometimes written with `/`). The app never
  * opens these paths itself: it only names them back to the server that reported them, so a path is accepted when
  * it is absolute on one of the two systems, has no empty, `.` or `..` part and no control character.
+ * Used by main's catalog and MCP code (main/catalog/repository.ts, main/mcp, main/comfy/direct.ts,
+ * main/knowledge/modelWeb.ts).
  */
 
+/** Control characters: never part of a real path, and a way to hide text in one. */
 const CONTROL = /[\u0000-\u001f\u007f]/;
 /** `C:\…` or `C:/…`. A UNC share (`\\server\share`) is not accepted: nothing the app reads lives there by default. */
 const DRIVE = /^[A-Za-z]:[\\/]/;
+/** Longest server path accepted. */
 export const SERVER_PATH_MAX = 1024;
 
+/** The two path styles a server machine can use. */
 export type PathStyle = 'posix' | 'windows';
 
 /** Which system the absolute path belongs to, or null when it is not absolute on either. */

@@ -6,7 +6,7 @@
  *   node scripts/check-fuses.js <executable> [<executable> …]
  *
  * Prints one FUSES_OK line per binary, or a FUSES_* line and exits 1. If the fuses plugin ever stopped working
- * silently, this is where it shows.
+ * silently, this is where it shows. Run by smoke-linux-package.js and smoke-linux-portable.js on what they check.
  */
 const path = require('path');
 

@@ -3,6 +3,7 @@
  * Field meanings follow ComfyUI object_info (server.py node_info / OpenAPI NodeInfo):
  * python_module, input, input_order, output, output_name.
  * widgetOrder is the widgets_values slot list derived from those inputs.
+ * objectInfo.ts makes these records, main stores them, and the whole app reads them as a CatalogView.
  */
 export interface CatalogInput {
   name: string;
@@ -38,11 +39,13 @@ export interface CatalogInput {
   tooltip?: string;
 }
 
+/** One output socket: its name and the type a link from it carries. */
 export interface CatalogOutput {
   name: string;
   type: string;
 }
 
+/** One node class. `pack` is the Python module it came from ('nodes' for ComfyUI's core). */
 export interface CatalogNode {
   classType: string;
   pack: string;
@@ -68,6 +71,7 @@ export interface CatalogNode {
   widgetOrderReliable?: boolean;
 }
 
+/** One model file the server lists, by its models folder and its name inside it. */
 export interface CatalogModel {
   directory: string;
   name: string;
@@ -75,6 +79,7 @@ export interface CatalogModel {
   sizeBytes?: number | null;
 }
 
+/** The installed catalog as everything else reads it: class names, model files and node definitions. */
 export interface CatalogView {
   nodeTypes: string[];
   models: CatalogModel[];

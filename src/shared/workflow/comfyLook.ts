@@ -1,18 +1,20 @@
-import { groupNodeName } from './codec';
-
 /**
  * How an imported ComfyUI node looks, read from what the file saved on it (`data.comfy`): its size, whether it is
  * collapsed, its colours, the fields a subgraph copy promotes, the editor-only nodes (Reroute, Primitive, notes,
  * Set / Get) and the view the file was saved with. Pure and shared: the canvas draws with it, and the size
  * estimate (shared/graph/layout.ts) works with the same numbers, so a node is placed at the size it is drawn.
  * Nothing here writes: what the file holds goes back to ComfyUI as it was (codec.ts keeps `data.comfy`).
+ * Read by the canvas nodes (renderer/components/graph/nodes), the Properties panel and the look menu.
  */
 
+import { groupNodeName } from './codec';
+/** A width and height in canvas pixels. */
 export interface Box {
   width: number;
   height: number;
 }
 
+/** The node data fields read here; anything may be missing on a node from a file. */
 type NodeData = { comfyType?: unknown; title?: unknown; comfy?: unknown; importedLinks?: unknown; kind?: unknown } | null | undefined;
 
 function record(value: unknown): Record<string, unknown> | null {
@@ -93,6 +95,7 @@ export function withCollapsed(flags: unknown, collapsed: boolean): Record<string
 
 // ── Editor-only nodes ─────────────────────────────────────────────────────────────────────────────
 
+/** The editor-only node kinds, with SetNode and GetNode (added by a node pack, run in the editor only). */
 export type EditorKind = 'reroute' | 'primitive' | 'note' | 'markdown' | 'set' | 'get';
 
 const EDITOR_KINDS: Record<string, EditorKind> = {
@@ -159,6 +162,7 @@ export function partnersOf(nodeId: string, nodes: ReadonlyArray<{ id: string; da
 /** The "after each run" values ComfyUI offers (control_after_generate). */
 export const RUN_CONTROLS = ['fixed', 'increment', 'decrement', 'randomize'] as const;
 
+/** True for one of the RUN_CONTROLS values. */
 export function isRunControl(value: unknown): value is typeof RUN_CONTROLS[number] {
   return typeof value === 'string' && (RUN_CONTROLS as readonly string[]).includes(value);
 }
@@ -178,6 +182,7 @@ export function primitiveTarget(data: NodeData): { widget: string | null; dataTy
  */
 export type ClassPresence = 'known' | 'missing' | 'unknown';
 
+/** Whether the class is known, missing or not yet known (see ClassPresence). */
 export function classPresence(classType: string, detail: unknown, catalogRead: boolean, instance: boolean): ClassPresence {
   if (instance || editorKind(classType) || groupNodeName(classType) !== null) return 'known';
   if (detail === undefined) return 'unknown';
@@ -187,6 +192,7 @@ export function classPresence(classType: string, detail: unknown, catalogRead: b
 
 // ── Subgraph copies: promoted fields ─────────────────────────────────────────────────────────────
 
+/** One field a subgraph copy shows on itself although it belongs to a node inside. */
 export interface PromotedField {
   /** Position in the file's list; also the index of the value in the copy's own widgets_values. */
   index: number;
@@ -271,6 +277,7 @@ export function savedView(raw: unknown): { x: number; y: number; zoom: number } 
 
 // ── Native reroute points of links ────────────────────────────────────────────────────────────────
 
+/** One reroute point of a link, by its id and position. */
 export interface ReroutePoint {
   id: string;
   x: number;
@@ -321,6 +328,7 @@ export function reroutePaths(raw: unknown, links: ReadonlyArray<{ id: string; pa
 
 // ── Nodes that cover each other ───────────────────────────────────────────────────────────────────
 
+/** A node's box with its id and top-left position. */
 export interface PlacedBox extends Box {
   id: string;
   x: number;

@@ -1,3 +1,10 @@
+/**
+ * When an API key may be written to disk. Main probes the OS secret store (main/settings/secretProbe.ts) and keeps a
+ * key only when the store proved it encrypts for real (main/settings/secretDecision.ts, repository.ts); otherwise the
+ * key lives for the session only. Linux needs the extra care: Electron can report "encrypted" while it uses a
+ * fixed, public password.
+ */
+/** What the probe found: the store Electron chose and whether a test value really came back encrypted. */
 export interface SecretProbe {
   platform: NodeJS.Platform;
   backend: string;
@@ -26,6 +33,7 @@ export function isUnprotectedCipher(cipher: Uint8Array, platform: string = curre
   return cipher.length >= 3 && cipher[0] === 0x76 && cipher[1] === 0x31 && cipher[2] === 0x30;
 }
 
+/** Backends that are a real OS password manager on Linux. */
 const OS_PASSWORD_MANAGERS = new Set(['gnome_libsecret', 'kwallet', 'kwallet5', 'kwallet6']);
 
 /**

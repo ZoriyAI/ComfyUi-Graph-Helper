@@ -1,17 +1,18 @@
-import type { CatalogView } from '../catalog/types';
-import { widgetsFromParameters } from './codec';
-
 /**
  * Turns a workflow in ComfyUI's API format into a canvas workflow the app can open.
  *
- * Who uses it: the file opening path in main (files/openFile.ts) when a person opens or drops a file that ComfyUI
- * wrote with "Export (API)", or a picture that carries only the API form ("prompt") of its graph.
+ * Who uses it: the opening path in main (main/ipc/openIpc.ts, after main/files/openFile.ts read the file) when a person
+ * opens or drops a file that ComfyUI wrote with "Export (API)", or a picture that carries only the API form
+ * ("prompt") of its graph; the same path builds a lesson's example graph from its API form.
  * Why: the API format has no positions, sizes or slot lists, only nodes and their inputs. People share it often,
  * and refusing it left them with nothing. The node list read from ComfyUI (catalog) gives the inputs, outputs and
  * the order of field values; a node the catalog does not know keeps its values in the order the file lists them.
  * Nodes are laid out in columns by how far they are from the first loaders, so the graph reads left to right.
  * Nothing in the file is run: this only builds a document.
  */
+
+import type { CatalogView } from '../catalog/types';
+import { widgetsFromParameters } from './codec';
 
 /** One node of an API-format prompt: its class, its inputs (a value, or [node id, output index] for a link). */
 interface ApiNode {

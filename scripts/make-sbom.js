@@ -16,6 +16,7 @@ const { execFileSync } = require('child_process');
 
 const root = path.join(__dirname, '..');
 
+/** The package URL of an npm package; a scope's `@` is percent-encoded, as the purl spec asks. */
 function purl(name, version) {
   const [scope, bare] = name.startsWith('@') ? name.split('/') : [null, name];
   return scope ? `pkg:npm/${encodeURIComponent(scope)}/${bare}@${version}` : `pkg:npm/${name}@${version}`;
@@ -42,6 +43,7 @@ function electronRuntime() {
   }
 }
 
+/** The CycloneDX document for package.json `pkg` and the notice list `components`. Pure, so tests can call it. */
 function makeSbom({ pkg, components, runtime, timestamp }) {
   const list = components
     .filter((component) => component && typeof component.name === 'string' && typeof component.version === 'string')
@@ -94,6 +96,7 @@ function main(output) {
   }
   const components = JSON.parse(fs.readFileSync(noticesFile, 'utf8'));
   const runtime = electronRuntime();
+  // SOURCE_DATE_EPOCH makes the file reproducible: the same commit gives the same timestamp.
   const timestamp = process.env.SOURCE_DATE_EPOCH ? new Date(Number(process.env.SOURCE_DATE_EPOCH) * 1000).toISOString() : new Date().toISOString();
   const sbom = makeSbom({ pkg, components, runtime, timestamp });
   fs.writeFileSync(output, `${JSON.stringify(sbom, null, 2)}\n`);

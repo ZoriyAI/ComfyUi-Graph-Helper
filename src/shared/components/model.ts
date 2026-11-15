@@ -1,9 +1,18 @@
+/**
+ * Component records and the process: the text a person (or the helper) writes about what a node or a subgraph is
+ * for and how to use it, and the title and notes of the whole graph. Stored with every revision
+ * (main/commands/commit.ts), carried in project files (native-project.ts, workflow/codec.ts) and edited in the
+ * renderer's Properties panel (renderer/components/graph/Inspector.tsx). Everything read back is checked here.
+ */
+// Length caps of the stored texts; a longer purpose or usage makes a record unreadable, a longer title is cut.
 export const COMPONENT_TEXT_MAX = 20000;
 export const PROCESS_TITLE_MAX = 500;
 export const PROCESS_NOTES_MAX = 20000;
 
+/** What a record describes: a node on the canvas or a subgraph definition. */
 export type ComponentOwnerKind = 'node' | 'subgraph';
 
+/** What one node or subgraph is for (`purpose`) and how to use it (`usage`). */
 export interface ComponentRecord {
   id: string;
   ownerKind: ComponentOwnerKind;
@@ -17,19 +26,23 @@ export interface ComponentRecord {
   author?: ComponentAuthor;
 }
 
+/** Who wrote a record's text: the person or the helper. */
 export type ComponentAuthor = 'user' | 'assistant';
 
+/** The title and notes of the whole graph ("the process"). */
 export interface ProcessMeta {
   title: string;
   notes: string;
 }
 
+/** A subgraph definition found in a document, with how deeply it is nested. */
 export interface SubgraphIdentity {
   id: string;
   name: string;
   depth: number;
 }
 
+/** The subgraph definitions of a document, plus repeated ids and definitions without an id. */
 export interface SubgraphCensus {
   definitions: SubgraphIdentity[];
   duplicateIds: string[];
@@ -38,10 +51,12 @@ export interface SubgraphCensus {
 
 export const EMPTY_PROCESS: ProcessMeta = { title: '', notes: '' };
 
+/** The key that pairs a record with its owner: `node:4`, `subgraph:<id>`. */
 export function componentKey(kind: ComponentOwnerKind, ownerId: string): string {
   return `${kind}:${ownerId}`;
 }
 
+/** A blank record for an owner that has none yet. */
 export function emptyComponent(kind: ComponentOwnerKind, ownerId: string): ComponentRecord {
   return {
     id: `component:${componentKey(kind, ownerId)}`,
@@ -52,6 +67,7 @@ export function emptyComponent(kind: ComponentOwnerKind, ownerId: string): Compo
   };
 }
 
+/** A stored or imported record, checked; null when it is not a valid record. A missing id is made from the owner. */
 export function readComponent(value: unknown): ComponentRecord | null {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
   const record = value as Record<string, unknown>;
@@ -72,6 +88,7 @@ export function readComponent(value: unknown): ComponentRecord | null {
   };
 }
 
+/** The records stored as JSON text; invalid ones are dropped, broken JSON gives none. */
 export function parseStoredComponents(raw: string | null | undefined): ComponentRecord[] {
   if (!raw) return [];
   try {
@@ -86,6 +103,7 @@ export function parseStoredComponents(raw: string | null | undefined): Component
   }
 }
 
+/** A process from anywhere, with its texts cut to the caps. */
 export function normalizeProcess(value: unknown): ProcessMeta {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return { ...EMPTY_PROCESS };
   const record = value as Record<string, unknown>;
@@ -95,6 +113,7 @@ export function normalizeProcess(value: unknown): ProcessMeta {
   };
 }
 
+/** The process stored as JSON text; broken JSON gives an empty process. */
 export function parseStoredProcess(raw: string | null | undefined): ProcessMeta {
   if (!raw) return { ...EMPTY_PROCESS };
   try {
@@ -104,6 +123,7 @@ export function parseStoredProcess(raw: string | null | undefined): ProcessMeta 
   }
 }
 
+/** Walks a workflow's `definitions.subgraphs`, nested definitions included, and counts what it finds. */
 export function listSubgraphDefinitions(raw: unknown): SubgraphCensus {
   const definitions: SubgraphIdentity[] = [];
   const seen = new Set<string>();
@@ -137,6 +157,10 @@ export function listSubgraphDefinitions(raw: unknown): SubgraphCensus {
   return { definitions, duplicateIds, unidentified };
 }
 
+/**
+ * One record per node and subgraph that exists now, in that order: kept where one exists, blank where not. Records
+ * whose owner is gone are returned as `orphans` (their keys) so the caller can say what was dropped.
+ */
 export function reconcileComponents(
   existing: ComponentRecord[],
   nodeIds: string[],

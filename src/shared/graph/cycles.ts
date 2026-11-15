@@ -1,5 +1,11 @@
+/**
+ * Cycle checks for links. ComfyUI cannot run a graph with a loop, so the canvas refuses a link that would close one
+ * (renderer/components/graph/CanvasFlow.tsx), main refuses it on commit (main/commands/commit.ts) and the graph check
+ * reports existing loops (main/knowledge/check.ts).
+ */
 import { alg, Graph } from '@dagrejs/graphlib';
 
+/** A link by its two node ids; ports do not matter for a cycle. */
 export interface CycleEdge {
   source: string;
   target: string;

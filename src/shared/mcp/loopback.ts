@@ -1,4 +1,10 @@
 /**
+ * Addresses on this computer, and what the app does with them: an MCP token may go over plain http only to such an
+ * address, and an address on this computer typed without a scheme gets http:// added. Used by the settings schema,
+ * Settings ▸ Connection and main's ComfyUI and MCP connections (main/comfy, main/mcp, main/ipc.ts).
+ */
+
+/**
  * localhost, 127.0.0.0/8 and ::1: addresses that stay on this machine. A name under `.localhost` is not counted:
  * not every resolver keeps it on this machine, and a plain http token must never leave it.
  */

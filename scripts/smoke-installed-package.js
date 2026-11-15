@@ -44,6 +44,7 @@ function home() {
   return dir;
 }
 
+/** The environment of a person's session in `homeDir`: no development mode, and Electron not turned into Node. */
 function appEnv(homeDir) {
   const env = { ...process.env, HOME: homeDir, XDG_CONFIG_HOME: path.join(homeDir, '.config') };
   delete env.NODE_ENV;
@@ -51,6 +52,7 @@ function appEnv(homeDir) {
   return env;
 }
 
+/** The profile folder the app makes under $HOME for a package name. */
 function profileOf(homeDir, name = PACKAGE) {
   return path.join(homeDir, '.config', name);
 }
@@ -62,6 +64,7 @@ async function launch(homeDir, legacyRendererFile, executable = APP, name = PACK
   return app;
 }
 
+/** One field of the installed package, from the rpm or the dpkg database. */
 function packageField(field) {
   if (KIND === 'rpm') {
     const tag = { Version: 'VERSION', Maintainer: 'PACKAGER', Section: 'GROUP', Description: 'DESCRIPTION', License: 'LICENSE' }[field];

@@ -3,8 +3,10 @@
  * an unknown one gets 32k; Preferences ▸ Assistant ▸ Context window overrides both (0 = auto).
  * Matching is by prefix of the lowercased id after any "provider/" part, longest prefix first, so
  * "llama3.1:8b", "models/gemini-2.5-pro" and "claude-sonnet-4-5-20250929" all resolve.
+ * Used by main's agent turn and history (main/agent), main/llm/localContext.ts and Settings ▸ Assistant.
  */
 
+/** The window assumed for a model nobody knows anything about. */
 export const DEFAULT_CONTEXT_TOKENS = 32_000;
 
 /**
@@ -21,6 +23,7 @@ export const HISTORY_SHARE = 0.7;
 /** Characters per token when nothing better is known. */
 export const CHARS_PER_TOKEN = 4;
 
+/** Published windows by id prefix. A longer prefix wins over a shorter one (see PREFIXES). */
 const KNOWN: Record<string, number> = {
   // Anthropic
   claude: 200_000,
@@ -88,6 +91,7 @@ export function knownContextTokens(model: string): number | null {
   return prefix ? KNOWN[prefix] : null;
 }
 
+/** A window and where its number came from: the person's setting, a known list, the default or the server. */
 export interface ContextWindow {
   tokens: number;
   source: 'override' | 'known' | 'default' | 'server';

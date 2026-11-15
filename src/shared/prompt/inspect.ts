@@ -10,11 +10,15 @@
  * - A CLIP reader (SD 1.5, SDXL and the models built on them) takes tags and short phrases, 75 tokens a chunk.
  *   A language-model reader (T5 and its kin: Flux, SD3, Wan, Qwen and others) takes sentences, up to 512 tokens.
  * - At cfg 1 a sampler does not run the negative description at all.
+ *
+ * Used by the prompt check (main/knowledge/promptCheck.ts), the lesson engine (lessons/engine.ts) and the lesson
+ * hints (renderer/components/lessons/lackText.ts).
  */
 
 /** How the model the text goes to reads it. */
 export type PromptReader = 'clip' | 't5' | 'unknown';
 
+/** What a note about a description says; each kind has its own sentence in the catalog. */
 export type PromptNoteKind =
   | 'lora-tag'
   | 'foreign-syntax'
@@ -44,6 +48,7 @@ export const CLIP_LONG_TOKENS = 150;
 /** Tokens near the end of what a T5 reader takes. */
 export const T5_LONG_TOKENS = 450;
 
+/** Longest piece of the person's text quoted back in a note, in characters. */
 const SHOWN = 48;
 const show = (text: string) => {
   const flat = text.replace(/\s+/g, ' ').trim();
@@ -81,8 +86,10 @@ export function phrasesOf(text: string): string[] {
     .filter((part) => part.length >= 3);
 }
 
+// Negation words in English and Russian: "no" in a description makes a model draw the thing, not leave it out.
 const NEGATIONS = /(?<![\p{L}\p{N}])(no|not|without|never|don't|doesn't|isn't|без|не|нет)(?![\p{L}\p{N}])/iu;
 
+/** The share of the text's letters that `pattern` matches. */
 function share(text: string, pattern: RegExp): number {
   const letters = text.match(/\p{L}/gu) ?? [];
   if (letters.length < 8) return 0;

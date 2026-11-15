@@ -1,3 +1,8 @@
+/**
+ * The revision history of a project as the renderer reads it: the list behind Undo, Redo and the replay player
+ * (renderer/state/undoState.ts, components/graph/lib/replay.ts) and the snapshot of one revision. Main keeps the
+ * revisions (main/commands/history.ts, commit.ts) and answers over engineIpc.ts.
+ */
 import type { Projection } from '../commands/types';
 
 /** One row of a project's revision history, for the "replay how the graph grew" player. */
@@ -19,6 +24,7 @@ export interface RevisionSummary {
   runId?: string | null;
 }
 
+/** Which revision's snapshot to load. */
 export interface LoadRevisionRequest {
   projectId: string;
   revisionId: string;

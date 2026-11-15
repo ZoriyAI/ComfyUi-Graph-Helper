@@ -1,5 +1,7 @@
 /**
- * IPC channel constants for Electron main/renderer communication
+ * The names of the IPC channels between the window and main. Main's handlers register on these names (main/ipc.ts
+ * and main/ipc/*.ts, main/knowledge/handlers.ts, main/lessons/lessonsIpc.ts and others). The sandboxed preload
+ * cannot import this file, so src/preload/index.ts repeats the names it uses; a renamed channel changes both.
  */
 export const IPC_CHANNELS = {
   // Database operations

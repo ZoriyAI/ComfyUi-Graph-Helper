@@ -50,13 +50,16 @@ function findPackage(name, fromDir) {
   }
 }
 
+/** File names that hold a package's licence or notice text (LICENSE, LICENCE.md, COPYING, NOTICE, ...). */
 const LICENCE_FILE = /^(licen[cs]e|copying|notice)(\.[a-z]+)?$/i;
 
+/** The licence and notice files of a package folder, joined; empty when it ships none. */
 function licenceText(dir) {
   const files = fs.readdirSync(dir).filter((file) => LICENCE_FILE.test(file)).sort();
   return files.map((file) => fs.readFileSync(path.join(dir, file), 'utf8').trim()).join('\n\n');
 }
 
+/** The licence a package.json declares, in its current or its old (`licenses` array) form. */
 function licenceName(meta) {
   if (typeof meta.license === 'string') return meta.license;
   if (meta.license && typeof meta.license.type === 'string') return meta.license.type;
@@ -82,6 +85,10 @@ function fallbackText(meta) {
   ].filter(Boolean).join('\n');
 }
 
+/**
+ * Every package that ships, found breadth-first from main's dependencies, the renderer's imports and Electron,
+ * each resolved the way Node would from the folder that asks for it. One entry per name and version.
+ */
 function collect() {
   const seen = new Map();
   const queue = [...Object.keys(pkg.dependencies || {}), ...rendererImports(), 'electron'].map((name) => ({ name, from: root }));
@@ -106,6 +113,7 @@ function collect() {
   return [...seen.values()].sort((a, b) => a.name.localeCompare(b.name) || a.version.localeCompare(b.version));
 }
 
+/** Writes dist/notices (see the header); returns how many third-party components were listed. */
 function writeNotices() {
   const out = path.join(root, 'dist', 'notices');
   fs.mkdirSync(out, { recursive: true });
@@ -145,6 +153,7 @@ function linkedPages(text, folder) {
 /** Markdown to plain words for search: no markup, no links' addresses, no comments. */
 function plainText(text) {
   return text
+    // The first two lines of a wiki page are the link to the other language and a blank line.
     .split('\n').slice(2).join('\n')
     .replace(/^#\s+.*$/m, '')
     .replace(/<!--[\s\S]*?-->/g, ' ')

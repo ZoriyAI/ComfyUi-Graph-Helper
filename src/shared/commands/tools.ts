@@ -1,3 +1,9 @@
+/**
+ * Turns the model's graph tool calls into checked graph commands (mutationFromTool) and ghost drafts
+ * (proposalFromTool). The model's arguments are loose: ids may be numbers, ports may be given by handle, name or
+ * index, so they are normalised here and then checked by the command schema. Main's agent uses it
+ * (main/agent/tools.ts, buildTools.ts, turn.ts, prompt.ts).
+ */
 import type { CatalogView } from '../catalog/types';
 import type { ProposalDraft } from '../contracts/proposals';
 import { portsForClassType } from '../graph/ports';
@@ -12,13 +18,16 @@ export interface ToolContext {
   catalog?: CatalogView;
 }
 
+/** Longest note kept on a ghost. */
 const NOTE_MAX = 2000;
 
+/** A string within `max` characters, else null; an over-long text is refused, not cut. */
 function text(value: unknown, max: number): string | null {
   if (typeof value !== 'string' || value.length > max) return null;
   return value;
 }
 
+/** An id as a string: numbers are accepted because models often send them unquoted. */
 function str(value: unknown): string | undefined {
   if (typeof value === 'string' && value.length > 0) return value;
   if (typeof value === 'number' && Number.isFinite(value)) return String(value);
@@ -33,6 +42,7 @@ function record(value: unknown): Record<string, unknown> | undefined {
   return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : undefined;
 }
 
+/** A node's ports: from the node on the canvas, else from its class in the catalog. */
 function portsOf(nodeId: string, direction: 'input' | 'output', context?: ToolContext): Array<{ id: string; name: string }> {
   const node = context?.snapshot?.nodes.find((item) => String(item.id) === nodeId);
   const key = direction === 'input' ? 'inputs' : 'outputs';
@@ -59,6 +69,7 @@ function resolveHandle(nodeId: string, direction: 'input' | 'output', handle: un
   return ports[slot]?.id ?? `${prefix}-${slot}`;
 }
 
+/** The extra boundary slots of createSubgraph; null when one of them cannot be resolved. */
 function subgraphIO(value: unknown, direction: 'input' | 'output', context?: ToolContext) {
   if (value === undefined) return [];
   if (!Array.isArray(value)) return null;
@@ -78,6 +89,7 @@ function subgraphIO(value: unknown, direction: 'input' | 'output', context?: Too
   return list;
 }
 
+/** The unchecked command for one build tool call, or null when a required argument is missing. */
 function draft(name: string, input: Record<string, unknown>, context?: ToolContext): unknown {
   if (name === 'addNode' && typeof input.nodeType === 'string') {
     return {
@@ -155,6 +167,7 @@ export function mutationFromTool(name: string, args: Record<string, unknown> | u
   return parsed.success ? parsed.data : null;
 }
 
+/** Each proposal tool and the build tool whose arguments it shares. */
 const PROPOSAL_TOOLS: Record<string, { build: string; kind: ProposalDraft['kind'] }> = {
   proposeNode: { build: 'addNode', kind: 'add-node' },
   proposeConnection: { build: 'connectNodes', kind: 'connect' },

@@ -9,11 +9,16 @@
  * Instance nodes on the canvas (or inside another definition) are ordinary nodes with
  * `data.comfyType = definition.id`, `data.subgraphId = definition.id`, `data.kind = 'subgraph-instance'`,
  * inputs `in-<i>` and outputs `out-<i>` in definition slot order.
+ *
+ * workflow/codec.ts reads and writes them, main's commands edit them, and the canvas, the Properties panel and the
+ * library draw them.
  */
 import type { PortDefinition } from './ports';
 
+// The ids of the boundary pseudo-nodes, the same numbers ComfyUI's frontend uses in a definition's links.
 export const SUBGRAPH_INPUT_NODE_ID = '-10';
 export const SUBGRAPH_OUTPUT_NODE_ID = '-20';
+/** `data.kind` of a node that is an instance of a definition. */
 export const SUBGRAPH_INSTANCE_KIND = 'subgraph-instance';
 
 /** One boundary slot of a definition. */
@@ -28,6 +33,7 @@ export interface SubgraphSlot {
   linkIds?: unknown[];
 }
 
+/** One subgraph definition: its boundary slots and its inner graph. */
 export interface SubgraphDefinition {
   /** Definition uuid; instance nodes use it as their class type. Synthetic for opaque entries. */
   id: string;
@@ -80,6 +86,7 @@ export function slotLabel(slot: Pick<SubgraphSlot, 'name' | 'raw'>): string {
   return typeof label === 'string' && label.trim() !== '' ? label : slot.name;
 }
 
+/** The ports an instance node shows, one per boundary slot, named by the slot's label. */
 export function instancePorts(definition: Pick<SubgraphDefinition, 'inputs' | 'outputs'>): { inputs: PortDefinition[]; outputs: PortDefinition[] } {
   return {
     inputs: definition.inputs.map((slot, index) => ({ id: `in-${index}`, name: slotLabel(slot), dataType: slot.type, optional: false })),
@@ -103,6 +110,7 @@ export function uniqueSlotName(taken: Array<Pick<SubgraphSlot, 'name' | 'raw'>>,
   }
 }
 
+/** True when the node's class is a modelled (not opaque) definition. */
 export function isSubgraphInstance(node: Record<string, any>, definitions: SubgraphDefinition[]): boolean {
   const type = node?.data?.comfyType;
   return typeof type === 'string' && definitions.some((item) => !item.opaque && item.id === type);

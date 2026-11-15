@@ -1,6 +1,8 @@
 /**
  * Lists the settings offer to pick from instead of making the person remember and type a value
  * (Settings ▸ Assistant model and base URL, Settings ▸ Connection addresses). Every field stays free text too.
+ * Main builds the lists (main/llm/modelList.ts, localDiscovery.ts, main/settings/connectionSuggestions.ts);
+ * renderer/components/settings/sections/pickerItems.ts turns them into picker rows.
  */
 
 /** One model a provider or local server listed. */
@@ -44,6 +46,7 @@ export interface LocalServer {
   models: ModelChoice[];
 }
 
+/** The local model servers found, and what could not be checked. */
 export interface LocalDiscovery {
   servers: LocalServer[];
   /** Fixed English sentences about sources that could not be read (e.g. the MCP server); translated in the renderer. */
@@ -53,11 +56,13 @@ export interface LocalDiscovery {
 /** Where a suggested address came from; the renderer names it. */
 export type AddressSource = 'reported' | 'saved' | 'recent' | 'probe';
 
+/** One address offered for a Connection field. */
 export interface AddressSuggestion {
   value: string;
   source: AddressSource;
 }
 
+/** The addresses offered for the ComfyUI and the MCP fields. */
 export interface ConnectionSuggestions {
   comfyOrigins: AddressSuggestion[];
   mcpUrls: AddressSuggestion[];

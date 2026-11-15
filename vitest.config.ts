@@ -1,3 +1,7 @@
+/**
+ * Vitest config for `npm test`: the unit and integration suites under tests/, in Node. The e2e specs are left to
+ * Playwright (playwright.config.ts). The JSON report in test-results/ is what CI keeps as the run's record.
+ */
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({

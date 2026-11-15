@@ -1,7 +1,13 @@
+/**
+ * Reads ComfyUI's GET /object_info answer into the app's catalog: every node class with its inputs, outputs and the
+ * widgets_values slot order, plus the model files the core loaders list. Main parses it when it syncs from a server
+ * or a file (main/catalog/repository.ts, main/comfy, main/mcp/client.ts); workflow/codec.ts and the command code use
+ * the slot helpers. The slot rules copy ComfyUI's frontend, because a workflow file stores widget values by position.
+ */
 import { modelDirectoryFor } from './modelFolders';
 import type { CatalogInput, CatalogNode, CatalogOutput, CatalogView } from './types';
 
-
+/** The scalar widget types; only these can hold a model file name. */
 const WIDGET_TYPES = new Set(['INT', 'FLOAT', 'STRING', 'BOOLEAN', 'COMBO']);
 /**
  * Frontend widget constructors whose widgets_values layout is not reproduced here.
@@ -25,6 +31,7 @@ const OPAQUE_WIDGET_TYPES = new Set([
 /** control_after_generate enum from nodeDefSchema.ts CONTROL_OPTIONS @98700cfc. */
 const CONTROL_MODES = new Set(['fixed', 'increment', 'decrement', 'randomize']);
 
+/** A document that is not object_info, or one node definition in it that is broken. */
 export class ObjectInfoError extends Error {
   constructor(message: string) {
     super(message);
@@ -32,6 +39,7 @@ export class ObjectInfoError extends Error {
   }
 }
 
+/** The parsed catalog; `skipped` names node classes whose definition could not be read. */
 export interface ParsedObjectInfo {
   nodes: CatalogNode[];
   models: Array<{ directory: string; name: string }>;
@@ -103,6 +111,7 @@ export function parseObjectInfo(document: unknown): ParsedObjectInfo {
   return { nodes, models, skipped };
 }
 
+/** Position of a widget in widgets_values, or undefined when the class's slot order is unknown or unreliable. */
 export function widgetIndexFor(catalog: CatalogView, classType: string, key: string): number | undefined {
   const node = catalog.nodes.find((item) => item.classType === classType);
   if (!node || node.widgetOrderReliable === false) return undefined;
@@ -110,6 +119,7 @@ export function widgetIndexFor(catalog: CatalogView, classType: string, key: str
   return index >= 0 ? index : undefined;
 }
 
+/** One node definition; throws ObjectInfoError when its shape is wrong, so only that node is skipped. */
 function parseNode(classType: string, value: unknown): CatalogNode {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     throw new ObjectInfoError('Catalog snapshot is not object_info.');
@@ -142,6 +152,7 @@ function optionalText(info: Record<string, unknown>): { displayName?: string; ca
   return out;
 }
 
+/** The node's Python module: missing means a core node ('nodes'), as ComfyUI's own server reports it. */
 function pythonModuleOf(info: Record<string, unknown>): string {
   if (info.python_module === undefined) return 'nodes';
   if (typeof info.python_module !== 'string' || info.python_module.length === 0) {
@@ -167,6 +178,7 @@ function outputTypeOf(item: unknown): string {
   throw new ObjectInfoError('Catalog snapshot is not object_info.');
 }
 
+/** The inputs in input_order (then any not listed there), and the widgets_values slots they make. */
 function inputsOf(info: Record<string, unknown>): { inputs: CatalogInput[]; widgetOrder: string[]; widgetOrderReliable: boolean } {
   if (info.input !== undefined && (!info.input || typeof info.input !== 'object' || Array.isArray(info.input))) {
     throw new ObjectInfoError('Catalog snapshot is not object_info.');
@@ -230,6 +242,7 @@ function groupSpecs(value: unknown): Record<string, unknown> {
   return value as Record<string, unknown>;
 }
 
+/** One input spec, read: its link type, whether it is a widget, and the extra slots it adds. */
 interface ParsedSpec {
   type: string;
   widget: boolean;
@@ -405,6 +418,7 @@ function isMediaUpload(options: Record<string, unknown>): boolean {
   return options.image_upload === true || options.video_upload === true || options.animated_image_upload === true;
 }
 
+/** The file names a loader's combo lists, for the catalog's model list. */
 function comboNames(info: Record<string, unknown>, inputName: string): string[] {
   const input = (info.input ?? {}) as Record<string, unknown>;
   for (const group of ['required', 'optional']) {

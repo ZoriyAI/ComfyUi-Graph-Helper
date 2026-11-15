@@ -1,5 +1,11 @@
+/**
+ * The input and output ports of a node class, with handle ids in-N and out-N in ComfyUI's slot order. Ports come
+ * from the synced catalog; a few core classes have built-in ports so a graph can be built before any sync. Used by
+ * the agent's tools (commands/tools.ts), placement and commit in main, and node sizes in the renderer.
+ */
 import type { CatalogNode, CatalogView } from '../catalog/types';
 
+/** One port: its handle id, name, data type and whether a link is optional. */
 export interface PortDefinition {
   id: string;
   name: string;
@@ -7,6 +13,7 @@ export interface PortDefinition {
   optional: boolean;
 }
 
+// Built-in ports of the classes the first lessons and the seed knowledge use.
 const INPUTS: Record<string, PortDefinition[]> = {
   KSampler: [
     { id: 'in-0', name: 'model', dataType: 'MODEL', optional: false },
@@ -43,10 +50,12 @@ export function hasBuiltinPorts(nodeType: string): boolean {
   return Object.prototype.hasOwnProperty.call(INPUTS, nodeType) || Object.prototype.hasOwnProperty.call(OUTPUTS, nodeType);
 }
 
+/** The built-in inputs of a class, or none. */
 export function inferInputs(nodeType: string): PortDefinition[] {
   return INPUTS[nodeType] || [];
 }
 
+/** The built-in outputs of a class; an unknown class gets one untyped output so it can still be linked. */
 export function inferOutputs(nodeType: string): PortDefinition[] {
   return OUTPUTS[nodeType] || [{ id: 'out-0', name: 'OUTPUT', dataType: 'unknown', optional: false }];
 }
@@ -67,6 +76,7 @@ export function portsForClassType(nodeType: string, catalog: CatalogView): { inp
   return { inputs: inferInputs(nodeType), outputs: inferOutputs(nodeType) };
 }
 
+/** A class the seed data recorded without ports: it says nothing about the class's real sockets. */
 function isSeedPlaceholder(node: CatalogNode): boolean {
   return node.pack === 'core' && node.inputs.length === 0 && node.outputs.length === 0;
 }

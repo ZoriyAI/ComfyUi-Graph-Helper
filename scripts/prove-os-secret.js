@@ -1,9 +1,16 @@
+/**
+ * Manual check, run with Electron on a Linux desktop after a build: when the app decides the OS secret store is
+ * safe to use, a key really is stored encrypted (never in plain text in the database file) and reads back.
+ * Prints SECRET_POSITIVE with a JSON report; exits 1 when the decision said "persist" but the proof failed.
+ * Works in a throwaway database; the marker string is not a real key.
+ */
 const { app, safeStorage } = require('electron');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
 const { passwordStoreFlag } = require(path.join(__dirname, '../dist/shared/config/passwordStore.js'));
+// The --password-store choice the app makes at start when no override is saved (src/main/index.ts).
 const flag = passwordStoreFlag(process.env.XDG_CURRENT_DESKTOP, process.argv);
 if (flag) app.commandLine.appendSwitch('password-store', flag);
 

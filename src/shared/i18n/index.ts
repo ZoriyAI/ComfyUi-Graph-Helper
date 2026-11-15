@@ -1,3 +1,9 @@
+/**
+ * The app's translation helpers outside React: a translator for a language (createTranslator), the known error
+ * sentences main sends and their catalog keys (translateKnownError, explainError), and small formatters. Main uses
+ * it for its own dialogs, menus and messages (main/index.ts, main/ipc.ts and others); the renderer uses the error
+ * helpers and re-exported language tools, and has its own i18next instance (src/renderer/i18n.ts).
+ */
 import i18next, { type InitOptions } from 'i18next';
 import { en, ru } from './catalog';
 import { redactSecrets } from '../config/draft';
@@ -11,11 +17,13 @@ export { APP_LANGUAGES, FALLBACK_LANGUAGE, isAppLanguage, languageFromSystem, lo
 export type { AppLanguage } from './languages';
 import { APP_LANGUAGES, displayLocale, isAppLanguage, type AppLanguage } from './languages';
 
+/** Every leaf key of a catalog object, dotted ('menu.file'); tests use it to compare the languages. */
 export function catalogLeaves(value: unknown, prefix = ''): string[] {
   if (typeof value !== 'object' || value == null) return prefix ? [prefix] : [];
   return Object.entries(value as Record<string, unknown>).flatMap(([key, child]) => catalogLeaves(child, prefix ? `${prefix}.${key}` : key));
 }
 
+/** A function from a catalog key (and its values) to the text in one language. */
 export type Translator = (key: string, options?: Record<string, unknown>) => string;
 
 /**
@@ -25,6 +33,10 @@ export type Translator = (key: string, options?: Record<string, unknown>) => str
  */
 export const NAME_VALUES: Readonly<Record<'app' | 'appShort', string>> = { app: DISPLAY_NAME, appShort: SHORT_NAME };
 
+/**
+ * Fixed English error sentences main and the stores produce, and the catalog key of each. Main never sends a
+ * translated text: the renderer looks the sentence up here.
+ */
 const ERROR_KEYS: Record<string, string> = {
   'Settings cannot store a secret': 'errors.secret',
   'Settings do not match the schema': 'errors.schema',
@@ -167,6 +179,7 @@ const MCP_REFUSED = /^MCP tool call refused: ([A-Za-z0-9_.-]{1,80}) is not on th
 
 /** AI SDK NoSuchToolError: the model asked for a tool this turn does not offer (a build tool in an Ask turn). */
 const UNAVAILABLE_TOOL = /Model tried to call unavailable tool '([A-Za-z0-9_.-]{1,80})'/;
+/** The build tools: a model that calls one in an Ask turn gets a sentence that says to switch to Build. */
 const BUILD_TOOL_NAMES = new Set(['addNode', 'connectNodes', 'setParameter', 'removeNode', 'createSubgraph', 'insertSubgraph', 'annotateNode', 'setComponentDocumentation', 'setProcess']);
 
 /** Sync errors and warnings that carry a host or a catalog section (src/main/mcp/sync.ts). */
@@ -183,12 +196,14 @@ const MCP_SECTION = /^MCP catalog section could not be read: (node classes|node 
 const MODEL_FOLDER = /^Model folder could not be read: ([A-Za-z0-9_.-]{1,80})\.$/;
 /** src/main/llm/modelList.ts modelListHttpError. */
 const MODEL_LIST_HTTP = /^The server answered HTTP (\d{3}) to the model list request\.$/;
+/** Catalog keys of the sync's section names. */
 const SECTION_KEYS: Record<string, string> = {
   'node classes': 'sync.section.nodeClasses',
   'node packs': 'sync.section.nodePacks',
   'model files': 'sync.section.modelFiles',
 };
 
+/** The translation of an error sentence that carries a value (a host, a tool, a number), or null. */
 function translatePattern(translate: Translator, code: string): string | null {
   const large = GRAPH_TOO_LARGE.exec(code);
   if (large) return translate('errors.graphTooLarge', { nodes: large[1], links: large[2], maxNodes: GRAPH_NODE_LIMIT, maxLinks: GRAPH_LINK_LIMIT });
@@ -227,8 +242,10 @@ function translatePattern(translate: Translator, code: string): string | null {
   return null;
 }
 
+/** A project file written by a newer version of the app starts its error with this. */
 const NATIVE_VERSION_PREFIX = 'Unsupported native project version ';
 
+/** A translator for one language, ready at once (no async init), with English as the fallback. */
 export function createTranslator(language: AppLanguage): Translator {
   const instance = i18next.createInstance();
   const options: InitOptions = {
@@ -253,11 +270,16 @@ export function createTranslator(language: AppLanguage): Translator {
   return (key, options) => String(instance.t(key, options ?? {}));
 }
 
+/** The translation of a known error sentence, or null when it is not one. */
 export function translateKnownError(translate: Translator, code: string): string | null {
   const key = ERROR_KEYS[code];
   return key ? translate(key) : translatePattern(translate, code);
 }
 
+/**
+ * An error for the person: a translated summary, and for an unknown error the redacted original as a diagnostic
+ * line they can copy into a report.
+ */
 export function explainError(translate: Translator, code: string): { summary: string; diagnostic: string | null } {
   const key = ERROR_KEYS[code];
   if (key) return { summary: translate(key), diagnostic: null };
@@ -270,10 +292,12 @@ export function explainError(translate: Translator, code: string): { summary: st
   return { summary: translate('errors.unknown'), diagnostic: redactDiagnostic(code) };
 }
 
+/** Removes secrets from an error text before it is shown or copied. */
 export function redactDiagnostic(value: string): string {
   return redactSecrets(value.replace(/Bearer\s+\S+/gi, 'Bearer [redacted]'));
 }
 
+/** Catalog keys of the four arrow-key directions. */
 const MOVE_DIRECTIONS: Record<string, string> = {
   up: 'graph.directionUp',
   down: 'graph.directionDown',
@@ -291,6 +315,7 @@ export function moveAnnouncement(translate: Translator, direction: string, x: nu
   });
 }
 
+/** Hours and minutes in the language's way of writing time. */
 export function formatClock(timestamp: number, language: AppLanguage, timeZone?: string, locales?: readonly string[]): string {
   return new Intl.DateTimeFormat(displayLocale(language, locales), {
     hour: 'numeric',
@@ -299,6 +324,7 @@ export function formatClock(timestamp: number, language: AppLanguage, timeZone?:
   }).format(timestamp);
 }
 
+/** The titles, buttons and filter names of main's open and save dialogs, in `language`. */
 export function fileDialogCopy(language: AppLanguage) {
   const translate = createTranslator(language);
   return {
@@ -343,7 +369,7 @@ export function languageOf(read: { source: string; values?: { language?: string 
 
 /**
  * A list in the words of the language. `unit` (the default) is a plain list: "a, b, c", in Chinese "a、b、c"; `and`
- * gives "a, b, and c" / "a, b и c"; `or` gives "a, b, or c".
+ * gives "a, b, and c" in English (Russian has no comma before its word for "and"); `or` gives "a, b, or c".
  * Items are joined as given; an empty list gives ''.
  */
 export function joinList(items: readonly string[], language: AppLanguage, kind: 'and' | 'or' | 'unit' = 'unit'): string {

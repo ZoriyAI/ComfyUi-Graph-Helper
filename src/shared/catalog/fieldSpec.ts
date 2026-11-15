@@ -1,6 +1,12 @@
+/**
+ * Turns a stored catalog input into the spec of the control the app draws for it (a number box, a combo, a text
+ * field), and sorts model files by how well they fit. Main sends these specs with node knowledge
+ * (main/knowledge/repository.ts, fieldModels.ts); the renderer draws the fields from them.
+ */
 import type { FieldKind, FieldSpec, ModelFit } from '../contracts/knowledge';
 import type { CatalogInput } from './types';
 
+/** The five scalar widget constructors of ComfyUI's frontend; any other constructor is drawn as 'other'. */
 const KIND_BY_TYPE: Record<string, FieldKind> = {
   COMBO: 'combo',
   INT: 'int',
@@ -69,6 +75,7 @@ export function modelDirectoryOf(
   return best;
 }
 
+/** Sort rank of each fit: what loads best comes first. */
 const FIT_ORDER: Record<ModelFit, number> = { fits: 0, related: 1, unknown: 2, differs: 3 };
 
 /** Fitting files first, then related families, unknown, and families that do not load last; by file name (natural order) inside each group. */

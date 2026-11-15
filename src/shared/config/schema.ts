@@ -1,8 +1,14 @@
+/**
+ * The non-secret settings row: provider, model and addresses, the MCP sign-in mode, motion and language. Keys and
+ * tokens are never part of it. Main reads and writes it (main/settings/repository.ts) and the Settings window edits
+ * it (renderer/components/settings); both check it with nonSecretSettingsSchema.
+ */
 import type { Preferences } from './preferences';
 import type { AppLanguage } from '../i18n/languages';
 import { z } from 'zod';
 import { withLoopbackScheme } from '../mcp/loopback';
 
+/** An http(s) address without a user name or password in it, or empty. */
 function httpOriginOrEmpty(value: string): boolean {
   if (value === '') return true;
   try {
@@ -23,6 +29,7 @@ export function coerceLegacyComfyOrigin(input: unknown): unknown {
   return record;
 }
 
+/** The settings row, checked; a local or OpenAI-compatible provider needs its address and model. */
 export const nonSecretSettingsSchema = z.object({
   theme: z.literal('graphite'),
   motion: z.enum(['system', 'on', 'reduced', 'off']),
@@ -53,11 +60,14 @@ export const nonSecretSettingsSchema = z.object({
   if (value.model.trim() === '') ctx.addIssue({ code: 'custom', path: ['model'], message: 'local model' });
 });
 
+/** The settings row as stored. */
 export type NonSecretSettings = z.infer<typeof nonSecretSettingsSchema>;
 export type McpAuthMode = NonSecretSettings['mcpAuth'];
 
+/** What a chat request needs to know about the model it talks to. */
 export type ChatRuntimeConfig = Pick<NonSecretSettings, 'provider' | 'model' | 'baseURL'>;
 
+/** A fresh profile's settings: no provider chosen, nothing connected. */
 export const nonSecretDefaults: NonSecretSettings = {
   theme: 'graphite',
   motion: 'system',
@@ -79,4 +89,5 @@ export type SettingsRead =
   | { source: 'stored'; values: NonSecretSettings; preferences?: Preferences; systemLanguage?: AppLanguage }
   | { source: 'corrupt'; preferences?: Preferences; systemLanguage?: AppLanguage };
 
+/** The answer when a key could not be kept because no safe OS store was proven (config/secretPolicy.ts). */
 export type SecretSaveResult = { status: 'secret-storage-blocked' };

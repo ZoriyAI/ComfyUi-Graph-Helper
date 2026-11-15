@@ -1,3 +1,9 @@
+/**
+ * What the renderer and main's agent exchange around a chat turn: the turn context sent with a message, the build
+ * step chunks streamed back while the helper builds, stored chat messages and the run a turn commits into.
+ * main/agent/turn.ts reads and writes them; renderer/services/llm/chatService.ts and the canvas
+ * (canvasStore.ts, graph/lib/buildQueue.ts) consume the build steps.
+ */
 import type { BuildStepTool } from './agentTools';
 import type { Explanation } from './knowledge';
 import type { ObjectRef } from './objects';
@@ -48,6 +54,7 @@ export interface AgentBuildStep {
   revisionId: string;
 }
 
+/** One stored chat message of a project. */
 export interface ChatRecord {
   id: string;
   projectId: string;

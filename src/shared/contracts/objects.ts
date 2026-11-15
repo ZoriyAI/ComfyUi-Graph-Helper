@@ -1,13 +1,17 @@
 /**
  * A reference to one thing a person can point at in the app.
  * Used by explanations, the context menu question, agent context, and proposals.
+ * objectKey tells apart objects with the same id on different levels (the main canvas and a subgraph).
  */
+
 /**
+ * What kind of thing a ref points at.
  * 'linkType': a ComfyUI data type such as MODEL or LATENT (id = the type name).
  * 'family': a base-model family such as sdxl or flux1 (id = the BaseModelFamily value).
  */
 export type ObjectKind = 'node' | 'port' | 'edge' | 'subgraph' | 'group' | 'nodeClass' | 'model' | 'process' | 'linkType' | 'family';
 
+/** One object, by kind and id; ports and models need the extra fields to be found. */
 export interface ObjectRef {
   kind: ObjectKind;
   /** Stable id: node id, edge id, subgraph definition id, group id, class type, "directory/name" for a model, "process". */

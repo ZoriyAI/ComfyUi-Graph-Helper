@@ -7,14 +7,18 @@
  * addInputWidget @98700cfc place every socket before every widget.
  * '' and '*' match any type. A comma-separated list matches when any pair matches.
  * The comparison is case-insensitive. EVENT and ACTION are both -1 in that file.
+ * The canvas (CanvasFlow.tsx, connectAssist.ts, AddNodeSearch.tsx) and main (commit, edit and graph ops, the graph
+ * check, the node search) use it, so a link the app allows is one ComfyUI also accepts.
  */
 const EVENT = -1;
 const ACTION = -1;
 
+/** True when a link from an output of `outputType` to an input of `inputType` is valid in ComfyUI. */
 export function portsCompatible(outputType: string, inputType: string): boolean {
   return isValidConnection(outputType, inputType);
 }
 
+// A line-by-line copy of the frontend's function, loose `==` included, so edge cases behave the same.
 function isValidConnection(typeA: string | number, typeB: string | number): boolean {
   let outputType: string | number = typeA;
   let inputType: string | number = typeB;

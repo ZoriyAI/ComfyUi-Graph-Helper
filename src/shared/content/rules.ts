@@ -1,14 +1,14 @@
-import { en, ru } from '../i18n/catalog';
-
 /**
  * The rules about content, in the words of the catalog (`contentRules`), the one place they are written. Everything
  * that states them (the confirmation of the switch for adult content, the lessons for adults, the page
  * Help ▸ Content rules, held to these words by a test) takes them from here, so they cannot drift apart.
+ * Read by Settings ▸ Privacy (PrivacySection.tsx) and the lesson texts (lessons/texts.en.ts, texts.ru.ts).
  */
-
+import { en, ru } from '../i18n/catalog';
 /** The five points, in their order. */
 export const CONTENT_RULE_POINTS = ['minors', 'realPeople', 'violence', 'animals', 'law'] as const;
 
+/** The rules in one language, ready to show as a sentence, a list and a closing sentence. */
 export interface ContentRules {
   /** The sentence before the list. */
   lead: string;
@@ -18,6 +18,7 @@ export interface ContentRules {
   after: string;
 }
 
+/** The rules in `language`; any language other than Russian gets English. */
 export function contentRules(language: string): ContentRules {
   const words = language === 'ru' ? ru.contentRules : en.contentRules;
   return { lead: words.lead, points: CONTENT_RULE_POINTS.map((point) => words[point]), after: words.after };

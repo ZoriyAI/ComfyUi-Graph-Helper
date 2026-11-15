@@ -1,11 +1,12 @@
-import { collapsedWidth, editorKind, FILE_BOX, fileBox, isCollapsed, promotedFields, REROUTE_BOX, savedValues, shownTitle } from '../workflow/comfyLook';
-
 /**
  * Graph layout without dependencies: a layered left-to-right arrangement (data flows from loaders on the left to
  * the output on the right, as people read a ComfyUI graph) and a free-slot search, so no node is ever placed on
  * top of another. Pure and deterministic: the same nodes, edges and options always give the same positions.
- * Used in main (placing and tidying the helper's nodes) and in the renderer (manual adds, «Разложить граф»).
+ * Used in main (placing and tidying the helper's nodes) and in the renderer (manual adds, the "Arrange the graph"
+ * command, catalog key arrangeGraph; renderer/components/graph/arrange.ts).
  */
+
+import { collapsedWidth, editorKind, FILE_BOX, fileBox, isCollapsed, promotedFields, REROUTE_BOX, savedValues, shownTitle } from '../workflow/comfyLook';
 
 export interface Point {
   x: number;
@@ -17,8 +18,10 @@ export interface Size {
   height: number;
 }
 
+/** A box on the canvas: top-left corner and size. */
 export interface Rect extends Point, Size {}
 
+/** A node to lay out, with its size. */
 export interface LayoutNode extends Size {
   id: string;
   /** Current position. Only the y is read: it seeds the order inside a layer, so a tidy keeps the rough picture. */
@@ -26,11 +29,13 @@ export interface LayoutNode extends Size {
   y?: number;
 }
 
+/** A link between two nodes; ports do not matter for the layout. */
 export interface LayoutEdge {
   source: string;
   target: string;
 }
 
+/** Where the block goes and how much room it leaves. */
 export interface LayoutOptions {
   /** Top-left corner of the laid-out block. Default 0,0. */
   origin?: Point;
@@ -67,6 +72,7 @@ export interface SizeHints {
   widgetOrder?: ReadonlyArray<string>;
 }
 
+/** Input types drawn as a field a person sets, not as a socket. */
 const WIDGET_TYPES = new Set(['INT', 'FLOAT', 'STRING', 'BOOLEAN', 'COMBO']);
 
 /**
@@ -127,6 +133,7 @@ export function nodeRunMode(data: { comfy?: unknown } | null | undefined): 'bypa
   return null;
 }
 
+/** The node data fields the size estimate reads. */
 type SizedData = {
   inputs?: unknown;
   outputs?: unknown;
@@ -157,6 +164,7 @@ export function estimateNodeSize(data: SizedData | null | undefined, hints?: Siz
   return box ? { width: box.width, height: Math.max(own.height, box.minHeight) } : own;
 }
 
+/** The height the canvas card gives a node with these ports, fields and notes. */
 function estimateCardSize(data: SizedData | null | undefined, hints?: SizeHints | null): Size {
   const inputs = Array.isArray(data?.inputs) ? data!.inputs as Array<{ name?: unknown; dataType?: unknown }> : [];
   const outputs = Array.isArray(data?.outputs) ? data!.outputs as unknown[] : [];
@@ -302,6 +310,7 @@ function rectDistance(rect: Rect, point: Point): number {
   return Math.hypot(dx, dy);
 }
 
+/** The edges of one layout run, by node index. */
 interface Graph {
   ids: string[];
   index: Map<string, number>;

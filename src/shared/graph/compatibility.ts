@@ -1,7 +1,14 @@
+/**
+ * What a graph needs that this ComfyUI does not have: node classes missing from the catalog and model files that
+ * are not installed, from the canvas and from the stored workflow document (subgraph definitions included). Read
+ * from the local catalog only. Used by the graph check (main/knowledge/check.ts), the commit path
+ * (main/commands/commit.ts), main/ipc.ts and main/knowledge/loadedModels.ts.
+ */
 import type { CatalogView } from '../catalog/types';
 import { modelDirectoryFor } from '../catalog/modelFolders';
 import { documentDefinitionIds, documentDefinitionNodes, documentGroupNodeNames, isLocalNodeType, missingDeps, type MissingReport } from '../workflow/codec';
 
+/** The few fields of a canvas node this file reads. */
 export interface GraphNodeLike {
   data?: {
     comfyType?: unknown;

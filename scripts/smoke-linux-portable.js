@@ -38,6 +38,7 @@ function have(command) {
   }
 }
 
+/** A person's session with `homeDir` as HOME and the default XDG folders, so the scripts use their own defaults. */
 function cleanEnv(homeDir) {
   const env = { ...process.env, HOME: homeDir };
   delete env.NODE_ENV;
@@ -76,6 +77,7 @@ function checkFuses(binary) {
   }
 }
 
+/** `--version` must print the display name and the package version. */
 function checkVersion(starter, env) {
   const printed = execFileSync(starter, [...(ROOT_USER ? ['--no-sandbox'] : []), '--version'], { encoding: 'utf8', env, timeout: 30000 }).trim();
   if (printed !== `${DISPLAY_NAME} ${pkg.version}`) fail(`VERSION_SWITCH ${starter} printed "${printed}"`);
