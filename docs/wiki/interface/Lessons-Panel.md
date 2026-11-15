@@ -17,7 +17,7 @@ If a lesson was open when the app closed, the tab opens on it at the next start.
 
 ## The list
 
-The 45 lessons are arranged in six topic groups. Each group heading says how many of its lessons are done ("3 of 8 done"). Each card shows the title, what you build, the step count beside its one button, and the lessons it goes on from as quiet links. A link scrolls to that card; you do not have to finish it first. The button is **Start**, **Continue** for a lesson you began, or **Start over** for one marked **Done**. A finished lesson stays **Done** even when a later lesson rewires the graph.
+The lessons are arranged in topic groups. "Choose any lesson; they are grouped by topic. Related lessons are suggestions: you can start wherever you need." Each group heading says how many of its lessons are done ("3 of 8 done"). Each card shows the title, what you build, the step count beside its one button, and the lessons it goes on from as quiet links. A link scrolls to that card; you do not have to finish it first. The button is **Start**, **Continue** for a lesson you began, or **Start over** for one marked **Done**. A finished lesson stays **Done** even when a later lesson rewires the graph.
 
 At the end of the list:
 
