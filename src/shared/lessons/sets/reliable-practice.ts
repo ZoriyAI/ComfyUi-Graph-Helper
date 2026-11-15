@@ -258,18 +258,60 @@ const auditWorkflow: Lesson = {
   ],
 };
 
+/**
+ * N36: see where a local graph becomes an outside service. The person finds the paid nodes, maps what each sends
+ * out and under which terms, works out the cost of a series, builds the local alternative (the app checks it has no
+ * partner node) and decides each outside call on purpose.
+ */
+const partnerCost: Lesson = {
+  id: 'partner-cost',
+  standard: 2,
+  outcomes: ['structure', 'run', 'result'],
+  meta: { prerequisites: ['image'], versions: [CORE, 'Partner nodes of ComfyUI as documented on 2026-11-15 (docs.comfy.org, tutorials/partner-nodes)'], checkedOn: CHECKED_ON },
+  steps: [
+    { id: 'intro', read: true },
+    { id: 'spot', checklist: [{ id: 'search' }, { id: 'template' }, { id: 'flag', optional: true }] },
+    { id: 'data', read: true },
+    { id: 'map', checklist: [{ id: 'inputs' }, { id: 'private' }, { id: 'license' }, { id: 'region' }] },
+    { id: 'cost', checklist: [{ id: 'price' }, { id: 'series' }, { id: 'balance' }] },
+    { id: 'graph', ...baseGraph },
+    { id: 'local', readCheck: [{ kind: 'workflow-partner', present: false }, { kind: 'workflow-complete' }] },
+    { id: 'run', checklist: [{ id: 'ran', run: true }, { id: 'time' }, { id: 'paid', optional: true }] },
+    {
+      id: 'assess',
+      rubric: [
+        { id: 'map', levels: ['no', 'partly', 'yes'] },
+        { id: 'cost', levels: ['no', 'partly', 'yes'] },
+        { id: 'decision', levels: ['no', 'yes'], pass: 'yes' },
+        { id: 'compare', levels: ['no', 'partly', 'yes'] },
+      ],
+    },
+    {
+      id: 'recall',
+      quiz: [
+        { id: 'leaves', choices: ['nothing', 'inputs', 'graph'], answer: 'inputs' },
+        { id: 'repeat', choices: ['free', 'charged', 'depends'], answer: 'depends' },
+        { id: 'license', choices: ['always', 'provider', 'never'], answer: 'provider' },
+      ],
+    },
+    { id: 'transfer', transfer: true, checklist: [{ id: 'workflow' }, { id: 'table' }, { id: 'choice' }] },
+  ],
+};
+
 /** The lessons of the set, in the order a person meets them. */
-export const RELIABLE_LESSONS: Lesson[] = [modelCard, diagnoseMissing, auditWorkflow];
+export const RELIABLE_LESSONS: Lesson[] = [modelCard, diagnoseMissing, auditWorkflow, partnerCost];
 
 /** The group of each lesson and the lessons it goes on from. */
 export const RELIABLE_PATH: Record<string, { group: LessonGroup; follows: string[] }> = {
   'model-card': { group: EXPERIMENTS_GROUP, follows: ['image'] },
   'diagnose-missing': { group: DIAGNOSTICS_GROUP, follows: ['image'] },
   'audit-workflow': { group: DIAGNOSTICS_GROUP, follows: ['read-workflow'] },
+  'partner-cost': { group: DIAGNOSTICS_GROUP, follows: ['image'] },
 };
 
 /** The graph each lesson starts from. */
 export const RELIABLE_AFTER: Record<string, string[]> = {
   'model-card': ['image'],
   'diagnose-missing': ['image'],
+  'partner-cost': ['image'],
 };

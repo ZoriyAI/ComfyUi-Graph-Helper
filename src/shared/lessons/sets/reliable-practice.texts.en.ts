@@ -470,4 +470,144 @@ export const RELIABLE_EN: Record<string, LessonWords> = {
       },
     },
   },
+  'partner-cost': {
+    title: 'Partner nodes: data, licenses and the cost of a run',
+    result: 'A map of what a workflow sends out and under which terms, the cost of a series, and a local alternative that sends nothing.',
+    roles: GRAPH_ROLES,
+    meta: {
+      skill: 'See where a graph sends data to an outside service, what that costs and under which terms, and decide each outside call on purpose.',
+      requires: ['The lesson “A first picture from text”, or the same graph built by hand.', 'A ComfyUI you can run. A Comfy account with credits is not needed: the paid run is optional.'],
+      mistakes: [
+        {
+          sign: 'You ran a shared workflow and only then saw that credits were spent.',
+          fix: 'Look for the “Paid” mark before you run: this app shows it on the node and in the node search. A workflow with partner nodes needs your decision for each one.',
+        },
+        {
+          sign: 'You sent a private photo to a partner node “just to try”.',
+          fix: 'The inputs of a partner node go to the provider, whose own rules apply. Try with a picture you have the right to share and that holds nothing private.',
+        },
+        {
+          sign: 'You priced one run and planned a series of fifty.',
+          fix: 'Multiply: runs times the price per run, plus the repeats you will need. Prices depend on the model and the settings, such as length and size.',
+        },
+        {
+          sign: 'You assumed the result may be used commercially because you paid for it.',
+          fix: 'Check the provider\'s row in the table of model providers on docs.comfy.org. Many rows still say “Pending”: then write “unknown”.',
+        },
+      ],
+      provenance: 'Built on ComfyUI\'s own nodes and the official pages on partner nodes (docs.comfy.org: the overview, the pricing and the model providers). Prices and terms change often: read them on the day you run. The notes on licenses are general teaching, not legal advice.',
+      notChecked: 'The app marks partner nodes and checks the local graph on the canvas. It does not run anything, so it never spends credits, and it does not read prices, your balance, the providers\' terms or your pictures: the map, the cost and the decision are your own word.',
+    },
+    steps: {
+      intro: {
+        title: 'Where a graph leaves your computer',
+        body: 'Most nodes run on your graphics card. Partner nodes are different: they run closed models on the provider\'s hardware, through Comfy.\n\n- They need a signed-in Comfy account and prepaid credits. There is no free use.\n- Their inputs (prompts, pictures, video, sound) are sent to the provider.\n- ComfyUI started with `--disable-partner-nodes` does not load them.\n\nIn this lesson you find them, map what they send, price a series, and build the local alternative.',
+      },
+      spot: {
+        title: 'Find the paid nodes',
+        body: 'This app marks a partner node “Paid”, in the node search and on the canvas. Hold the pointer over the mark to read why.',
+        items: {
+          search: { label: 'In this app\'s node search I typed the name of a provider and saw the “Paid” mark.', how: '“Graph ▸ Add node…” or Ctrl+K; try a name such as Kling or OpenAI. Nothing is added unless you press Enter.' },
+          template: { label: 'In ComfyUI I opened a template that uses partner nodes and looked at the price on the node.', how: 'The badge on a partner node estimates its cost in credits. Do not press Run.' },
+          flag: { label: 'I know that `--disable-partner-nodes` switches them off, and `--offline` also keeps the editor off the internet.' },
+        },
+      },
+      data: {
+        title: 'What goes out, and under which terms',
+        body: 'For every partner node of a workflow, answer three questions.\n\n- **What goes out?** Each input of the node: the prompt, each picture, video or sound linked to it.\n- **To whom and where?** The provider named by the node. The page “Model providers” on docs.comfy.org gives, for each provider, the data residency.\n- **What may you do with the result?** The same page gives commercial licensing for Cloud and Local. “Request” means a separate license is needed; “Pending” means it is not confirmed yet. The provider\'s own terms apply.',
+      },
+      map: {
+        title: 'Map the data',
+        body: 'Take the template from the step before, or a workflow of yours with partner nodes, and write a small table.',
+        items: {
+          inputs: { label: 'For each partner node I wrote every input it sends.' },
+          private: { label: 'Nothing I plan to send is private or something I have no right to share.' },
+          license: { label: 'I wrote the provider\'s commercial licensing from the table of model providers, or “unknown”.', how: 'docs.comfy.org, the page “Model providers” of the partner nodes.' },
+          region: { label: 'I wrote where the data goes (the data residency), or “unknown”.' },
+        },
+      },
+      cost: {
+        title: 'Price a series',
+        body: 'Prices are in credits. The pricing page of docs.comfy.org lists them per run, per second, per picture or per token; the badge on the node estimates one run.',
+        items: {
+          price: { label: 'I wrote the price of one run of each partner node with my settings.', how: 'The badge on the node, or the pricing page.' },
+          series: { label: 'I worked out a series: runs times price, plus the repeats I expect.' },
+          balance: { label: 'I know where the balance is and that credits are bought in advance.', how: 'Settings ▸ Credits in ComfyUI. A run can take the balance below zero; then partner nodes stop until it is positive.' },
+        },
+      },
+      graph: {
+        title: 'The local alternative',
+        body: `Start a new graph if a workflow with partner nodes is on the canvas (“File ▸ New project”). ${GRAPH}\n\nThis graph runs on your own card and sends nothing out.`,
+      },
+      local: {
+        title: 'Nothing leaves the computer',
+        body: 'The app checks that the graph on the canvas has no partner node and that every node is installed in your ComfyUI.',
+      },
+      run: {
+        title: 'Run the local graph',
+        body: `${RUN}\n\nThe paid run is optional. Only do it if you accept the price you worked out, and only with inputs you may share. ${OWN_WORD}`,
+        items: {
+          ran: { label: 'I ran the local graph, and a picture appeared.', how: 'A new file in the output folder of ComfyUI.' },
+          time: { label: 'I noted the time of the local run.', how: 'ComfyUI prints “Prompt executed in … seconds”.' },
+          paid: { label: 'I ran the partner workflow once, knowing its price, and compared.', how: 'Optional. It spends credits.' },
+        },
+      },
+      assess: {
+        title: 'Is every outside call decided?',
+        body: 'Judge your own work. The app records your choice and nothing else.',
+        criteria: {
+          map: {
+            title: 'The map names every input that leaves, the provider, the region and the license.',
+            levels: { no: 'No', partly: 'Partly', yes: 'Yes' },
+            tryNext: 'Go through the partner nodes once more, input by input. Write “unknown” where the page says nothing.',
+          },
+          cost: {
+            title: 'The cost of the series is worked out with repeats.',
+            levels: { no: 'No', partly: 'Partly', yes: 'Yes' },
+            tryNext: 'Count the runs you really expect, including failed ones and changes of mind.',
+          },
+          decision: {
+            title: 'For each partner node I decided: keep it, replace it with a local node, or remove it.',
+            levels: { no: 'No', yes: 'Yes' },
+            tryNext: 'Decide node by node. A node you did not decide about is a cost and a data flow you did not choose.',
+          },
+          compare: {
+            title: 'I compared the local result with what the paid one would give, in quality, time and cost.',
+            levels: { no: 'No', partly: 'Partly', yes: 'Yes' },
+            tryNext: 'Use the rubric of the lesson “A quality rubric and a blind comparison” on the two results.',
+          },
+        },
+      },
+      recall: {
+        title: 'Check yourself',
+        body: 'Three short questions. A wrong answer costs nothing: read the explanation and go on.',
+        questions: {
+          leaves: {
+            text: 'What does a partner node send to the provider?',
+            choices: { nothing: 'Nothing, it only reads the result', inputs: 'Its inputs: prompts, pictures, video, sound', graph: 'The whole graph and your files' },
+            explain: 'The inputs linked to the node go to the provider; that is why a private picture must not be linked to it.',
+          },
+          repeat: {
+            text: 'You press Run again. Do you pay again for the partner node?',
+            choices: { free: 'Never', charged: 'Always', depends: 'Yes, unless its inputs are unchanged and ComfyUI reuses the result' },
+            explain: 'ComfyUI reuses results of nodes whose inputs did not change. Change a prompt or a seed and the node runs, and is paid, again.',
+          },
+          license: {
+            text: 'Who sets what you may do with the result of a partner node?',
+            choices: { always: 'Nobody: you paid, so it is yours', provider: 'The provider\'s terms', never: 'It can never be used commercially' },
+            explain: 'The provider\'s terms apply. The table of model providers shows the state for each; many rows are not confirmed yet.',
+          },
+        },
+      },
+      transfer: {
+        title: 'On your own: another workflow',
+        body: 'Take another workflow with partner nodes, one you found or were sent, and decide it without help.',
+        items: {
+          workflow: { label: 'I opened another workflow with partner nodes in this app and found each by its “Paid” mark.' },
+          table: { label: 'I wrote its data map and the cost of a series.' },
+          choice: { label: 'I decided each partner node and wrote why, with a local alternative where one exists.' },
+        },
+      },
+    },
+  },
 };

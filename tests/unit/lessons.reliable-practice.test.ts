@@ -22,7 +22,7 @@ describe('the lessons of the set “reliable-practice”', () => {
   it('stand in their groups: the model card with the experiments, the other three in the diagnostics group', () => {
     expect(DIAGNOSTICS_GROUP.title).toEqual({ en: 'Diagnostics, performance and safety', ru: 'Диагностика, производительность и безопасность' });
     expect(LESSON_PATH['model-card'].group.id).toBe('experiments');
-    for (const id of ['diagnose-missing', 'audit-workflow']) expect(LESSON_PATH[id].group.id).toBe('diagnostics');
+    for (const id of ['diagnose-missing', 'audit-workflow', 'partner-cost']) expect(LESSON_PATH[id].group.id).toBe('diagnostics');
     for (const lesson of RELIABLE_LESSONS) {
       expect(levelOf(lesson.id)).toBe(2);
       expect(lessonPlace(lesson.id)).toMatchObject({ priority: 'core', tracks: ['base'] });
@@ -58,6 +58,7 @@ describe('the lessons of the set “reliable-practice”', () => {
     expect([...kinds('model-card')].sort()).toEqual(['comfy-read', 'model-file', 'workflow-complete']);
     expect([...kinds('diagnose-missing')].sort()).toEqual(['comfy-read', 'node-class', 'workflow-complete']);
     expect([...kinds('audit-workflow')].sort()).toEqual(['workflow-complete']);
+    expect([...kinds('partner-cost')].sort()).toEqual(['workflow-complete', 'workflow-partner']);
   });
 
   it('mention the app\'s own tools by the names the window shows', () => {
@@ -67,6 +68,8 @@ describe('the lessons of the set “reliable-practice”', () => {
     expect(en).toContain('“Explain a ComfyUI error…”');
     expect(ru).toContain('«Проверить граф»');
     expect(ru).toContain('«Разобрать ошибку ComfyUI…»');
+    expect(en).toContain('“Paid”');
+    expect(ru).toContain('«Платная»');
   });
 });
 
@@ -74,6 +77,19 @@ describe('what the app checks in these lessons', () => {
   it('holds a LoRA to the family of the checkpoint (model-card)', () => {
     const step = lessonById('model-card')!.steps.find((item) => item.id === 'lora')!;
     expect(step.fields).toEqual([expect.objectContaining({ role: 'lora', field: 'lora_name', test: { kind: 'sameFamily', role: 'checkpoint', field: 'ckpt_name' }, why: 'sameFamily' })]);
+  });
+
+  it('refuses the local graph while a partner node is on the canvas (partner-cost)', () => {
+    const lesson = lessonById('partner-cost')!;
+    const condition = lesson.steps.find((step) => step.id === 'local')!.readCheck![0];
+    const graph: LessonGraph = { nodes: [{ id: '1', classType: 'PaidNode', inputs: [], outputs: [], values: {} }, { id: '2', classType: 'KSampler', inputs: [], outputs: [], values: {} }], links: [] } as unknown as LessonGraph;
+    const facts = (paid: boolean) => ({ catalogRead: true, installed: () => true, partner: (classType: string) => paid && classType === 'PaidNode' });
+    expect(readVerdict(condition, graph, facts(true))).toBe('fails');
+    expect(readVerdict(condition, graph, facts(false))).toBe('holds');
+    // "I checked it myself" never overrules a check that fails.
+    const step = lesson.steps.find((item) => item.id === 'local')!;
+    expect(personStepDone(step, { [SELF_CHECK]: TICK }, graph, facts(true))).toBe(false);
+    expect(personStepDone(step, { [SELF_CHECK]: TICK }, graph, facts(false))).toBe(true);
   });
 
   it('says a run only on a run tick (diagnose-missing)', () => {
