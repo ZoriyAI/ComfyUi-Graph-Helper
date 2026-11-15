@@ -318,8 +318,18 @@ test('keyboard and screen reader: names, focus after actions, F6, library card, 
     await page.keyboard.press('F1');
     await expect(page.locator('.shortcuts-dialog')).toBeVisible();
     await expect(page.locator('.shortcuts-dialog')).toContainText('F6');
+    // The dialog holds the focus once it is ready for keys (Radix moves it in when it mounts); Escape is sent then.
+    await expect.poll(async () => page.evaluate(() => document.activeElement?.closest('.shortcuts-dialog') != null)).toBe(true);
     await page.keyboard.press('Escape');
-    await expect(page.locator('.shortcuts-dialog')).toHaveCount(0);
+    // Radix gives Escape to the newest layer only: should the dialog stay, the message names what was open with it.
+    await expect(page.locator('.shortcuts-dialog')).toHaveCount(0).catch(async (error: Error) => {
+      const layers = await page.evaluate(() => [
+        `focus=${document.activeElement?.tagName}.${String(document.activeElement?.className).slice(0, 60)}`,
+        ...Array.from(document.querySelectorAll('[role="dialog"], [role="alertdialog"], [role="menu"], .app-toast, [data-radix-popper-content-wrapper]'))
+          .map((element) => `${element.getAttribute('role') ?? element.className}: ${element.getAttribute('data-state') ?? ''} ${element.textContent?.trim().slice(0, 60)}`),
+      ]).catch(() => []);
+      throw new Error(`${error.message}\nOpen layers after Escape:\n${layers.join('\n')}`);
+    });
     await expect.poll(active).toMatch(/^react-flow__node\|Checkpoint A/);
 
     // F6 visits the areas; Shift+F6 goes back to the canvas.
@@ -349,10 +359,15 @@ test('keyboard and screen reader: names, focus after actions, F6, library card, 
     // The library: Space opens a node's card and moves focus into it; Escape gives focus back to the list.
     await page.getByRole('searchbox').first().focus();
     await page.keyboard.type('KSampler');
+    // The search runs a moment after the last key (a short pause, then main); the rows must be its answer before the
+    // arrows pick one, or Space opens the card of a row of the list before it and the answer then closes that card.
+    // Its answer starts with the category header, then the KSampler rows; the second arrow lands on the first of them.
+    await expect(page.locator('#node-library-list [role="option"]').nth(1)).toContainText('KSampler');
     await page.keyboard.press('ArrowDown');
     await page.keyboard.press('ArrowDown');
     await page.keyboard.press('Space');
     await expect(page.locator('.node-card')).toBeVisible();
+    await expect(page.locator('.node-card')).toHaveAttribute('data-node-class', /KSampler/);
     await expect.poll(async () => page.evaluate(() => document.activeElement?.closest('.node-card') != null)).toBe(true);
     await page.keyboard.press('Escape');
     await expect(page.locator('.node-card')).toHaveCount(0);
