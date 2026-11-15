@@ -5,7 +5,7 @@
 
 ComfyUI работает на другом компьютере вашей сети (компьютер с видеокартой, домашний сервер), NodeWise Studio на этом.
 
-<!-- verify: checked against test servers that speak ComfyUI's routes; not yet run against a real ComfyUI install. -->
+Пока не проверено на настоящей установке: страница сверена с тестовыми серверами, которые отвечают так же, как ComfyUI.
 
 ## На компьютере с ComfyUI
 

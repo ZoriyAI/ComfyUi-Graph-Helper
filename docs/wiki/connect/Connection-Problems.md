@@ -6,7 +6,7 @@
 Every message about the connection, what causes it and what to do. They appear under the address in Settings ▸
 Connection, in the sync indicator's popover and as notices.
 
-<!-- verify: checked against test servers that speak ComfyUI's routes; not yet run against a real ComfyUI install. -->
+Not tried yet on a real install: this page was checked against test servers that answer the way ComfyUI does.
 
 ## The ComfyUI address
 
@@ -26,7 +26,7 @@ Connection, in the sync indicator's popover and as notices.
 | "Something answers at this address, but it is not ComfyUI…" | A wrong port or another program. | ComfyUI usually uses 8188, the desktop app 8000. |
 | "ComfyUI answered, but its list of nodes could not be read…" | ComfyUI is still starting. | Wait until it has started, then try again. |
 | "The address sends the app to another page…" | A redirect, for example a proxy with a sign-in page. | Enter the address of ComfyUI itself. |
-| "Catalog snapshot is too large." | The list of nodes is larger than 512 MB. | Report it in Issues. |
+| "The node list file is too large." | The list of nodes is larger than 512 MB. | Report it in Issues. |
 
 ## Warnings after a read
 
@@ -45,8 +45,8 @@ These do not stop the read; the rest of the library is updated.
 | "This is the address of ComfyUI itself…" | ComfyUI's address in the MCP field. | Move it to the ComfyUI address field. |
 | "Something answers at this address, but there is no MCP server at this path…" | A wrong path. | An MCP address usually ends with `/mcp`. |
 | "Something answers at this address, but it is not an MCP server…" | A wrong port or path. | Copy the address the server shows when it starts. |
-| "The MCP server URL must use https unless the server runs on this computer." | Plain `http` to another computer. | Use `https`, or run the server on this computer. |
-| "The MCP server requires sign-in…" | The server needs access. | Choose Access token or Sign in through the browser. |
+| "The MCP server address must start with https:// unless the server runs on this computer." | Plain `http` to another computer. | Use `https`, or run the server on this computer. |
+| "The MCP server requires sign-in…" | The server needs access. | Choose Token or Sign in through the browser. |
 | "The MCP server refused the token…" | A wrong or expired token. | Paste the token again. |
 | "MCP server unreachable: …" | The server is not running or the address is wrong. | Start it; check the address. |
 | "The MCP server answers, but the app does not know its tools…" | An unknown server and no ComfyUI address. | Enter the ComfyUI address: everything is then read from ComfyUI. |
