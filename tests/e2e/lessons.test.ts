@@ -210,10 +210,10 @@ test('lessons: the list fits ComfyUI, a lesson is followed by hand, and the grap
     // Back in the list the lesson stays finished: a changed canvas does not undo what the person learned.
     await panel(page).getByRole('button', { name: 'All lessons', exact: true }).click();
     await expect(panel(page).locator('[data-lesson-card="image"]')).toHaveAttribute('data-lesson-state', 'done');
-    await expect(panel(page).locator('[data-lesson-card="image"]').getByRole('button', { name: 'Go through it again', exact: true })).toBeVisible();
+    await expect(panel(page).locator('[data-lesson-card="image"]').getByRole('button', { name: 'Start over', exact: true })).toBeVisible();
 
     // Going through it again starts from its first step; a question about a step goes to the conversation as an ordinary question.
-    await panel(page).locator('[data-lesson-card="image"]').getByRole('button', { name: 'Go through it again', exact: true }).click();
+    await panel(page).locator('[data-lesson-card="image"]').getByRole('button', { name: 'Start over', exact: true }).click();
     await panel(page).getByRole('button', { name: 'Ask the assistant about this step', exact: true }).click();
     await expect(panel(page)).toHaveCount(0);
     await expect(page.locator('.chat-log')).toContainText('Explain a step of the lesson “A first picture from text”. The step: How a graph works.');

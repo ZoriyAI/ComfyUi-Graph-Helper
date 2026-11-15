@@ -50,7 +50,7 @@ describe('what a lesson says is still to do', () => {
     const progress = lessonProgress(lesson, graph, {}, new Set(['intro']));
     const lines = lackLines(tr, progress.missing, lesson, context(graph, progress.roles)).map((line) => line.text);
     expect(lines).toHaveLength(1);
-    expect(lines[0]).toMatch(/^The two prompts are swapped: the input (positive|negative) of "KSampler" gets "CLIP Text Encode \(Prompt\)/);
+    expect(lines[0]).toMatch(/^The two prompts are swapped: the input (positive|negative) of “KSampler” gets “CLIP Text Encode \(Prompt\)/);
   });
 
   it('tells two alike nodes apart by their part in the lesson, and leaves a single node as it is', () => {
@@ -67,7 +67,7 @@ describe('what a lesson says is still to do', () => {
     graph.nodes[4] = { ...graph.nodes[4], classType: 'KSamplerAdvanced' };
     const progress = lessonProgress(lesson, graph, {}, new Set(['intro']));
     const lines = lackLines(tr, progress.missing, lesson, context(graph, progress.roles)).map((line) => line.text);
-    expect(lines[0]).toContain('The canvas has "KSamplerAdvanced", but this step needs "KSampler".');
+    expect(lines[0]).toContain('The canvas has “KSamplerAdvanced”, but this step needs “KSampler”.');
   });
 
   it('gives the reason of a number, and says a fresh node\'s own number is not a choice', () => {
@@ -75,7 +75,7 @@ describe('what a lesson says is still to do', () => {
     const missing = [{ kind: 'field' as const, role: 'samplerB', nodeId: 'ks', field: 'denoise', test: { kind: 'between' as const, min: 0.2, max: 0.5, prefer: 0.5 }, value: 1, absent: false, other: null, reason: 'denoise' }];
     const graph = picture(false);
     const [line] = lackLines(tr, missing, lesson, context(graph, {}));
-    expect(line.text).toBe('The field denoise of "KSampler" is 1. Set it from 0.2 to 0.5. The step says 0.5. This is how much of the picture the second model redraws. At 0.5 the composition stays and the texture changes.');
+    expect(line.text).toBe('The field denoise of “KSampler” is 1. Set it from 0.2 to 0.5. The step says 0.5. This is how much of the picture the second model redraws. At 0.5 the composition stays and the texture changes.');
     const [fresh] = lackLines(tr, [{ ...missing[0], value: 0.2, untouched: true }], lesson, context(graph, {}));
     expect(fresh.text).toContain('still holds 0.2, the number a new node starts with. Set 0.5.');
   });
