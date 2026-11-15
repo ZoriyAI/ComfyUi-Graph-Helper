@@ -76,6 +76,114 @@ function service(factory: () => Promise<McpSession>, extra: Partial<ConstructorP
 
 const records = (db: Database.Database) => JSON.parse((db.prepare("SELECT value FROM sync_state WHERE key = 'enrich_failures'").get() as { value: string } | undefined)?.value ?? '{}') as Record<string, { attempts: number; reason?: string }>;
 
+/** A controlled result, so cancellation can happen while a read is waiting. */
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((done) => { resolve = done; });
+  return { promise, resolve };
+}
+
+/** A failed file from a real fake-server sync, with its next read held until the test answers. */
+async function heldRetry() {
+  const db = openDb();
+  const origin = { url: 'https://mcp.example.test/mcp' };
+  const gate = deferred<McpToolCallResult>();
+  const entered = deferred<void>();
+  let held = false;
+  let closes = 0;
+  const fake = server((name) => name === 'c.safetensors' ? new Error('fixture-read-failed') : header());
+  const sync = service(async () => {
+    const session = await fake.open();
+    return {
+      ...session,
+      callTool: async (name, args) => {
+        if (held && name === 'model_metadata' && args.name === 'c.safetensors') {
+          entered.resolve(undefined);
+          return gate.promise;
+        }
+        return session.callTool(name, args);
+      },
+      close: async () => { if (held) closes += 1; await session.close(); },
+    };
+  }, { readUrl: () => origin.url });
+  await sync.runSync(db);
+  await sync.whenEnrichmentDone();
+  held = true;
+  const snapshot = () => ({
+    row: db.prepare('SELECT * FROM model_catalog WHERE directory = ? AND name = ?').get('loras', 'c.safetensors'),
+    failures: records(db),
+    revision: db.prepare("SELECT value FROM sync_state WHERE key = 'catalog_revision'").get(),
+  });
+  return { db, sync, origin, gate, entered, snapshot, connections: fake.connections, closes: () => closes };
+}
+
+describe('a retry owns its captured source and file', () => {
+  it.each(['stop', 'address', 'root', 'size', 'time'].flatMap((change) => ['success', 'failure'].map((answer) => ({ change, answer }))))('drops a late $answer after $change without changing catalog or failures', async ({ change, answer }) => {
+    const held = await heldRetry();
+    const pending = held.sync.retryItem(held.db, 'loras', 'c.safetensors');
+    await held.entered.promise;
+    if (change === 'stop') held.sync.stop();
+    if (change === 'address') { held.origin.url = 'https://other.example.test/mcp'; held.sync.addressChanged(held.db); }
+    if (change === 'root') held.db.prepare('UPDATE model_catalog SET root_path = ? WHERE name = ?').run('/other/loras', 'c.safetensors');
+    if (change === 'size') held.db.prepare('UPDATE model_catalog SET size_bytes = ? WHERE name = ?').run(99, 'c.safetensors');
+    if (change === 'time') held.db.prepare('UPDATE model_catalog SET synced_at = ? WHERE name = ?').run(NOW + 1, 'c.safetensors');
+    const before = held.snapshot();
+    held.gate.resolve(answer === 'success' ? header() : { isError: true, content: [{ type: 'text', text: 'fixture-late-failure' }] });
+    expect((await pending).outcome).toBe('cancelled');
+    expect(held.snapshot()).toEqual(before);
+    expect(held.closes()).toBe(1);
+    held.sync.stop();
+    held.db.close();
+  });
+
+  it('keeps a retry, another retry, full sync and retry-all from overlapping', async () => {
+    const held = await heldRetry();
+    const pending = held.sync.retryItem(held.db, 'loras', 'c.safetensors');
+    await held.entered.promise;
+    const connections = held.connections();
+    const before = records(held.db);
+    const second = held.sync.retryItem(held.db, 'loras', 'c.safetensors');
+    const all = held.sync.retryAll(held.db);
+    const full = held.sync.runSync(held.db);
+    const whileWaiting = records(held.db);
+    held.gate.resolve(header());
+    const [first, again, allStatus, fullStatus] = await Promise.all([pending, second, all, full]);
+    expect(first.outcome).toBe('read');
+    expect(again.outcome).toBe('busy');
+    expect(allStatus.state).toBe('running');
+    expect(fullStatus.state).toBe('running');
+    expect(whileWaiting).toEqual(before);
+    expect(held.connections()).toBe(connections);
+    expect(held.closes()).toBe(1);
+    held.sync.stop();
+    held.db.close();
+  });
+
+  it('aborts a direct read on stop and drops its late answer', async () => {
+    const db = openDb();
+    db.prepare('INSERT INTO model_catalog (directory, name, root_path, size_bytes, synced_at) VALUES (?, ?, ?, ?, ?)').run('loras', 'c.safetensors', '/m/loras', 1, NOW);
+    db.prepare('INSERT INTO sync_state (key, value) VALUES (?, ?)').run('comfy_read_origin', 'http://127.0.0.1:29100');
+    const entered = deferred<void>();
+    const answer = deferred<Response>();
+    let signal: AbortSignal | null = null;
+    const sync = service(async () => { throw new Error('MCP must not be used'); }, {
+      readUrl: () => '', readComfyOrigin: () => 'http://127.0.0.1:29100',
+      fetchImpl: (async (_url, init) => { signal = init?.signal as AbortSignal; entered.resolve(undefined); return answer.promise; }) as typeof fetch,
+    });
+    const before = db.prepare('SELECT * FROM model_catalog').all();
+    const pending = sync.retryItem(db, 'loras', 'c.safetensors');
+    await entered.promise;
+    sync.stop();
+    const aborted = (signal as AbortSignal | null)?.aborted;
+    answer.resolve(new Response(JSON.stringify({ ss_base_model_version: 'sdxl_base_v1-0' }), { headers: { 'content-type': 'application/json' } }));
+    expect((await pending).outcome).toBe('cancelled');
+    expect(aborted).toBe(true);
+    expect(db.prepare('SELECT * FROM model_catalog').all()).toEqual(before);
+    expect(records(db)).toEqual({});
+    db.close();
+  });
+});
+
 describe('sorting a failed read', () => {
   it('tells the connection apart from the file', () => {
     // What a gateway in front of a dead reader answers, and what the transport here says when a socket closes.

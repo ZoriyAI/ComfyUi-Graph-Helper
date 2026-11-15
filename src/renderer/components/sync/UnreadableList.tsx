@@ -55,7 +55,8 @@ export default function UnreadableList({ status }: { status: SyncStatus | null }
       useKnowledgeStore.getState().setSync(result.status);
       const key = result.outcome === 'read' ? 'sync.unread.readNow'
         : result.outcome === 'busy' ? 'sync.unread.busy'
-          : result.outcome === 'unavailable' ? 'sync.unread.unavailable' : 'sync.unread.failedAgain';
+          : result.outcome === 'unavailable' ? 'sync.unread.unavailable'
+            : result.outcome === 'cancelled' ? 'sync.unread.cancelled' : 'sync.unread.failedAgain';
       setNote(String(t(key, { name: row.name })));
     } catch {
       setNote(String(t('sync.unread.failedAgain', { name: row.name })));

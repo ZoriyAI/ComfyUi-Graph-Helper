@@ -62,6 +62,15 @@ test('a file that breaks the connection is skipped, listed with its reason, retr
     await expect(report.getByText(`“${BROKEN}” could not be read again.`)).toBeVisible();
     expect(fake.calls.filter((call) => call.tool === 'model_metadata' && call.args?.name === BROKEN).length).toBe(before + 1);
 
+    // The cancelled outcome has its own words; source cancellation itself is covered with held reads in unit tests.
+    const retryStatus = await window.evaluate(() => (window as unknown as { electronAPI: { syncStatus: () => Promise<unknown> } }).electronAPI.syncStatus());
+    await app.evaluate(({ ipcMain }, status) => {
+      ipcMain.removeHandler('sync:retry-item');
+      ipcMain.handle('sync:retry-item', () => ({ status, outcome: 'cancelled' }));
+    }, retryStatus);
+    await row.getByRole('button', { name: `Try again now: ${BROKEN}` }).click();
+    await expect(report.getByText(`Reading “${BROKEN}” was canceled because the connection or file changed. Try again.`)).toBeVisible();
+
     // "Skip this file": the row stays, marked skipped, and is no longer counted as a failure.
     await row.getByRole('switch', { name: `Skip this file: ${BROKEN}` }).click();
     await expect(row).toContainText('Skipped: not read until you turn the switch off.');

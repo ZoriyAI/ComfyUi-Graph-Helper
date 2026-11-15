@@ -402,8 +402,8 @@ export interface UnreadableItem {
 /** The result of Settings ▸ Sync ▸ "Try again now" for one file. */
 export interface RetryItemResult {
   status: SyncStatus;
-  /** read: the file is read now; failed: it failed again (its row says why); busy: a sync is running, try after it. */
-  outcome: 'read' | 'failed' | 'busy' | 'unavailable';
+  /** read: accepted; failed: failed again; busy: another read runs; cancelled: its source or file changed. */
+  outcome: 'read' | 'failed' | 'busy' | 'unavailable' | 'cancelled';
 }
 
 /**

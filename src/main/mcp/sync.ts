@@ -354,6 +354,8 @@ interface RunTicket {
   generation: number;
   cancelled: boolean;
   session: McpSession | null;
+  /** All cancellation paths await the same close, including a close already in progress. */
+  closing?: Promise<void>;
 }
 
 /** One run's metadata reading: the first batch inside the run, then batches in the background on the same session. */
@@ -400,6 +402,7 @@ interface EnrichRun {
 export class SyncService {
   private db: Database.Database | null = null;
   private running: Promise<SyncStatus> | null = null;
+  private retrying: Promise<RetryItemResult> | null = null;
   private progress: SyncStatus['progress'] = null;
   private timer: ReturnType<typeof setTimeout> | null = null;
   private nextRunAt: number | null = null;
@@ -451,7 +454,7 @@ export class SyncService {
     const lastSyncAt = numberOrNull(state.last_sync_at);
     const lastError = state.last_error ? state.last_error : null;
     let phase: SyncStatus['state'] = 'never';
-    if (this.running) phase = 'running';
+    if (this.running || this.retrying) phase = 'running';
     else if (lastError) phase = 'error';
     else if (lastSyncAt != null) phase = 'idle';
     const mcpUrl = this.deps.readUrl(db);
@@ -459,6 +462,7 @@ export class SyncService {
     const metadata = this.metadataCounts(db);
     let progress: SyncStatus['progress'] = null;
     if (this.running) progress = this.progress;
+    else if (this.retrying) progress = { phase: 'enrichment', done: 0, total: 1 };
     else if (this.background) progress = { phase: 'enrichment', done: metadata.done, total: metadata.total };
     return {
       state: phase,
@@ -471,7 +475,7 @@ export class SyncService {
       counts: catalogTotals(db),
       progress,
       nextRunAt: this.nextRunAt,
-      startupPending: this.startupPending && !this.running,
+      startupPending: this.startupPending && !this.running && !this.retrying,
       autoHeld: this.autoHeld,
       lastRunAt: numberOrNull(state.last_run_at),
       lastRunDurationMs: numberOrNull(state.last_run_duration_ms),
@@ -496,6 +500,7 @@ export class SyncService {
   runSync(db: Database.Database, fetchImpl: typeof fetch = this.deps.fetchImpl, factory: McpSessionFactory = this.deps.factory): Promise<SyncStatus> {
     this.db = db;
     if (this.running) return this.running;
+    if (this.retrying) return Promise.resolve(this.status(db));
     if (this.background) return Promise.resolve(this.status(db));
     // No address yet: there is nothing to read and nothing failed. The status (both addresses '') says what is
     // missing; an earlier "address is empty" error is not kept as a red failure.
@@ -576,12 +581,12 @@ export class SyncService {
     if (ticket) {
       ticket.cancelled = true;
       ticket.controller.abort();
-      if (this.running) void this.closeTicket(ticket);
+      if (this.running || this.retrying) void this.closeTicket(ticket);
     }
     this.cancelEnrichment();
     if (this.webRun) this.webRun.cancelled = true;
     const auto = autoOf(readStateSafe(db));
-    const after = this.running ?? Promise.resolve(this.status(db));
+    const after = this.running ?? this.retrying ?? Promise.resolve(this.status(db));
     void after.catch(() => undefined).then(() => {
       if (generation !== this.generation) return;
       if (auto.enabled && this.hasAddress(db)) this.runAuto(db);
@@ -616,7 +621,7 @@ export class SyncService {
     if (this.ticket) {
       this.ticket.cancelled = true;
       this.ticket.controller.abort();
-      if (this.running) void this.closeTicket(this.ticket);
+      if (this.running || this.retrying) void this.closeTicket(this.ticket);
     }
     this.clearSchedule();
     this.cancelEnrichment();
@@ -855,55 +860,74 @@ export class SyncService {
    * connection of its own (the way the last sync read it: the MCP server's metadata tool, or ComfyUI itself). The
    * row goes away when the read worked, or says again why it did not. Refused while a sync runs ('busy').
    */
-  async retryItem(db: Database.Database, directory: string, name: string, fetchImpl: typeof fetch = this.deps.fetchImpl, factory: McpSessionFactory = this.deps.factory): Promise<RetryItemResult> {
+  retryItem(db: Database.Database, directory: string, name: string, fetchImpl: typeof fetch = this.deps.fetchImpl, factory: McpSessionFactory = this.deps.factory): Promise<RetryItemResult> {
     this.db = db;
-    if (this.running || this.background) return { status: this.status(db), outcome: 'busy' };
+    if (this.running || this.background || this.retrying) return Promise.resolve({ status: this.status(db), outcome: 'busy' });
     const key = fileKey(directory, name);
     const state = readState(db);
-    const row = db.prepare(`SELECT ${ENRICH_COLUMNS} FROM model_catalog WHERE directory = ? AND name = ?`).get(directory, name) as EnrichRow | undefined;
-    if (!row || !isHeaderFile(name)) return { status: this.status(db), outcome: 'unavailable' };
+    const readRow = () => db.prepare(`SELECT ${ENRICH_COLUMNS}, size_bytes, synced_at, sha256 FROM model_catalog WHERE directory = ? AND name = ?`).get(directory, name) as (EnrichRow & { size_bytes: number | null; synced_at: number | null; sha256: string | null }) | undefined;
+    const row = readRow();
+    if (!row || !isHeaderFile(name)) return Promise.resolve({ status: this.status(db), outcome: 'unavailable' });
     const url = this.readUrlSafe(db);
-    let session: McpSession | null = null;
-    if (url && state[MCP_PROFILE_KEY] === 'catalog' && state.header_metadata_tool === '1') {
-      this.deps.checkTokenOrigin(url);
-      const { token, authProvider } = await this.credentials(db, url);
-      const opened = await openReadOnlySession({ url, token, authProvider }, factory);
-      if (opened.ok) session = opened.session;
-    } else if (state[COMFY_READ_ORIGIN_KEY]) {
-      session = comfyMetadataSession(state[COMFY_READ_ORIGIN_KEY], fetchImpl);
-    }
-    let failure: ReadFailure;
-    if (!session) {
-      failure = { reason: 'notConnected' };
-    } else {
+    const comfyOrigin = this.readComfyOriginSafe(db);
+    const sourceKeys = [COMFY_READ_ORIGIN_KEY, 'catalog_source_key', MCP_PROFILE_KEY, 'header_metadata_tool'];
+    const ticket: RunTicket = { cancelled: false, session: null, controller: new AbortController(), generation: ++this.generation };
+    this.ticket = ticket;
+    const current = () => {
+      if (!this.isCurrent(ticket) || url !== this.readUrlSafe(db) || comfyOrigin !== this.readComfyOriginSafe(db)) return false;
+      const now = readState(db);
+      if (sourceKeys.some((key) => (now[key] ?? '') !== (state[key] ?? ''))) return false;
+      if (JSON.stringify(readSkipped(now)[key]) !== JSON.stringify(readSkipped(state)[key])) return false;
+      const fresh = readRow();
+      return !!fresh && (['root_path', 'size_bytes', 'synced_at', 'sha256', 'sidecar_sig', 'sidecar_file'] as const).every((field) => fresh[field] === row[field]);
+    };
+    this.retrying = (async (): Promise<RetryItemResult['outcome']> => {
+      let outcome: MetadataOutcome = { ok: false, failure: { reason: 'notConnected' } };
       try {
-        const outcome = await readMetadata(session, directory, name);
+        if (url && state[MCP_PROFILE_KEY] === 'catalog' && state.header_metadata_tool === '1') {
+          this.deps.checkTokenOrigin(url);
+          const { token, authProvider } = await this.credentials(db, url);
+          if (!current()) return 'cancelled';
+          const opened = await openReadOnlySession({ url, token, authProvider }, factory);
+          if (opened.ok) ticket.session = opened.session;
+        } else if (state[COMFY_READ_ORIGIN_KEY]) {
+          ticket.session = comfyMetadataSession(state[COMFY_READ_ORIGIN_KEY], fetchImpl, ticket.controller.signal);
+        }
+        if (!current()) return 'cancelled';
+        if (ticket.session) outcome = await readMetadata(ticket.session, directory, name);
+      } catch (error) {
+        outcome = { ok: false, failure: error instanceof McpRefusedError ? { reason: 'serverError' } : classifyReadError(error) };
+      }
+      // Both accepted facts and failure bookkeeping belong to the captured file and source.
+      return db.transaction((): RetryItemResult['outcome'] => {
+        if (!current()) return 'cancelled';
+        const failures = readFailures(readState(db));
         if (outcome.ok) {
-          db.transaction(() => {
-            writeModelEnrichment(db, directory, name, enrichmentOf(directory, name, outcome.parsed, null, this.deps.now()));
-            bumpCatalogRevision(db);
-          }).immediate();
-          const failures = readFailures(readState(db));
+          writeModelEnrichment(db, directory, name, enrichmentOf(directory, name, outcome.parsed, null, this.deps.now()));
+          bumpCatalogRevision(db);
           delete failures[key];
           writeState(db, { [ENRICH_FAILURES_KEY]: JSON.stringify(failures) });
-          return { status: this.emit(db), outcome: 'read' };
+          return 'read';
         }
-        failure = outcome.failure;
-      } catch (error) {
-        failure = error instanceof McpRefusedError ? { reason: 'serverError' } : classifyReadError(error);
-      } finally {
-        await session.close().catch(() => undefined);
+        failures[key] = {
+          attempts: (failures[key]?.attempts ?? 0) + 1,
+          lastAt: this.deps.now(),
+          reason: outcome.failure.reason,
+          ...(outcome.failure.detail ? { detail: outcome.failure.detail } : {}),
+        };
+        writeState(db, { [ENRICH_FAILURES_KEY]: JSON.stringify(failures) });
+        return 'failed';
+      }).immediate();
+    })().finally(async () => {
+      await this.closeTicket(ticket);
+      if (this.ticket === ticket) {
+        this.ticket = null;
+        this.retrying = null;
       }
-    }
-    const failures = readFailures(readState(db));
-    failures[key] = {
-      attempts: (failures[key]?.attempts ?? 0) + 1,
-      lastAt: this.deps.now(),
-      reason: failure.reason,
-      ...(failure.detail ? { detail: failure.detail } : {}),
-    };
-    writeState(db, { [ENRICH_FAILURES_KEY]: JSON.stringify(failures) });
-    return { status: this.emit(db), outcome: 'failed' };
+      this.emit(db);
+    }).then((outcome) => ({ status: this.status(db), outcome }));
+    this.emit(db);
+    return this.retrying;
   }
 
   /**
@@ -930,14 +954,17 @@ export class SyncService {
   /** Settings ▸ Sync ▸ "Try all again": every wait is cleared (skipped files stay skipped) and a sync starts. */
   retryAll(db: Database.Database): Promise<SyncStatus> {
     this.db = db;
-    if (!this.running && !this.background) writeState(db, { [ENRICH_FAILURES_KEY]: '{}' });
+    if (!this.running && !this.background && !this.retrying) writeState(db, { [ENRICH_FAILURES_KEY]: '{}' });
     return this.runSync(db);
   }
 
   private async closeTicket(ticket: RunTicket): Promise<void> {
     const session = ticket.session;
     ticket.session = null;
-    await session?.close().catch(() => undefined);
+    if (!session) { await ticket.closing; return; }
+    // A fallback may open another session on the same ticket after the earlier one closed.
+    ticket.closing = (ticket.closing ?? Promise.resolve()).then(() => session.close()).catch(() => undefined);
+    await ticket.closing;
   }
 
   private isCurrent(ticket: RunTicket): boolean {
