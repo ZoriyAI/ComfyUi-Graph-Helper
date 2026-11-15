@@ -3,7 +3,7 @@
   border-radius: var(--radius-sm);
   background: linear-gradient(90deg, var(--surface-raised) 0%, var(--surface-hover) 50%, var(--surface-raised) 100%);
   background-size: 200% 100%;
-  animation: shimmer 1400ms linear infinite;
+  animation: shimmer var(--motion-pulse) linear infinite;
 }
 :global(html[data-motion="off"]) .skeleton, :global(html[data-motion="reduced"]) .skeleton { animation: none; }
 @media (prefers-reduced-motion: reduce) { :global(html[data-motion="system"]) .skeleton { animation: none; } }

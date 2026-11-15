@@ -71,7 +71,7 @@
   border-radius: 50%;
   border: 2px solid currentColor;
   border-right-color: transparent;
-  animation: spin 800ms linear infinite;
+  animation: spin var(--motion-spin) linear infinite;
 }
 :global(html[data-motion="off"]) .spinner { animation: none; border-right-color: currentColor; opacity: 0.6; }
 @keyframes spin { to { transform: rotate(360deg); } }

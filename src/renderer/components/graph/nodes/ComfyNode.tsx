@@ -19,4 +19,13 @@ function ComfyNode({ id, data: rawData, selected }: NodeProps) {
   return <NodeCard id={id} data={data} connected={connected} state={{ ...flags, selected: Boolean(selected) }} />;
 }
 
-export default memo(ComfyNode);
+/**
+ * Redrawn only when what it shows changes: its data or its selection. React Flow also passes the measured size and
+ * the position, which change for every node at once when the overview level folds or unfolds the cards; redrawing
+ * a thousand cards for that took seconds (motion package, zoom performance).
+ */
+export function sameNodeProps(previous: Pick<NodeProps, 'id' | 'data' | 'selected'>, next: Pick<NodeProps, 'id' | 'data' | 'selected'>): boolean {
+  return previous.id === next.id && previous.data === next.data && previous.selected === next.selected;
+}
+
+export default memo(ComfyNode, sameNodeProps);

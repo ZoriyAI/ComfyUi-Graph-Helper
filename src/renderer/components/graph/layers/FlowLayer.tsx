@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { parseDuration, type MotionLevel } from '../lib/motion';
+import { tokenMs, type MotionLevel } from '../../../motion/policy';
 import styles from './FlowLayer.module.css';
 
 /**
@@ -11,7 +11,7 @@ import styles from './FlowLayer.module.css';
  * edges through CanvasViewContext; TypedEdge renders this component for each flowing edge.
  */
 export function EdgePulse({ path, color, motion, target }: { path: string; color: string; motion: MotionLevel; target: { x: number; y: number } }) {
-  const seconds = useMemo(() => parseDuration(getComputedStyle(document.documentElement).getPropertyValue('--motion-pulse'), 1400) / 1000, []);
+  const seconds = useMemo(() => tokenMs('--motion-pulse') / 1000, []);
   if (motion !== 'full') {
     return <circle className={styles.static} cx={target.x - 10} cy={target.y} r={4} fill={color} data-flow="static" />;
   }

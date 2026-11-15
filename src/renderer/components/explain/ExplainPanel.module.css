@@ -69,7 +69,7 @@
   font: inherit;
   font-size: var(--text-xs);
   cursor: pointer;
-  transition: background var(--motion-feedback, 100ms) ease;
+  transition: background var(--motion-feedback, 100ms) var(--motion-ease-out);
 }
 .button:hover:not(:disabled) { background: var(--surface-hover); }
 .button:focus-visible, .field:focus-visible, .history button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }

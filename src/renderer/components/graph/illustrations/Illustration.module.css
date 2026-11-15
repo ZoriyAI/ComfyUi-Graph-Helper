@@ -12,13 +12,13 @@
 .ink { stroke: currentColor; stroke-width: 1.2; fill: none; stroke-linecap: round; }
 
 /* Animations play only on the animated variant and only when motion is full. */
-.animated .sweep { animation: sweep 1.6s var(--motion-ease-out, ease-out) 1; }
-.animated .grow { transform-box: fill-box; transform-origin: bottom; animation: grow 1.2s var(--motion-ease-out, ease-out) 1 both; }
-.animated .fadeIn { animation: fadeIn 1.4s var(--motion-ease-out, ease-out) 1 both; }
-.animated .slide { animation: slide 1.4s var(--motion-ease-out, ease-out) 1 both; }
-.animated .draw { stroke-dasharray: 1; stroke-dashoffset: 0; animation: draw 1.6s var(--motion-ease-out, ease-out) 1 both; }
-.animated .twinkle { animation: twinkle 1.2s ease-in-out 1; }
-.animated .travel { animation: travel 1.4s var(--motion-ease-out, ease-out) 1 both; }
+.animated .sweep { animation: sweep var(--motion-play) var(--motion-ease-out, ease-out) 1; }
+.animated .grow { transform-box: fill-box; transform-origin: bottom; animation: grow var(--motion-play) var(--motion-ease-out, ease-out) 1 both; }
+.animated .fadeIn { animation: fadeIn var(--motion-play) var(--motion-ease-out, ease-out) 1 both; }
+.animated .slide { animation: slide var(--motion-play) var(--motion-ease-out, ease-out) 1 both; }
+.animated .draw { stroke-dasharray: 1; stroke-dashoffset: 0; animation: draw var(--motion-play) var(--motion-ease-out, ease-out) 1 both; }
+.animated .twinkle { animation: twinkle var(--motion-play) var(--motion-ease-in-out) 1; }
+.animated .travel { animation: travel var(--motion-play) var(--motion-ease-out, ease-out) 1 both; }
 
 @keyframes sweep { from { transform: translateX(-90px); } to { transform: translateX(0); } }
 @keyframes grow { from { transform: scaleY(0.1); } to { transform: scaleY(1); } }

@@ -120,7 +120,7 @@
   vertical-align: text-bottom;
   background: var(--accent);
   border-radius: 1px;
-  animation: chat-cursor 1s steps(2, start) infinite;
+  animation: chat-cursor var(--motion-blink) steps(2, start) infinite;
 }
 @keyframes chat-cursor { to { visibility: hidden; } }
 :global(html[data-motion="off"]) .cursor,

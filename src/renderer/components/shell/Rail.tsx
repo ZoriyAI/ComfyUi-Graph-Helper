@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import IconButton from '../../ui/IconButton';
 import { TabsContent, TabsList, TabsRoot, TabsTrigger } from '../../ui/Tabs';
 import { cx } from '../../ui/cx';
-import { motionIsFull } from '../../motion/policy';
+import { EASE_OUT, useMotionTimings } from '../../motion/policy';
 import { RAIL_AUTO_COLLAPSE, RAIL_STRIP, RAIL_WIDTH, useUiStore, type RailTab } from '../../state/uiState';
 import NodeLibrary from '../library/NodeLibrary';
 import ModelLibrary from '../library/ModelLibrary';
@@ -19,10 +19,6 @@ const TABS: Array<{ value: RailTab; label: string; icon: React.ReactNode }> = [
   { value: 'subgraphs', label: 'library.subgraphs', icon: <Layers size={18} aria-hidden="true" /> },
 ];
 
-/** Panel transitions follow the motion policy: 200 ms when motion is fully on, instant otherwise. */
-function panelSeconds(): number {
-  return motionIsFull() ? 0.2 : 0;
-}
 
 /**
  * Left library rail: Nodes · Models · Subgraphs. Collapses to an icon strip; below 1440 px it starts
@@ -45,7 +41,8 @@ export default function Rail() {
     return () => window.removeEventListener('resize', onResize);
   }, [setRail]);
 
-  const duration = panelSeconds();
+  // --motion-panel with full motion, the short fade of Reduced, 0 with Off (motion/policy.ts).
+  const duration = useMotionTimings().panel;
 
   return (
     <motion.aside
@@ -55,7 +52,7 @@ export default function Rail() {
       data-open={open ? 'true' : 'false'}
       initial={false}
       animate={{ width: open ? RAIL_WIDTH : RAIL_STRIP }}
-      transition={{ duration, ease: [0.2, 0, 0, 1] }}
+      transition={{ duration, ease: EASE_OUT }}
     >
       <AnimatePresence initial={false} mode="wait">
         {open ? (

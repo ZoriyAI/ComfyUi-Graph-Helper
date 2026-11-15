@@ -7,7 +7,7 @@ import { clampIndex, nextPlayIndex, playStartIndex } from './lib/replay';
 import { commitManual } from './commit';
 import { showToast } from '../../ui/toastStore';
 import { i18n } from '../../i18n';
-import { readingPaceMs } from './lib/motion';
+import { readingPaceMs } from '../../motion/policy';
 import styles from './Toolbar.module.css';
 
 /** Opens the replay on the newest revision. Shared by the canvas toolbar and the Graph ▸ Replay command. */

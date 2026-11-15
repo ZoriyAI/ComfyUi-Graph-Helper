@@ -16,7 +16,7 @@
 }
 .toggle:hover { background: var(--surface-hover); color: var(--text-dim); }
 .toggle:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
-.chevron { flex: none; transition: transform var(--motion-feedback, 100ms) ease; }
+.chevron { flex: none; transition: transform var(--motion-feedback, 100ms) var(--motion-ease-out); }
 .toggle[aria-expanded="true"] .chevron { transform: rotate(90deg); }
 .icon { flex: none; }
 .title { flex: none; color: var(--text-dim); }

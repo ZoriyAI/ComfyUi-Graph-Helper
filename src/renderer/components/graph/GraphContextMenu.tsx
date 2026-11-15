@@ -23,7 +23,7 @@ import { placeNewNode } from './placeNode';
 import { edgeRef, nodeRef, portRef } from './lib/selection';
 import { selectOnLevel } from './lib/level';
 import { copySelection, cutSelection, duplicateSelection, hasClipboard, pasteClipboard } from './lib/clipboard';
-import { fitDurationMs } from '../../motion/policy';
+import { moveCamera, viewForBounds } from '../../motion/camera';
 import { getCommand, isEnabled, runCommand } from '../../commands/registry';
 import { addGroup, createSubgraph, dissolveSubgraph, openAddNode } from '../../commands/actions';
 import Shortcut from '../../ui/Shortcut';
@@ -334,7 +334,7 @@ export default function GraphContextMenu({ children, nodes: levelNodes, edges, r
         return rootNodes.filter((node) => ids.includes(node.id)).map(nodeRect);
       });
       const box = boundsOf(rects, 40);
-      if (box) void flow.fitBounds(box, { duration: fitDurationMs() });
+      if (box) void moveCamera(flow, viewForBounds(box, { padding: 0.1 }));
     }, { icon: Ghost, disabled: open.length === 0 || inDefinition }));
     if (open.length >= 2) items.push(commandItem('graph.acceptAll'), commandItem('graph.rejectAll'));
     items.push(separator('s1'), commandItem('view.fit'));

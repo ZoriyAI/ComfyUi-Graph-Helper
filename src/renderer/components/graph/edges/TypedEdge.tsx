@@ -4,8 +4,8 @@ import { useCanvasStore } from '../canvasStore';
 import { useCanvasView } from '../CanvasContext';
 import { EdgePulse } from '../layers/FlowLayer';
 import { typeColor } from '../lib/typeColors';
-import { useMotionLevel } from '../lib/motion';
 import { pathThrough, useReroutePoints } from '../lib/nativeReroutes';
+import { useMotionLevel } from '../../../motion/policy';
 import styles from './TypedEdge.module.css';
 
 /**

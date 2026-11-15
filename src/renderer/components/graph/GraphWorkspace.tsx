@@ -13,12 +13,16 @@ import { addedNodeId, revealNewNode } from './lib/reveal';
 import { placeNewNode } from './placeNode';
 import { dropToAddNode, MODEL_DRAG_TYPE, modelFromDrop, NODE_DRAG_TYPE } from './lib/modelLoaders';
 import { addModelLoader } from '../library/placeModel';
-import { useMotionLevel } from './lib/motion';
 import { FIT_PADDING } from './CanvasToolbar';
 import { replayStepText } from './lib/replay';
-import { fitDurationMs } from '../../motion/policy';
+import { motionMs, tokenMs, useMotionLevel } from '../../motion/policy';
+import { centerCamera, zoomCamera, zoomCameraTo } from '../../motion/camera';
+import { fitWhole } from './lib/autoFit';
 import { setCanvasHandle } from '../../commands/canvasHandle';
 import styles from './GraphWorkspace.module.css';
+
+/** One press of «Приблизить» / «Отдалить» (zoom in / out) changes the zoom by this factor, as React Flow's own buttons did. */
+const ZOOM_STEP = 1.2;
 
 function acceptsDrag(event: React.DragEvent): boolean {
   const types = Array.from(event.dataTransfer.types);
@@ -49,8 +53,8 @@ function Workspace({ onImportWorkflow }: GraphWorkspaceProps) {
   // Inside a subgraph the canvas wears a violet frame and glow, so it never looks like the whole graph.
   const inside = useGraphStore((state) => state.activeSubgraphId !== null);
   const [dragging, setDragging] = useState(false);
-  // React Flow fit duration under the motion policy (motion/policy.ts fitDurationMs); e2e reads it.
-  const fitDuration = useMotionLevel() === 'full' ? 200 : 0;
+  // The longest camera move under the motion policy (motion/camera.ts): 0 when the camera cuts. e2e reads it.
+  const fitDuration = useMotionLevel() === 'full' ? tokenMs('--motion-camera') : 0;
 
   useEffect(() => {
     startProposalsSubscription();
@@ -59,10 +63,11 @@ function Workspace({ onImportWorkflow }: GraphWorkspaceProps) {
   // The camera, for View ▸ Fit / Zoom in the menu bar and their shortcuts.
   useEffect(() => {
     setCanvasHandle({
-      fit: () => void flow.fitView({ padding: FIT_PADDING, duration: fitDurationMs() }),
-      zoomIn: () => void flow.zoomIn({ duration: fitDurationMs() }),
-      zoomOut: () => void flow.zoomOut({ duration: fitDurationMs() }),
-      zoomReset: () => void flow.zoomTo(1, { duration: fitDurationMs() }),
+      // Every move goes through the one camera (motion/camera.ts): its duration follows how far the view travels.
+      fit: () => fitWhole(flow, { padding: FIT_PADDING }),
+      zoomIn: () => void zoomCamera(flow, ZOOM_STEP),
+      zoomOut: () => void zoomCamera(flow, 1 / ZOOM_STEP),
+      zoomReset: () => void zoomCameraTo(flow, 1),
       reveal: (rect) => {
         const box = document.querySelector('.react-flow')?.getBoundingClientRect();
         if (!box) return;
@@ -74,11 +79,12 @@ function Workspace({ onImportWorkflow }: GraphWorkspaceProps) {
         const right = (box.width - x) / zoom - margin;
         const bottom = (box.height - y) / zoom - margin;
         if (rect.x >= left && rect.y >= top && rect.x + rect.width <= right && rect.y + rect.height <= bottom) return;
-        void flow.setCenter(rect.x + rect.width / 2, rect.y + rect.height / 2, { zoom, duration: fitDurationMs() });
+        void centerCamera(flow, rect.x + rect.width / 2, rect.y + rect.height / 2, zoom);
       },
       panBy: (dx, dy) => {
         const { x, y, zoom } = flow.getViewport();
-        void flow.setViewport({ x: x + dx, y: y + dy, zoom }, { duration: Math.min(120, fitDurationMs()) });
+        // A keyboard pan is a short step: the exit token keeps it quick, and it cuts when motion is not full.
+        void flow.setViewport({ x: x + dx, y: y + dy, zoom }, { duration: motionMs('--motion-exit') });
       },
     });
     return () => setCanvasHandle(null);

@@ -1,5 +1,6 @@
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { motionMs } from './motion';
+import { motionMs } from '../../../motion/policy';
+import { cameraEase } from '../../../motion/camera';
 
 /**
  * Nodes glide to new positions instead of jumping when something other than the person's own drag moves them:
@@ -19,14 +20,14 @@ interface GlidingNode {
   dragging?: boolean;
 }
 
-/** How long a glide takes: the camera-travel token, 0 unless motion is full. */
+/** How long a glide takes: the longest camera move (--motion-camera), 0 unless motion is full. */
 export function glideMs(): number {
-  return motionMs('--motion-tour', 600);
+  return motionMs('--motion-camera');
 }
 
+/** The glide's curve: the camera's in-out curve, so nodes and the camera travel alike. */
 export function easeInOut(t: number): number {
-  const clamped = Math.min(1, Math.max(0, t));
-  return clamped < 0.5 ? 2 * clamped * clamped : 1 - ((-2 * clamped + 2) ** 2) / 2;
+  return cameraEase(Math.min(1, Math.max(0, t)));
 }
 
 export function lerpPoint(from: Point, to: Point, t: number): Point {

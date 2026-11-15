@@ -4,7 +4,8 @@ import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { NodeToolbar, Position, useReactFlow, useStoreApi } from '@xyflow/react';
 import { useUiStore } from '../../../state/uiState';
 import Illustration from '../illustrations/Illustration';
-import { motionMs, useMotionLevel } from '../lib/motion';
+import { useMotionLevel } from '../../../motion/policy';
+import { moveCamera } from '../../../motion/camera';
 import { CALLOUT_GAP_PX, CALLOUT_Z, cameraCenter, TOOLBAR_ROOM_PX, TOUR_CALLOUT_PX, type CameraRoom } from '../lib/followCamera';
 import { withoutLeadingName } from '../lib/description';
 import styles from './Callout.module.css';
@@ -20,7 +21,7 @@ function typingTarget(target: EventTarget | null): boolean {
 }
 
 /**
- * Bring the camera to a node over --motion-tour (instant without full motion). The node, and the callout above
+ * Bring the camera to a node by the camera rule (motion/camera.ts; instant without full motion). The node, and the callout above
  * it when `room.above` says there is one, land under the canvas's own controls, not behind them.
  */
 export function useCenterOn() {
@@ -40,7 +41,7 @@ export function useCenterOn() {
       zoom,
       { top: room.top ?? TOOLBAR_ROOM_PX, above: room.above ?? 0 },
     );
-    void flow.setCenter(center.x, center.y, { zoom, duration: motionMs('--motion-tour', 600) });
+    void moveCamera(flow, { x: pane.width / 2 - center.x * zoom, y: pane.height / 2 - center.y * zoom, zoom });
   }, [flow, store]);
 }
 

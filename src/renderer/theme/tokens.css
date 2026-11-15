@@ -184,33 +184,53 @@
   --attribution: rgba(10, 14, 21, 0.8);
   --scrim: rgba(5, 8, 12, 0.72);
 
-  /* Motion. Explanatory animation is the product: tour, pulse and reveal are its clocks. */
+  /*
+   * Motion (owned by the motion package; the policy in motion/policy.ts reads the same tokens). Explanatory
+   * animation is the product, so every duration and curve in the app comes from here and nothing else moves.
+   * Durations: feedback (hover, press) < exit < enter < panel < reveal (a node or link appearing) < camera.
+   * The camera's time grows with the distance it travels, between camera-min and camera (motion/camera.ts).
+   * Loops (pulse, spin, march, blink) and one-off plays (play, ping) are what Reduced and Off switch off.
+   * mark is how long a "this changed" highlight holds; it is a reading time, not motion, so it stays at every level.
+   * Curves: ease-out for what appears, ease-in for what leaves, ease-in-out for what travels (camera, glide).
+   */
   --motion-feedback: 100ms;
   --motion-enter: 160ms;
   --motion-exit: 120ms;
   --motion-panel: 200ms;
   --motion-reveal: 320ms;
+  --motion-camera-min: 240ms;
+  --motion-camera: 640ms;
+  --motion-ping: 600ms;
+  --motion-mark: 1600ms;
   --motion-pulse: 1400ms;
-  --motion-tour: 600ms;
+  --motion-spin: 900ms;
+  --motion-march: 900ms;
+  --motion-blink: 1000ms;
+  --motion-play: 1400ms;
   --motion-shift: 8px;
   --motion-ease-out: cubic-bezier(0.2, 0, 0, 1);
   --motion-ease-in: cubic-bezier(0.4, 0, 1, 1);
-  --motion-spring: cubic-bezier(0.34, 1.36, 0.64, 1);
+  --motion-ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
 
   font-family: var(--font-sans);
 }
 
-/* Reduced: short fades only; pulses and the tour camera become static highlights. */
+/* Reduced: short fades only. Nothing travels or loops: pulses become static marks, the camera cuts. */
 html[data-motion="reduced"] {
   --motion-feedback: 60ms;
   --motion-enter: 60ms;
   --motion-exit: 60ms;
   --motion-panel: 60ms;
   --motion-reveal: 60ms;
+  --motion-camera-min: 0ms;
+  --motion-camera: 0ms;
+  --motion-ping: 0ms;
   --motion-pulse: 0ms;
-  --motion-tour: 0ms;
+  --motion-spin: 0ms;
+  --motion-march: 0ms;
+  --motion-blink: 0ms;
+  --motion-play: 0ms;
   --motion-shift: 0px;
-  --motion-spring: var(--motion-ease-out);
 }
 
 html[data-motion="off"] {
@@ -219,10 +239,15 @@ html[data-motion="off"] {
   --motion-exit: 0ms;
   --motion-panel: 0ms;
   --motion-reveal: 0ms;
+  --motion-camera-min: 0ms;
+  --motion-camera: 0ms;
+  --motion-ping: 0ms;
   --motion-pulse: 0ms;
-  --motion-tour: 0ms;
+  --motion-spin: 0ms;
+  --motion-march: 0ms;
+  --motion-blink: 0ms;
+  --motion-play: 0ms;
   --motion-shift: 0px;
-  --motion-spring: var(--motion-ease-out);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -233,10 +258,15 @@ html[data-motion="off"] {
     --motion-exit: 60ms;
     --motion-panel: 60ms;
     --motion-reveal: 60ms;
+    --motion-camera-min: 0ms;
+    --motion-camera: 0ms;
+    --motion-ping: 0ms;
     --motion-pulse: 0ms;
-    --motion-tour: 0ms;
+    --motion-spin: 0ms;
+    --motion-march: 0ms;
+    --motion-blink: 0ms;
+    --motion-play: 0ms;
     --motion-shift: 0px;
-    --motion-spring: var(--motion-ease-out);
   }
 }
 

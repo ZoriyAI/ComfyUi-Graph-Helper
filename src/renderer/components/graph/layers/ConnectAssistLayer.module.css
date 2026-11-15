@@ -1,5 +1,5 @@
 .svg { position: absolute; left: 0; top: 0; width: 1px; height: 1px; overflow: visible; pointer-events: none; }
-.path { fill: none; stroke-width: 2; stroke-dasharray: 4 6; opacity: 0.9; animation: march 800ms linear infinite; filter: drop-shadow(0 0 3px currentColor); }
+.path { fill: none; stroke-width: 2; stroke-dasharray: 4 6; opacity: 0.9; animation: march var(--motion-march) linear infinite; filter: drop-shadow(0 0 3px currentColor); }
 /*
  * The words of the hint ("Enter connects to …") stand under the canvas toolbar, in the place the build strip
  * takes during a build. At the port itself they lay half under the node, or ran off a small canvas; here they

@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { motion } from 'motion/react';
 import { Check, CircleHelp, FolderInput, GraduationCap, History, Languages, MessageCircleQuestion, Plug, RefreshCw, Shapes, Sparkles } from 'lucide-react';
 import Button from '../../ui/Button';
-import { motionIsFull } from '../../motion/policy';
+import { EASE_IN, EASE_OUT, useMotionTimings } from '../../motion/policy';
 import { runSyncNow } from '../sync/SyncIndicator';
 import { syncView } from '../sync/syncView';
 import { useKnowledgeStore } from '../../state/knowledgeState';
@@ -42,7 +42,8 @@ const PROVIDER_NAMES: Record<string, string> = { openai: 'OpenAI', anthropic: 'A
 export default function Onboarding({ onImport }: { onImport?: () => void }) {
   const { t } = useTranslation();
   const translate: Translator = (key, options) => (options ? String(t(key, options)) : String(t(key)));
-  const full = motionIsFull();
+  const timings = useMotionTimings();
+  const full = timings.level === 'full';
   const openSettings = useUiStore((state) => state.openSettings);
 
   // Step 1: ComfyUI connected and read. The sync status says where that stands.
@@ -142,8 +143,8 @@ export default function Onboarding({ onImport }: { onImport?: () => void }) {
       aria-labelledby="canvas-onboard-title"
       initial={full ? { opacity: 0, y: 8 } : false}
       animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: full ? -6 : 0, transition: { duration: full ? 0.22 : 0 } }}
-      transition={{ duration: full ? 0.32 : 0, ease: [0.2, 0, 0, 1] }}
+      exit={{ opacity: 0, y: full ? -6 : 0, transition: { duration: timings.exit, ease: EASE_IN } }}
+      transition={{ duration: timings.panel, ease: EASE_OUT }}
     >
       <div className={styles.card}>
         <LanguageSwitch />

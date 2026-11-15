@@ -7,7 +7,6 @@ import { useUiStore } from '../../state/uiState';
 import AddNodeSearch from './AddNodeSearch';
 import ReplayPlayer from './ReplayPlayer';
 import { useCanvasStore } from './canvasStore';
-import { fitDurationMs } from '../../motion/policy';
 import { startGraphTour } from './tour/startTour';
 import { runCommand, useCommandState } from '../../commands/registry';
 import styles from './Toolbar.module.css';
@@ -58,7 +57,6 @@ export default function CanvasToolbar() {
   const replaying = useCanvasStore((state) => Boolean(state.replay));
   const descriptionsMode = useCanvasStore((state) => state.descriptionsMode);
   const open = openProposals(proposals).length;
-  const duration = fitDurationMs();
   const zoom = useStore(zoomOf);
 
   // Groups: make (add, arrange) | camera (zoom out, zoom %, zoom in, fit) | explain (descriptions, tour, history) |
@@ -98,7 +96,6 @@ export default function CanvasToolbar() {
           showZoom={false}
           showFitView={false}
           showInteractive={false}
-          fitViewOptions={{ padding: FIT_PADDING, duration }}
         >
           <ControlButton className="react-flow__controls-zoomout" onClick={() => void runCommand('view.zoomOut')} title={String(t('canvas.zoomOut'))} aria-label={String(t('canvas.zoomOut'))}>
             <ZoomOut className={styles.glyph} aria-hidden="true" />

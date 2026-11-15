@@ -12,7 +12,7 @@ import { flowingEdges } from '../../src/renderer/components/graph/lib/flow';
 import { breadcrumb, definitionView } from '../../src/renderer/components/graph/lib/subgraphView';
 import { selectionRefs, sameRefs } from '../../src/renderer/components/graph/lib/selection';
 import { categoryAccent, typeColor } from '../../src/renderer/components/graph/lib/typeColors';
-import { parseDuration } from '../../src/renderer/components/graph/lib/motion';
+import { parseDuration } from '../../src/renderer/motion/policy';
 import { ILLUSTRATION_KINDS, illustrationKind, noisePoints } from '../../src/renderer/components/graph/illustrations/kinds';
 import Illustration from '../../src/renderer/components/graph/illustrations/Illustration';
 import { pruneSubgraphPath, useGraphStore } from '../../src/renderer/state/graphState';

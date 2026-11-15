@@ -27,7 +27,6 @@ import { SUBGRAPH_INPUT_NODE_ID, SUBGRAPH_OUTPUT_NODE_ID } from '../../../shared
 import { pruneSubgraphPath, useGraphStore } from '../../state/graphState';
 import { useUiStore } from '../../state/uiState';
 import { useKnowledgeStore } from '../../state/knowledgeState';
-import { fitDurationMs } from '../../motion/policy';
 import type { BoundaryNode, GraphEdge, GraphNode, PortDefinition } from '../../types/graph';
 import ComfyNode from './nodes/ComfyNode';
 import BoundaryNodeView from './nodes/BoundaryNode';
@@ -56,7 +55,8 @@ import { sameRefs, selectionRefs } from './lib/selection';
 import { stepIndexOf } from './tour/buildTour';
 import { typeColor } from './lib/typeColors';
 import { glideMs, useGlide } from './lib/glide';
-
+import { useCameraSignals } from './lib/cameraHooks';
+import { useCameraStore, centerCamera } from '../../motion/camera';
 import { nextOverview, rememberSizes, setOverviewLevel, titleScale } from './lib/nodeSizes';
 import { autoFit } from './lib/autoFit';
 import { useProjectionStore } from '../../services/commands/projection';
@@ -73,6 +73,8 @@ const nodeTypes: NodeTypes = { comfy: ComfyNode, boundary: BoundaryNodeView };
 const AUTO_FIT_MAX_ZOOM = 1;
 /** A zoom change this soon after a wheel, pinch or press on the canvas is the person's own. */
 const GESTURE_MS = 400;
+/** The status bar and the assistant's view of the camera are written this long after the camera last moved. */
+const REPORT_MS = 120;
 const edgeTypes: EdgeTypes = { default: TypedEdge };
 const DELETE_KEYS = ['Backspace', 'Delete'];
 
@@ -85,12 +87,15 @@ function ZoomReporter() {
   const height = useStore((state) => state.height);
   const setZoom = useGraphStore((state) => state.setZoom);
   const setViewport = useCanvasStore((state) => state.setViewport);
+  // Written once the camera rests (motion package): two app-wide stores written on every frame of a zoom or pan woke
+  // every subscriber of both, which cost frames on big graphs. Readers ask for these on demand.
   useEffect(() => {
-    setZoom(zoom);
-  }, [setZoom, zoom]);
-  useEffect(() => {
-    setViewport({ x: Math.round(x), y: Math.round(y), zoom: Math.round(zoom * 1000) / 1000, width: Math.round(width), height: Math.round(height) });
-  }, [setViewport, x, y, zoom, width, height]);
+    const timer = window.setTimeout(() => {
+      setZoom(zoom);
+      setViewport({ x: Math.round(x), y: Math.round(y), zoom: Math.round(zoom * 1000) / 1000, width: Math.round(width), height: Math.round(height) });
+    }, REPORT_MS);
+    return () => window.clearTimeout(timer);
+  }, [setZoom, setViewport, x, y, zoom, width, height]);
   return null;
 }
 
@@ -122,11 +127,16 @@ function OverviewLevel({ host }: { host: React.RefObject<HTMLDivElement> }) {
     const overview = nextOverview(level.current, zoom, performance.now() - lastGesture.current < GESTURE_MS);
     level.current = overview;
     setOverviewLevel(overview);
+    useCameraStore.getState().setOverview(overview);
     if (overview) element.dataset.zoom = 'overview';
     else delete element.dataset.zoom;
-    element.style.setProperty('--canvas-title-scale', String(titleScale(zoom)));
-    // The plain inverse of the zoom, uncapped: group titles in the overview keep their screen size with it.
-    element.style.setProperty('--canvas-zoom-inverse', String(zoom > 0 ? 1 / zoom : 1));
+    // Only the overview reads the title scale. Written on every zoom frame it restyled the whole canvas each frame;
+    // in steps of 0.05 the browser restyles only when the size visibly changes (motion package, zoom performance).
+    const scale = overview ? String(Math.round(titleScale(zoom) * 20) / 20) : '1';
+    if (element.style.getPropertyValue('--canvas-title-scale') !== scale) element.style.setProperty('--canvas-title-scale', scale);
+    // The plain inverse of the zoom, uncapped: group titles keep their screen size with it. Rounded for the same reason.
+    const inverse = String(Math.round((zoom > 0 ? 1 / zoom : 1) * 20) / 20);
+    if (element.style.getPropertyValue('--canvas-zoom-inverse') !== inverse) element.style.setProperty('--canvas-zoom-inverse', inverse);
   }, [zoom, host]);
   return null;
 }
@@ -184,19 +194,6 @@ export default function CanvasFlow() {
   const minimapOn = useCanvasStore((state) => state.minimapOn);
   const gridSize = usePreferencesStore((state) => state.preferences.canvas.gridSize);
   const check = useKnowledgeStore((state) => state.check);
-  const [fitDuration, setFitDuration] = useState(() => fitDurationMs());
-
-  useEffect(() => {
-    const read = () => setFitDuration(fitDurationMs());
-    const observer = new MutationObserver(read);
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-motion'] });
-    const media = window.matchMedia('(prefers-reduced-motion: reduce)');
-    media.addEventListener('change', read);
-    return () => {
-      observer.disconnect();
-      media.removeEventListener('change', read);
-    };
-  }, []);
 
   // A dissolve or an import can remove a definition the breadcrumb points into.
   useEffect(() => {
@@ -292,13 +289,15 @@ export default function CanvasFlow() {
     if (mode === 'root') rememberSizes(rootNodes);
   }, [mode, rootNodes]);
 
-  useFitAfterBuild(useCallback(() => autoFit(flow, { padding: FIT_PADDING, duration: fitDurationMs(), maxZoom: AUTO_FIT_MAX_ZOOM }), [flow]));
+  useFitAfterBuild(useCallback(() => autoFit(flow, { padding: FIT_PADDING, maxZoom: AUTO_FIT_MAX_ZOOM }), [flow]));
 
   // A new level gets a fresh camera.
   useEffect(() => {
-    const frame = window.requestAnimationFrame(() => autoFit(flow, { padding: FIT_PADDING, duration: fitDurationMs(), maxZoom: AUTO_FIT_MAX_ZOOM }));
+    const frame = window.requestAnimationFrame(() => autoFit(flow, { padding: FIT_PADDING, maxZoom: AUTO_FIT_MAX_ZOOM }));
     return () => window.cancelAnimationFrame(frame);
   }, [mode, activeSubgraphId, flow]);
+
+  const cameraSignals = useCameraSignals();
 
   // The glow on compatible ports and the dimming of the rest: for the "what connects here" assist, and while a
   // link is being dragged from a port.
@@ -574,8 +573,9 @@ export default function CanvasFlow() {
             elementsSelectable={!readOnly}
             colorMode="dark"
             attributionPosition="bottom-left"
-            fitView
-            fitViewOptions={{ padding: FIT_PADDING, duration: fitDuration, maxZoom: AUTO_FIT_MAX_ZOOM }}
+            onMoveStart={cameraSignals.onMoveStart}
+            onMove={cameraSignals.onMove}
+            onMoveEnd={cameraSignals.onMoveEnd}
             minZoom={0.1}
             maxZoom={2}
             // Shift+click adds to the selection as Ctrl+click does (as in ComfyUI); Shift+drag on empty canvas draws a box.
@@ -617,7 +617,7 @@ export default function CanvasFlow() {
                 // A click or a drag on the map moves the view there; the wheel over it zooms.
                 pannable
                 zoomable
-                onClick={(_event, position) => void flow.setCenter(position.x, position.y, { zoom: flow.getZoom(), duration: fitDurationMs() })}
+                onClick={(_event, position) => void centerCamera(flow, position.x, position.y)}
                 position="bottom-right"
                 style={{ width: 144, height: 96 }}
                 nodeStrokeWidth={0}
