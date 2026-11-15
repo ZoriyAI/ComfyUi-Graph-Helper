@@ -1,3 +1,9 @@
+/**
+ * Safe file writes and reads for files the person cares about, and the error codes the window shows for them.
+ * Used for project and workflow saves (ipc.ts, ipc/openIpc.ts), lesson files (lessons/*), key and token files
+ * (settings/keyFile.ts, mcp/tokenFile.ts), the recent list (files/recentFiles.ts) and the start guard (startGuard.ts).
+ * Why: a crash or a full disk in the middle of a save must never leave a half-written project or key file.
+ */
 import * as fs from 'fs';
 import * as path from 'path';
 import { randomBytes } from 'crypto';
@@ -24,8 +30,10 @@ export function writeFileAtomic(target: string, data: string | Buffer, options: 
   const bytes = typeof data === 'string' ? Buffer.from(data, 'utf8') : data;
   let handle: number | null = null;
   try {
+    // 'wx' fails if the name exists, so a file planted under the temporary name is never written through.
     handle = fs.openSync(temporary, 'wx', mode);
     let written = 0;
+    // writeSync may write fewer bytes than asked; loop until all are out.
     while (written < bytes.length) written += fs.writeSync(handle, bytes, written, bytes.length - written);
     fs.fsyncSync(handle);
     fs.closeSync(handle);
@@ -83,6 +91,7 @@ export function fileWriteErrorCode(error: unknown, fallback: string, target?: st
 /** A file bigger than this is not opened as a workflow or a project: real ones are well under a megabyte. */
 export const OPEN_FILE_MAX_BYTES = 64 * 1024 * 1024;
 
+/** A picked file over OPEN_FILE_MAX_BYTES; its message is the code the window translates. */
 class FileTooLargeError extends Error {
   constructor() {
     super('The file is too large to open.');

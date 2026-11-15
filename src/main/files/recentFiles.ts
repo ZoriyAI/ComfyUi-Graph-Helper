@@ -1,7 +1,3 @@
-import * as fs from 'fs';
-import * as path from 'path';
-import { writeFileAtomic } from './atomicWrite';
-
 /**
  * The files a person opened or saved lately, and the name of the file each graph came from.
  *
@@ -11,6 +7,9 @@ import { writeFileAtomic } from './atomicWrite';
  * harm, it needs no migration, and it is written whole (atomicWrite) so a crash never leaves half of it.
  * Only paths and times are kept, never file contents.
  */
+import * as fs from 'fs';
+import * as path from 'path';
+import { writeFileAtomic } from './atomicWrite';
 
 /** One remembered file. `kind` says how it opens: as a project of this app or as a ComfyUI workflow. */
 export interface RecentFile {
@@ -19,6 +18,7 @@ export interface RecentFile {
   at: number;
 }
 
+/** The shape of recent-files.json. */
 interface Store {
   recent: RecentFile[];
   /** graph key → name of the workflow file that graph was opened from. */
@@ -27,6 +27,7 @@ interface Store {
 
 /** How many files File ▸ Recent lists: enough for a week's work, short enough to read at a glance. */
 export const RECENT_MAX = 10;
+/** Graph-to-file names kept; the oldest go first, so the file stays small over years of use. */
 const SOURCES_MAX = 200;
 const FILE_NAME = 'recent-files.json';
 
@@ -34,6 +35,7 @@ function storePath(userData: string): string {
   return path.join(userData, FILE_NAME);
 }
 
+/** The stored list with every malformed entry dropped; a missing or damaged file reads as empty. */
 function read(userData: string): Store {
   try {
     const parsed = JSON.parse(fs.readFileSync(storePath(userData), 'utf8')) as Partial<Store>;
