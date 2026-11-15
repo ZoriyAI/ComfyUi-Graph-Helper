@@ -141,15 +141,15 @@
 /* What the three ways need (journey package): two compact rows under them, left-aligned, the state on the left. */
 .setup { display: flex; flex-direction: column; gap: 6px; width: 100%; margin: 0 0 4px; padding: 0; list-style: none; }
 .setupRow {
-  display: flex; align-items: center; gap: 10px; min-width: 0;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; min-width: 0;
   padding: 8px 10px; border: 1px solid var(--border-subtle); border-radius: var(--radius-md);
   background: var(--surface-raised); text-align: left;
 }
 .setupRow[data-state="problem"] { border-color: color-mix(in srgb, var(--danger, var(--accent)) 45%, transparent); }
 .setupIcon { display: inline-flex; flex: 0 0 auto; color: var(--text-dim); }
 .setupRow[data-state="done"] .setupIcon { color: var(--accent); }
-.setupText { display: flex; flex-direction: column; gap: 2px; flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
-/* In a setup row the button keeps its own width and one line: the text beside it is what gives way.
-   Without this the row squeezed the button and its label ran out of it. */
-.setupRow .stepAction { flex: 0 0 auto; margin-top: 0; padding-top: 0; max-width: 50%; }
-.setupRow .stepAction :global(button) { white-space: nowrap; }
+.setupText { display: flex; flex-direction: column; gap: 2px; flex: 1 1 14em; min-width: 0; overflow-wrap: anywhere; }
+/* In a setup row the button stands beside the text while both fit, and moves under it when they do not: a long
+   label ("Open the connection settings") in a narrow card once ran out of a button held to half the row. In a card
+   narrower than the label itself, the label wraps inside its button (the .stepAction rule above). */
+.setupRow .stepAction { flex: 0 1 auto; margin: 0 0 0 auto; padding-top: 0; }
