@@ -2,9 +2,9 @@
 
 # Taking part
 
-NodeWise Studio is an experimental desktop app that helps you learn ComfyUI and understand its graphs. It is made by
-one author, Aleksey Ponomarenko, at https://github.com/ZoriyAI/nodewise-studio. You can help a lot without writing a
-line of code, and this page says how.
+NodeWise Studio is an experimental desktop app that helps you learn ComfyUI and understand its graphs. The project
+lives at https://github.com/ZoriyAI/nodewise-studio and is made by one author, Aleksey Ponomarenko. You can help a lot
+without writing a line of code, and this page says how.
 
 ## What helps most
 
