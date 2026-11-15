@@ -1,17 +1,25 @@
-## What and why
+## Thank you, but pull requests are not merged here
 
-<!-- One or two sentences: what this changes and why. Link the issue it answers. -->
+NodeWise Studio does not accept code, texts or other files from outside. The author keeps the copyright of the whole
+project in one hand, so its licence and its future stay clear; a change from someone else would need a rights
+agreement the project does not run. This pull request will be closed, with thanks.
 
-## How it was checked
+Your idea is still welcome, in words:
 
-- [ ] `npm run type-check`
-- [ ] `npm test`
-- [ ] End-to-end tests for the part I changed (`xvfb-run -a npx playwright test <file> --trace off`)
-- [ ] Texts in both languages (`src/shared/i18n/catalog.ts`), wiki pages in both languages if the person sees the change
+- a problem, a test report or a mistake in the documentation: [Issues](https://github.com/ZoriyAI/nodewise-studio/issues/new/choose);
+- an idea, a wish, a question or a lesson file to share: [Discussions](https://github.com/ZoriyAI/nodewise-studio/discussions).
 
-## Things to know
+The author may then build the idea himself. More: [CONTRIBUTING.md](https://github.com/ZoriyAI/nodewise-studio/blob/HEAD/CONTRIBUTING.md).
 
-- [ ] ComfyUI is still only read: no new call that writes, installs or queues.
-- [ ] No key, token, personal path or e-mail in code, tests or texts.
+## Спасибо, но pull request здесь не принимаются
 
-See [CONTRIBUTING.md](../CONTRIBUTING.md).
+NodeWise Studio не принимает код, тексты и другие файлы со стороны. Автор держит авторские права на весь проект в одних
+руках, чтобы его лицензия и будущее оставались ясными; для чужой правки понадобилось бы соглашение о правах, а таких
+соглашений проект не ведёт. Этот pull request закроют с благодарностью.
+
+Вашей идее всё равно рады, словами:
+
+- проблема, отчёт о проверке или ошибка в документации: [обращения](https://github.com/ZoriyAI/nodewise-studio/issues/new/choose);
+- идея, пожелание, вопрос или файл урока, которым хочется поделиться: [обсуждения](https://github.com/ZoriyAI/nodewise-studio/discussions).
+
+Дальше автор может сделать идею сам. Подробнее: [CONTRIBUTING.ru.md](https://github.com/ZoriyAI/nodewise-studio/blob/HEAD/CONTRIBUTING.ru.md).

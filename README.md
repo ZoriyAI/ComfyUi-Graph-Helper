@@ -138,7 +138,8 @@ reporting, and asks about new versions only if you switch that on. Every place i
 - Ideas, wishes and questions: [Discussions](../../discussions).
 - Problems: [Issues](../../issues) (Help ▸ Report a problem in the app fills in the versions).
 - A security problem: privately, see [SECURITY.md](SECURITY.md).
-- Code: [CONTRIBUTING.md](CONTRIBUTING.md); everyone follows the [Code of Conduct](CODE_OF_CONDUCT.md).
+- Taking part: the project welcomes ideas, reports and tests, but does not merge pull requests with code; why, and
+  what helps most: [CONTRIBUTING.md](CONTRIBUTING.md). Everyone follows the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## Who makes it
 
@@ -146,7 +147,8 @@ NodeWise Studio is made by Aleksey Ponomarenko, an independent developer who exp
 development. The app is one of those experiments: can a program teach ComfyUI by explaining your own graph, and how
 far can one developer take a real desktop product when AI agents do much of the engineering under his direction?
 Most of the code and the texts were written by AI coding agents, directed and reviewed by him, and he answers for
-everything published here. More, with the principles the app keeps:
+everything published here. He keeps the rights to all of the code in one hand, so the project takes no code from
+outside ([CONTRIBUTING.md](CONTRIBUTING.md)). More, with the principles the app keeps:
 [The author and the experiment](docs/wiki/trust/Author.md).
 
 ## Licence
@@ -155,5 +157,9 @@ MIT with the Commons Clause condition: you may use, change and share NodeWise fo
 or service whose value comes mainly from it. It is source-available, not open source in the usual sense.
 [LICENSE](LICENSE), [the licence in plain words](docs/wiki/trust/Licence.md), commercial use:
 [COMMERCIAL.md](COMMERCIAL.md). Third-party components: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+Copyright © 2026 Aleksey Ponomarenko (ZoriyAI), the sole author and copyright holder; all rights are reserved except
+the permissions the licence grants. Selling it, or a paid product or service built mainly on it, without his written
+permission breaches the licence; who holds what, and the dated record of every release: [NOTICE.md](NOTICE.md).
 
 Subject choice and adult education: [Content rules](docs/wiki/trust/Content-Rules.md).

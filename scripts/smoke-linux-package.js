@@ -68,17 +68,17 @@ async function main() {
 
   // Ship only what runs (forge.config.js ignore): no docs, maps, typings, tests or other platforms' binaries.
   const files = asar.listPackage(asarPath);
-  const stray = files.filter((file) => (/\.(md|map|d\.ts)$/i.test(file) && !file.startsWith('/dist/help/')) || /^\/(src|tests|docs|scripts|\.github)(\/|$)/.test(file)
+  const stray = files.filter((file) => (/\.(md|map|d\.ts)$/i.test(file) && !file.startsWith('/dist/help/') && !/^\/dist\/notices\/NOTICE(\.ru)?\.md$/.test(file)) ||/^\/(src|tests|docs|scripts|\.github)(\/|$)/.test(file)
     || /^\/(README|STATUS|LICENSE)/.test(file));
   if (stray.length > 0) fail(`PACKAGED_STRAY_FILES ${stray.slice(0, 10).join(' ')}`);
-  for (const needed of ['/dist/notices/third-party.json', '/dist/notices/LICENSE.txt', '/dist/help/wiki/Home.md', '/dist/help/wiki/Home.ru.md', '/dist/help/wiki-index.json', '/dist/help/wiki-search.json', '/dist/help/whatsnew.md', '/dist/help/whatsnew.ru.md', '/resources/icon.png']) {
+  for (const needed of ['/dist/notices/third-party.json', '/dist/notices/LICENSE.txt', '/dist/notices/COPYRIGHT.txt', '/dist/notices/NOTICE.md', '/dist/notices/NOTICE.ru.md','/dist/help/wiki/Home.md', '/dist/help/wiki/Home.ru.md', '/dist/help/wiki-index.json', '/dist/help/wiki-search.json', '/dist/help/whatsnew.md', '/dist/help/whatsnew.ru.md', '/resources/icon.png']) {
     if (!files.includes(needed)) fail(`PACKAGED_MISSING ${needed}`);
   }
   const foreign = unpackedNodes.filter((file) => !file.endsWith(`${path.sep}linux-x64.node`));
   if (foreign.length > 0) fail(`PACKAGED_FOREIGN_NATIVE ${foreign.map((file) => path.basename(file)).join(' ')}`);
-  // The deb's copyright file is made from the bundle's LICENSE: the app's licence, then the notices.
+  // The deb's copyright file is made from the bundle's LICENSE: the app's COPYRIGHT, its licence, then the notices.
   const bundleLicence = fs.readFileSync(path.join(bundle, 'LICENSE'), 'utf8');
-  if (!bundleLicence.startsWith(DISPLAY_NAME) || !bundleLicence.includes('“Commons Clause” License Condition v1.0') || !bundleLicence.includes('Copyright (c) 2026 ZoriyAI') || !bundleLicence.includes('electron ')) {
+  if (!bundleLicence.startsWith(DISPLAY_NAME) || !bundleLicence.includes('Copyright (c) 2026 Aleksey Ponomarenko (ZoriyAI') ||!bundleLicence.includes('“Commons Clause” License Condition v1.0') || !bundleLicence.includes('Copyright (c) 2026 ZoriyAI') || !bundleLicence.includes('electron ')) {
     fail('PACKAGED_LICENCE');
   }
 

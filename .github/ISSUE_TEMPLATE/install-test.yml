@@ -1,0 +1,55 @@
+name: "Test report: Windows or macOS install"
+description: You tried the install script on Windows or macOS; tell what happened, good or bad. / Отчёт о проверке скрипта установки на Windows или macOS.
+labels: [install-test]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for trying it. The Windows and macOS scripts have not been tested on real computers yet, so "it worked" is as useful as "it failed". Please write in English or Russian.
+        Спасибо за проверку. Скрипты для Windows и macOS ещё не пробовали на настоящих компьютерах, поэтому «всё получилось» так же полезно, как «не получилось». Пишите по-английски или по-русски.
+  - type: dropdown
+    id: script
+    attributes:
+      label: Which script / Какой скрипт
+      options:
+        - install-windows.ps1
+        - install-macos.sh
+    validations:
+      required: true
+  - type: input
+    id: system
+    attributes:
+      label: System version / Версия системы
+      description: Windows (Settings ▸ System ▸ About) or macOS (Apple menu ▸ About This Mac), and the processor.
+      placeholder: Windows 11 23H2 x64 / macOS 14.5, Apple M2 / macOS 13.6, Intel
+    validations:
+      required: true
+  - type: input
+    id: options
+    attributes:
+      label: How it was started / Как запускали
+      description: The command line, with any options such as -DryRun or --dry-run.
+      placeholder: powershell -NoProfile -ExecutionPolicy Bypass -File .\install-windows.ps1
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened / Что произошло
+      description: What the script asked and showed, how it ended, and whether the app starts afterwards.
+    validations:
+      required: true
+  - type: input
+    id: exit
+    attributes:
+      label: Exit code / Код завершения
+      description: "PowerShell: echo $LASTEXITCODE right after the script. Terminal: echo $? right after the script."
+      placeholder: "0"
+  - type: input
+    id: logpath
+    attributes:
+      label: The log path the script printed / Путь к журналу, который назвал скрипт
+      placeholder: "%TEMP%\\nodewise-studio-install.log or ~/Library/Logs/nodewise-studio-install.log"
+  - type: textarea
+    id: log
+    attributes:
+      label: The log / Журнал
+      description: Attach the log file or paste it here. Look through it first and remove anything you would rather not share. / Приложите файл журнала или вставьте его сюда; сначала просмотрите и уберите то, чем не хотите делиться.

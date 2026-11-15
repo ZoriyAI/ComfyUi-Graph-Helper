@@ -2,7 +2,8 @@
 /**
  * Files the app reads at run time that are not code, written into dist/ after the main and renderer builds:
  *
- * - dist/notices/LICENSE.txt: the app's own licence.
+ * - dist/notices/LICENSE.txt: the app's own licence; COPYRIGHT.txt, NOTICE.md and NOTICE.ru.md beside it (the holder,
+ *   authorship and the dated record).
  * - dist/notices/third-party.json and THIRD_PARTY_NOTICES.txt: every package that ships with the app (main's
  *   runtime dependencies, the packages the renderer bundle is built from, and Electron itself) with its version,
  *   licence and licence text. Settings ▸ About lists them; the deb's copyright file carries the text.
@@ -118,6 +119,10 @@ function writeNotices() {
   const out = path.join(root, 'dist', 'notices');
   fs.mkdirSync(out, { recursive: true });
   fs.copyFileSync(path.join(root, 'LICENSE'), path.join(out, 'LICENSE.txt'));
+  // Next to the licence: who holds the copyright, and the statement of authorship and the dated record.
+  fs.copyFileSync(path.join(root, 'COPYRIGHT'), path.join(out, 'COPYRIGHT.txt'));
+  fs.copyFileSync(path.join(root, 'NOTICE.md'), path.join(out, 'NOTICE.md'));
+  fs.copyFileSync(path.join(root, 'NOTICE.ru.md'), path.join(out, 'NOTICE.ru.md'));
   const components = collect();
   fs.writeFileSync(path.join(out, 'third-party.json'), `${JSON.stringify(components)}\n`);
   const text = [

@@ -42,6 +42,15 @@ How to ask for permission: [Commercial use](../../../COMMERCIAL.md).
 The software comes "as is", without any warranty. It is an experimental project: things change between versions and
 some parts are unfinished.
 
+## Copyright and priority
+
+Copyright © 2026 Aleksey Ponomarenko (ZoriyAI). He wrote and directs NodeWise and is its only copyright holder: the
+project merges no code from outside. All rights are reserved except the permissions the license grants. The code, the
+texts, the lessons, the documentation, the images and the design are protected as written; ideas and methods are not,
+in this project or any other, so the dates on which each version was first published are kept as a public record.
+Who holds what, what is not the project's, the dated record and how to check it, and what to do about a copy:
+[Copyright, authorship and priority](../../../NOTICE.md).
+
 ## Components of other people
 
 The app ships with open-source components made by other people (Electron, React, React Flow, better-sqlite3, the
@@ -64,5 +73,6 @@ ComfyUI and the ComfyUI frontend are projects of their own authors, under their 
 
 - [Trust](README.md)
 - [Commercial use](../../../COMMERCIAL.md)
+- [Copyright, authorship and priority](../../../NOTICE.md)
 - [Third-party notices](../../../THIRD_PARTY_NOTICES.md)
 - [Privacy](Privacy.md)
