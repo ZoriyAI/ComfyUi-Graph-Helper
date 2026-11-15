@@ -11,10 +11,15 @@ import styles from './ConnectAssistLayer.module.css';
 /**
  * "What connects here": a dashed suggested path from the asked-about port to the best compatible port,
  * with a one-line hint. The glow on compatible ports and the dimming live on the nodes themselves.
+ * While a link is dragged from a port (motion package) the same dashed path runs from that port to the best place
+ * for it, without the words: the person's own line under the pointer is the main thing then.
  */
 export default function ConnectAssistLayer() {
   const { t } = useTranslation();
-  const from = useCanvasStore((state) => state.connectFrom);
+  const asked = useCanvasStore((state) => state.connectFrom);
+  const dragged = useCanvasStore((state) => state.linkDrag);
+  const from = asked ?? dragged;
+  const words = Boolean(asked);
   const view = useCanvasView();
   const lookup = useStore((state) => state.nodeLookup);
   useLayoutKey();
@@ -24,6 +29,7 @@ export default function ConnectAssistLayer() {
   if (!origin) return null;
   const color = typeColor(from.dataType);
   if (!best) {
+    if (!words) return null;
     return (
       <Panel position="top-center" className={`nopan nowheel nodrag ${styles.panel}`}>
         <div className={`connect-hint ${styles.hint}`} role="status">{t('canvas.connectNone')}</div>
@@ -47,13 +53,13 @@ export default function ConnectAssistLayer() {
     <>
       <ViewportPortal>
         <svg className={styles.svg} aria-hidden="true">
-          <path d={path} className={styles.path} style={{ stroke: color }} />
+          <path d={path} className={styles.path} style={{ stroke: color }} data-connect-hint={words ? 'asked' : 'drag'} />
         </svg>
       </ViewportPortal>
       {/* The words stand under the canvas toolbar, where they are read whole at any zoom; the dashed line shows where. */}
-      <Panel position="top-center" className={`nopan nowheel nodrag ${styles.panel}`}>
+      {words ? <Panel position="top-center" className={`nopan nowheel nodrag ${styles.panel}`}>
         <div className={`connect-hint ${styles.hint}`} role="status">{t('canvas.connectHint', { name })}</div>
-      </Panel>
+      </Panel> : null}
     </>
   );
 }

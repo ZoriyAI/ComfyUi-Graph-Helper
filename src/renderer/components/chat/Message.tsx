@@ -22,6 +22,7 @@ import BuildCard from './BuildCard';
 import BuildSummary from './BuildSummary';
 import QuietGroup from './QuietGroup';
 import { groupToolCalls } from './buildSteps';
+import { useStagger } from '../../motion/stagger';
 import styles from './Message.module.css';
 
 interface MessageProps {
@@ -171,6 +172,8 @@ export default function Message({ message, streaming = false }: MessageProps) {
   const aboutLabel = about ? objectLabel(about, { nodes, edges }, String(t('explain.processName'))) : '';
   const toolCalls = message.toolCalls ?? [];
   const segments = groupToolCalls(toolCalls);
+  // Tool cards that arrive together come in one after another (motion package, motion/stagger.ts).
+  const stagger = useStagger(segments.map((segment) => (segment.type === 'build' || segment.type === 'quiet' ? segment.type : segment.call.id)));
   const build = segments.find((segment) => segment.type === 'build');
   // A build is over when its turn stopped streaming and did not pause at a checkpoint that may still continue.
   const buildOver = !streaming && (!message.checkpoint || message.checkpoint.state === 'stopped' || message.checkpoint.state === 'closed');
@@ -249,20 +252,20 @@ export default function Message({ message, streaming = false }: MessageProps) {
               {segments.map((segment) => {
                 if (segment.type === 'build') {
                   return (
-                    <motion.div key="build" {...CARD_MOTION}>
+                    <motion.div key="build" {...CARD_MOTION} transition={stagger('build')}>
                       <BuildCard calls={segment.calls} live={streaming} />
                     </motion.div>
                   );
                 }
                 if (segment.type === 'quiet') {
                   return (
-                    <motion.div key="quiet" {...CARD_MOTION}>
+                    <motion.div key="quiet" {...CARD_MOTION} transition={stagger('quiet')}>
                       <QuietGroup calls={segment.calls} />
                     </motion.div>
                   );
                 }
                 return (
-                  <motion.div key={segment.call.id} {...CARD_MOTION}>
+                  <motion.div key={segment.call.id} {...CARD_MOTION} transition={stagger(segment.call.id)}>
                     <ToolCard call={segment.call} />
                   </motion.div>
                 );
