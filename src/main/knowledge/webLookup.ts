@@ -61,7 +61,7 @@ export class LookupFailure extends Error {
 }
 
 /** How one lookup ended: found, not known to either site, or failed. */
-export type LookupOutcome ={ status: 'found'; found: WebFound } | { status: 'not-found' } | { status: 'error'; error: WebError };
+export type LookupOutcome = { status: 'found'; found: WebFound } | { status: 'not-found' } | { status: 'error'; error: WebError };
 
 /** A downloaded sample: its bytes and what they are by their first bytes. */
 export interface PreviewBytes {

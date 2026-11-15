@@ -29,7 +29,7 @@ function findInChain<T>(error: unknown, pick: (item: Record<string, unknown>) =>
 }
 
 /** The kinds of connect failure the person is told apart (each has its own sentence). */
-export type ConnectFailureKind ='timeout' | 'hostNotFound' | 'refused' | 'httpStatus' | 'notMcp' | 'auth' | 'other';
+export type ConnectFailureKind = 'timeout' | 'hostNotFound' | 'refused' | 'httpStatus' | 'notMcp' | 'auth' | 'other';
 
 /** What kind of failure this is, from the error alone (no network). Exported for tests. */
 export function connectFailureKind(error: unknown): { kind: ConnectFailureKind; status?: number; timeoutMs?: number } {

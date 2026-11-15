@@ -30,7 +30,7 @@ export interface ComfyRoute {
 
 const MB = 1024 * 1024;
 /** Limits for the small JSON answers (stats, folder lists, metadata, the Manager's pack list). */
-const SMALL ={ maxBytes: 4 * MB, timeoutMs: 20_000, kind: 'json' as const };
+const SMALL = { maxBytes: 4 * MB, timeoutMs: 20_000, kind: 'json' as const };
 
 /** A folder name as ComfyUI names its model folders (checkpoints, loras, text_encoders, LLM …). */
 const FOLDER = /^[A-Za-z0-9_.-]{1,80}$/;

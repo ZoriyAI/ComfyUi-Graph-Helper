@@ -158,7 +158,7 @@ export function systemOf(json: unknown): ComfySystem | null {
 }
 
 /** The answer of the Connection "Check" button: what ComfyUI is, or the sentence of what went wrong. */
-export type ComfyCheck =({ ok: true; origin: string; local: boolean } & ComfySystem) | { ok: false; error: string };
+export type ComfyCheck = ({ ok: true; origin: string; local: boolean } & ComfySystem) | { ok: false; error: string };
 
 /**
  * Settings ▸ Connection ▸ "Check": does ComfyUI answer at this address? One GET of /system_stats, through the gate.
