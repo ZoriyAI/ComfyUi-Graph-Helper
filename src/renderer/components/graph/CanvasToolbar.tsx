@@ -4,7 +4,7 @@
  * two proposal helpers as menu commands; CanvasFlow, GraphWorkspace and the build and import layers fit the view with
  * FIT_PADDING. Every button runs a command from the registry, so the toolbar, the menu and the shortcuts share one path.
  */
-import React from 'react';
+import React, { useLayoutEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CheckCheck, ChevronLeft, ChevronRight, Compass, LifeBuoy, Maximize, MessageSquareText, MessagesSquare, MoreHorizontal, Navigation, Undo2, Redo2, SquareDashed, CheckSquare, Pause, Play, Square, SquarePlus, Sparkles, Trash2, Workflow, ZoomIn, ZoomOut } from 'lucide-react';
 import { ControlButton, Controls, useStore, type ReactFlowState } from '@xyflow/react';
@@ -32,7 +32,17 @@ const DESCRIPTION_TITLES = {
 } as const;
 
 /** Room for the floating toolbar above and the minimap in the bottom-right corner, so a fit never hides a node. */
-export const FIT_PADDING = { top: '76px', right: '32px', bottom: '128px', left: '32px' } as const;
+export const FIT_PADDING = {
+  get top(): `${number}px` {
+    if (typeof document === 'undefined') return '76px';
+    const root = document.querySelector('.graph-canvas')?.getBoundingClientRect();
+    if (!root) return '76px';
+    const bottom = Array.from(document.querySelectorAll('[data-canvas-toolbar], [data-live-build]'))
+      .reduce((value, element) => Math.max(value, element.getBoundingClientRect().bottom - root.top + 16), 76);
+    return `${Math.ceil(bottom + (useGraphStore.getState().groups.length ? 72 : 0))}px`;
+  },
+  right: '32px', bottom: '128px', left: '32px',
+} as const;
 
 /** Accept every open proposal, one at a time so each commit sees the revision the previous one made. */
 export async function acceptAllProposals(): Promise<void> {
@@ -59,6 +69,14 @@ export async function rejectAllProposals(): Promise<void> {
  */
 export default function CanvasToolbar() {
   const { t } = useTranslation();
+  const stack = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const element = stack.current, root = element?.closest<HTMLElement>('.graph-canvas');
+    if (!element || !root) return;
+    const measure = () => root.style.setProperty('--canvas-toolbar-bottom', `${Math.ceil(element.getBoundingClientRect().bottom - root.getBoundingClientRect().top + 8)}px`);
+    const observer = new ResizeObserver(measure); observer.observe(element); measure();
+    return () => { observer.disconnect(); root.style.removeProperty('--canvas-toolbar-bottom'); };
+  }, []);
   const followAgent = useUiStore((state) => state.followAgent);
   const tour = useUiStore((state) => state.tour);
   const setTourIndex = useUiStore((state) => state.setTourIndex);
@@ -82,7 +100,7 @@ export default function CanvasToolbar() {
   // Groups: make (add, arrange) | camera (zoom out, zoom %, zoom in, fit) | explain (descriptions, tour, history) |
   // follow the assistant. The tour's transport is its own pill under the toolbar, so the toolbar does not jump.
   return (
-    <div className={styles.stack}>
+    <div ref={stack} className={styles.stack} data-canvas-toolbar>
     <div className={styles.touchActions} role="toolbar" aria-label={String(t('canvas.touchActions'))}>
       <button type="button" disabled={!undoAction.enabled} aria-label={String(t('toolbar.undo'))} title={String(t('toolbar.undo'))} onClick={() => void runCommand('edit.undo')}><Undo2 size={18} /></button>
       <button type="button" disabled={!redoAction.enabled} aria-label={String(t('toolbar.redo'))} title={String(t('toolbar.redo'))} onClick={() => void runCommand('edit.redo')}><Redo2 size={18} /></button>

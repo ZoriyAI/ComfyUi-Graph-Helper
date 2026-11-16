@@ -450,7 +450,7 @@ test('nothing sticks out, is cut or overlaps on any screen at any window size', 
 
     // ---------- Settings, every section as a newcomer finds it ----------
     if (wants('settings')) {
-      for (let section = 0; section < 8; section += 1) {
+      for (let section = 0; section < 10; section += 1) {
         await visitScrolling(page, `settings section ${section + 1}, default`, async () => { await openSettings(page, section); }, () => settingsPanel(page));
       }
       // Helper: every choice, with and without a key.
@@ -473,27 +473,27 @@ test('nothing sticks out, is cut or overlaps on any screen at any window size', 
         await page.waitForTimeout(200);
       };
       for (const [label, width, height] of [['smallest', '1px', '1px'], ['largest', '4000px', '4000px']] as const) {
-        for (let section = 0; section < 8; section += 1) {
+        for (let section = 0; section < 10; section += 1) {
           await visitScrolling(page, `settings section ${section + 1}, window at its ${label}`, async () => { await openSettings(page, section); await resizeSettings(width, height); }, () => settingsPanel(page));
         }
       }
       await resizeSettings('', '');
       await closeSettings(page);
       // Connection: a real address typed in, every way in.
-      const connection = await openSettings(page, 1);
+      const connection = await openSettings(page, 2);
       await connection.getByRole('textbox', { name: T('settings.mcpUrl'), exact: true }).fill(fake.url);
       await page.waitForTimeout(300);
       const accessCount = await connection.getByRole('radio').count();
       for (let index = 0; index < accessCount; index += 1) {
         await connection.getByRole('radio').nth(index).click();
         await page.waitForTimeout(320);
-        await visitScrolling(page, `settings connection, access ${index + 1}`, async () => { await openSettings(page, 1); }, () => settingsPanel(page));
+        await visitScrolling(page, `settings connection, access ${index + 1}`, async () => { await openSettings(page, 2); }, () => settingsPanel(page));
       }
       await closeSettings(page);
       // Privacy: turning on adult content first shows the rules and asks for one word; Escape leaves it off.
       const adultDialog = page.locator('[role="dialog"].adult-content-dialog');
       await visit(page, 'settings privacy, the rules before adult content', async () => {
-        const privacy = await openSettings(page, 6);
+        const privacy = await openSettings(page, 8);
         if (await adultDialog.count() === 0) await privacy.getByRole('switch', { name: T('preferences.adultContent') }).click();
         await adultDialog.waitFor();
       }, async () => { await escape(page); });
@@ -507,10 +507,10 @@ test('nothing sticks out, is cut or overlaps on any screen at any window size', 
     if (wants('reading')) {
       await visit(page, 'top bar while ComfyUI is read');
       await visitScrolling(page, 'sync indicator while ComfyUI is read', async () => { await page.locator('.sync-indicator').click(); await page.getByRole('dialog').first().waitFor(); }, () => page.getByRole('dialog', { name: T('settings.sync'), exact: true }).locator(':scope > div').first(), async () => { await escape(page); });
-      await visitScrolling(page, 'settings connection while model metadata is read', async () => { await openSettings(page, 1); }, () => settingsPanel(page));
+      await visitScrolling(page, 'settings connection while model metadata is read', async () => { await openSettings(page, 2); }, () => settingsPanel(page));
       // The line a person reported: the state must read with its numbers, never with a placeholder.
       expect(await settingsPanel(page).innerText()).not.toContain('{{');
-      await visitScrolling(page, 'settings sync while model metadata is read', async () => { await openSettings(page, 2); }, () => settingsPanel(page));
+      await visitScrolling(page, 'settings sync while model metadata is read', async () => { await openSettings(page, 4); }, () => settingsPanel(page));
       await closeSettings(page);
     }
     await sync.catch(() => undefined);
@@ -1015,6 +1015,7 @@ test('nothing sticks out, is cut or overlaps on any screen at any window size', 
     if (wants('helper')) {
       await visit(page, 'helper, empty chat', async () => { await dockTab(page, 0); });
       await dockTab(page, 0);
+      await page.locator('[data-intent="ask"]').click();
       for (const question of [LONG_QUESTION, 'propose a sampler']) {
         await composer.fill(question);
         await composer.press('Enter');

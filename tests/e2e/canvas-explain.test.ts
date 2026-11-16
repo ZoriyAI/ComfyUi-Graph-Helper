@@ -3,6 +3,7 @@
  * context menu with "What is this?", the guided tour, the connect assist that shows where a link may go, the subgraph
  * breadcrumb and the replay of how a graph was built. These are how a beginner learns a graph by pointing at it.
  */
+import { finishSubgraphWizard } from './finishSubgraphWizard';
 import { test, expect, _electron as electron } from '@playwright/test';
 import * as fs from 'fs';
 import * as os from 'os';
@@ -42,7 +43,7 @@ test('canvas explains: context menu, tour, connect assist, subgraph breadcrumb a
   await window.getByText('Sample', { exact: true }).click({ button: 'right' });
   const menu = window.getByRole('menu');
   await expect(menu.getByRole('menuitem', { name: 'What is this?' })).toBeVisible();
-  await expect(menu.getByRole('menuitem', { name: 'Make a subgraph from selection' })).toBeVisible();
+  await expect(menu.getByRole('menuitem', { name: 'Subgraph constructor…' })).toBeVisible();
   // The questions sit under a caption that says who answers; every row has an icon; the node is a "node".
   await expect(menu.getByText('Ask the assistant', { exact: true })).toBeVisible();
   await expect(menu.getByRole('menuitem', { name: 'Note for this node…' })).toBeVisible();
@@ -84,7 +85,8 @@ test('canvas explains: context menu, tour, connect assist, subgraph breadcrumb a
   await window.getByText('Positive', { exact: true }).click();
   await window.getByText('Negative', { exact: true }).click({ modifiers: ['Control'] });
   await window.getByText('Negative', { exact: true }).click({ button: 'right' });
-  await window.getByRole('menuitem', { name: 'Make a subgraph from selection' }).click();
+  await window.getByRole('menuitem', { name: 'Subgraph constructor…' }).click();
+  await finishSubgraphWizard(window);
   await expect(window.locator('[data-node-kind="subgraph-instance"]')).toHaveCount(1);
   await expect(window.locator('.react-flow__node')).toHaveCount(11);
   await window.locator('[data-node-kind="subgraph-instance"]').dblclick();
@@ -114,6 +116,7 @@ test('canvas explains: context menu, tour, connect assist, subgraph breadcrumb a
   // Ghost: the TEST fixture proposes a node; it stays a ghost until accepted, then becomes a real node.
   await pickOption(window, 'Choose the assistant', 'TEST mode');
   await window.getByRole('tab', { name: 'Assistant' }).click();
+  await window.locator('[data-intent="ask"]').click();
   await window.locator('textarea[aria-label="Chat message"]').fill('propose a sampler');
   await window.getByRole('button', { name: 'Send' }).click();
   const ghost = window.locator('[data-ghost-kind="add-node"]');

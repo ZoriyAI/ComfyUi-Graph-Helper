@@ -188,17 +188,17 @@ describe('estimateNodeSize', () => {
   it('is the card as the canvas draws it: header, ports, fields, bottom', () => {
     expect(estimateNodeSize(null)).toEqual({ width: 240, height: 65 });
     // Two link inputs and an output: two lists. Two fields; the control slot of the seed rides with its field.
-    expect(estimateNodeSize(sampler).height).toBe(55 + (4 + 2 * 28) + (4 + 28) + (9 + 2 * 30) + 10);
+    expect(estimateNodeSize(sampler).height).toBe(55 + (4 + 2 * 28) + (9 + 2 * 30) + 10);
   });
 
   it('follows the catalog on which inputs are fields, and gives a multi-line text its box', () => {
     const prompt = { inputs: [{ name: 'clip', dataType: 'CLIP' }, { name: 'text', dataType: 'STRING' }], outputs: [{ name: 'CONDITIONING' }], parameters: {} };
     // Without the catalog and without a value, `text` is taken for a link input.
-    expect(estimateNodeSize(prompt).height).toBe(55 + (4 + 2 * 28) + (4 + 28) + 10);
+    expect(estimateNodeSize(prompt).height).toBe(55 + (4 + 2 * 28) + 10);
     const hints = { inputs: [{ name: 'clip', widget: false }, { name: 'text', widget: true, multiline: true }] };
-    expect(estimateNodeSize(prompt, hints).height).toBe(55 + (4 + 28) + (4 + 28) + (9 + 30 + 41) + 10);
+    expect(estimateNodeSize(prompt, hints).height).toBe(55 + (4 + 28) + (9 + 30 + 41) + 10);
     // The size measured on the canvas for this very node.
-    expect(estimateNodeSize(prompt, hints).height).toBe(209);
+    expect(estimateNodeSize(prompt, hints).height).toBe(177);
   });
 
   it('counts a value with no input of its name as a field, once', () => {
@@ -211,7 +211,7 @@ describe('estimateNodeSize', () => {
     expect(estimateNodeSize({ ...sampler, annotations: ['short'] }).height).toBe(plain + 20 + 18);
     const card = { inputs: [{ name: 'samples', dataType: 'LATENT' }], outputs: [{ name: 'IMAGE' }], kind: 'subgraph-instance', comfyType: 'uuid-1', title: 'uuid-1' };
     const bare = estimateNodeSize(card).height;
-    expect(bare).toBe(55 + (4 + 28) + (4 + 28) + 10);
+    expect(bare).toBe(55 + (4 + 28) + 10);
     expect(estimateNodeSize({ ...card, title: 'My upscale' }).height).toBe(bare + 26);
     // A card titled with the subgraph's own name does not repeat it.
     expect(estimateNodeSize({ ...card, title: 'Upscale' }, { subgraphName: 'Upscale' }).height).toBe(bare);

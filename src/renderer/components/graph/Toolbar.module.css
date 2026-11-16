@@ -223,3 +223,10 @@
 /* The beginner entry always keeps its words, including on a phone. */
 .guide { padding-inline: 10px; }
 .guide span { display: inline; }
+/* Narrow desktop canvases keep the tool reachable by its icon and accessible name without another whole row. */
+@container canvas (max-width: 950px) {
+  .guide span { display: none; }
+}
+@media (pointer: coarse), (max-width: 700px) {
+  .guide span { display: inline; }
+}

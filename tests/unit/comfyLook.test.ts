@@ -13,6 +13,7 @@ import {
   FILE_BOX,
   fileBox,
   fileColors,
+  imageSourceName,
   isCollapsed,
   overlapCount,
   ownPromotedValue,
@@ -189,4 +190,11 @@ describe('the projection keeps what the look reads', () => {
     expect(isCollapsed(data)).toBe(true);
     expect(fileColors(data)).toEqual({ color: '#332922', bgcolor: '#593930' });
   });
+});
+
+it('reserves image previews for native positional and named values while honoring a cleared field', () => {
+  expect(imageSourceName({ comfyType: 'LoadImage', comfy: { widgets_values: ['photo.png'] } })).toBe('photo.png');
+  expect(imageSourceName({ comfyType: 'LoadImage', comfy: { widgets_values: { image: 'named.png' } } })).toBe('named.png');
+  expect(imageSourceName({ comfyType: 'LoadImage', parameters: { image: '' }, comfy: { widgets_values: ['old.png'] } })).toBeNull();
+  expect(imageSourceName({ comfyType: 'OtherNode', parameters: { image: 'photo.png' } })).toBeNull();
 });

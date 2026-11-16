@@ -84,11 +84,12 @@ export function layoutRect(node: PositionedNode, hints?: SizeHints | null): Rect
 export function newNodeSize(classType: string, detail: NodeClassDetail | null | undefined, what: { parameters?: Record<string, unknown> } = {}): Size {
   // A core class before ComfyUI is read is a row with a name and no ports.
   const read = detail && !(detail.pack === 'core' && detail.inputs.length === 0 && detail.outputs.length === 0) ? detail : null;
-  if (!read) return estimateNodeSize({ inputs: inferInputs(classType), outputs: inferOutputs(classType), parameters: what.parameters ?? {} });
+  if (!read) return estimateNodeSize({ comfyType: classType, inputs: inferInputs(classType), outputs: inferOutputs(classType), parameters: what.parameters ?? {} });
   const sockets = read.inputs.filter((input) => !input.widget);
   const widgets = read.inputs.filter((input) => input.widget);
   return estimateNodeSize(
     {
+      comfyType: classType,
       inputs: [...sockets, ...widgets].map((input) => ({ name: input.name, dataType: input.type })),
       outputs: read.outputs,
       parameters: what.parameters ?? {},

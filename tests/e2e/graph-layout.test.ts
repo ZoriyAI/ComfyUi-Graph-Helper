@@ -3,7 +3,7 @@
  * - a helper build on a canvas that already has nodes ends with no two node cards overlapping on screen;
  * - a helper build on an empty canvas ends on readable cards around its middle, and Fit to view shows it whole;
  * - "Arrange the graph" moves nodes in one commit, and one Undo puts every node back;
- * - zoomed far out, the canvas switches to its overview level (data-zoom="overview") and back.
+ * - zoomed far out, the canvas retains node fields and handles.
  * LAYOUT_SHOTS=<dir> saves screenshots of the end of the build, for a person to look at.
  */
 import { test, expect, _electron as electron, type ElectronApplication, type Page } from '@playwright/test';
@@ -70,7 +70,7 @@ async function shot(window: Page, name: string): Promise<void> {
   await window.screenshot({ path: path.join(dir, `${name}.png`) });
 }
 
-/** Node cards at 100 % zoom (the overview level folds them, which would hide an overlap of the full cards). */
+/** Measure node cards at 100 % zoom, independent of the current camera scale. */
 async function fullSizeBoxes(window: Page): Promise<Box[]> {
   await window.evaluate(() => (document.activeElement instanceof HTMLElement ? document.activeElement.blur() : undefined));
   await window.keyboard.press('Control+0');
@@ -157,7 +157,7 @@ test('a helper build on an empty canvas is tidied and shown whole', async () => 
   fs.rmSync(userData, { recursive: true, force: true });
 });
 
-test('Arrange the graph moves nodes in one commit and one Undo puts them back; far out the canvas is an overview', async () => {
+test('Arrange the graph moves nodes in one commit and one Undo puts them back; zooming out keeps node bodies visible', async () => {
   test.setTimeout(120000);
   const { app, window, userData } = await launch('layout-arrange-');
   expect((await manual(window, 'a', { type: 'add-node', nodeType: 'CheckpointLoaderSimple', x: 600, y: 300 })).status).toBe('applied');
@@ -187,20 +187,20 @@ test('Arrange the graph moves nodes in one commit and one Undo puts them back; f
   await window.keyboard.press('Control+Shift+L');
   await expect.poll(async () => JSON.stringify(await positions(window))).toBe(JSON.stringify(arranged));
 
-  // Overview: below 50 % zoom the canvas root says so (lib/nodeSizes.ts OVERVIEW_ENTER); back in, it does not.
-  // Handles stay in the DOM.
+  // Below 50% the cards, fields and handles remain visible rather than collapsing to titles.
   const host = window.locator('[data-canvas-mode="root"]');
   const handles = await window.locator('.react-flow__handle').count();
   await window.evaluate(() => (document.activeElement instanceof HTMLElement ? document.activeElement.blur() : undefined));
-  // Each click zooms by a step (animated under full motion), so step until the overview line is crossed.
+  // Zoom below50percent; the person still sees full cards and their settings.
   const zoom = () => window.evaluate(() => Number(/scale\(([\d.]+)\)/.exec(document.querySelector('.react-flow__viewport')?.getAttribute('style') ?? '')?.[1] ?? 1));
   for (let step = 0; step < 12 && (await zoom()) >= 0.5; step += 1) {
     await window.getByRole('button', { name: 'Zoom out' }).click();
     await window.waitForTimeout(260);
   }
-  await expect(host).toHaveAttribute('data-zoom', 'overview');
+  await expect(host).not.toHaveAttribute('data-zoom', 'overview');
   await expect(window.locator('.react-flow__handle')).toHaveCount(handles);
-  await shot(window, 'overview');
+  await expect(window.locator('.port-list').first()).toBeVisible();
+  await shot(window, 'zoomed-out-fields');
   for (let step = 0; step < 12 && (await zoom()) <= 0.7; step += 1) {
     await window.getByRole('button', { name: 'Zoom in' }).click();
     await window.waitForTimeout(260);

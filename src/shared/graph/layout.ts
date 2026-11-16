@@ -6,7 +6,7 @@
  * command, catalog key arrangeGraph; renderer/components/graph/arrange.ts).
  */
 
-import { collapsedWidth, editorKind, FILE_BOX, fileBox, isCollapsed, promotedFields, REROUTE_BOX, savedValues, shownTitle } from '../workflow/comfyLook';
+import { collapsedWidth, editorKind, FILE_BOX, fileBox, imageSourceName, isCollapsed, promotedFields, REROUTE_BOX, savedValues, shownTitle } from '../workflow/comfyLook';
 import { widgetOrderMatches } from '../workflow/widgetValues';
 
 export interface Point {
@@ -68,7 +68,7 @@ export interface SizeHints {
    * The class's inputs. `afterRun`: the field gets ComfyUI's "after run" row under it (a seed; the same rule as
    * fields/fieldModel.ts pushAfterRun: the input has a control_after_generate start and the widget order a slot).
    */
-  inputs?: ReadonlyArray<{ name: string; widget: boolean; multiline?: boolean; afterRun?: boolean }>;
+  inputs?: ReadonlyArray<{ name: string; widget: boolean; multiline?: boolean; afterRun?: boolean; fileUpload?: boolean }>;
   /** For a subgraph card: the name of the subgraph it holds, when the caller knows it. */
   subgraphName?: string;
   /** The class is not in the person's ComfyUI: the card lists the values the file saved. */
@@ -91,7 +91,7 @@ export function afterRunSlot(name: string): string {
  * (graph/lib/nodeSizes.ts sizeHintsOf) and by the tests that hold the estimate to the drawn card.
  */
 export function sizeHintsOfClass(detail: {
-  inputs: ReadonlyArray<{ name: string; widget: boolean; spec?: { multiline?: boolean; control?: string } }>;
+  inputs: ReadonlyArray<{ name: string; widget: boolean; spec?: { multiline?: boolean; control?: string; fileUpload?: string } }>;
   widgetOrder?: ReadonlyArray<string>;
   widgetOrderReliable?: boolean;
 }): SizeHints {
@@ -101,6 +101,7 @@ export function sizeHintsOfClass(detail: {
       name: input.name,
       widget: input.widget,
       multiline: Boolean(input.spec?.multiline),
+      ...(input.spec?.fileUpload ? { fileUpload: true } : {}),
       ...(input.spec?.control !== undefined && order?.includes(afterRunSlot(input.name)) ? { afterRun: true } : {}),
     })),
     ...(order ? { widgetOrder: order } : {}),
@@ -224,6 +225,7 @@ function estimateCardSize(data: SizedData | null | undefined, hints?: SizeHints 
   let links = 0;
   let fields = 0;
   let textBoxes = 0;
+  let fileUploads = 0;
   const seen = new Set<string>();
   for (const port of inputs) {
     const name = typeof port?.name === 'string' ? port.name : '';
@@ -236,6 +238,7 @@ function estimateCardSize(data: SizedData | null | undefined, hints?: SizeHints 
     seen.add(name);
     fields += 1;
     if (spec?.multiline) textBoxes += 1;
+    if (spec?.fileUpload) fileUploads += 1;
     if (spec?.afterRun) fields += 1;
   }
   // A widget input the node has no port for (stored before its class was read) shows once it holds a value.
@@ -244,6 +247,7 @@ function estimateCardSize(data: SizedData | null | undefined, hints?: SizeHints 
     seen.add(input.name);
     fields += 1;
     if (input.multiline) textBoxes += 1;
+    if (input.fileUpload) fileUploads += 1;
     if (input.afterRun) fields += 1;
   }
   // A value with no input of its name is a field too; `seed::control_after_generate` rides with its field.
@@ -272,9 +276,14 @@ function estimateCardSize(data: SizedData | null | undefined, hints?: SizeHints 
   const primitiveEmpty = kind === 'primitive' && savedValues(data).length === 0;
   const note = Array.isArray(data?.annotations) && typeof data!.annotations[0] === 'string' ? data!.annotations[0] as string : '';
   let height = NODE_BOX.header + NODE_BOX.bottom;
-  if (links > 0) height += NODE_BOX.list + links * NODE_BOX.port;
-  if (outputs.length > 0) height += NODE_BOX.list + outputs.length * NODE_BOX.port;
+  // Inputs and outputs are side by side, matching ComfyUI: only the taller column occupies vertical room.
+  const portRows = Math.max(links, outputs.length);
+  if (portRows > 0) height += NODE_BOX.list + portRows * NODE_BOX.port;
   if (fields > 0) height += NODE_BOX.fieldsTop + fields * NODE_BOX.field + textBoxes * NODE_BOX.textBox;
+  // The media field stacks a 22px selector, a 4px gap and a 26px chooser in its normal 26px row.
+  height += fileUploads * 26;
+  // Reserve the preview before its asynchronous response: 206px frame plus 8px top and bottom margins.
+  if (imageSourceName(data)) height += 222;
   if (extraFields > 0) height += NODE_BOX.fieldsTop + extraFields * NODE_BOX.field;
   if (primitiveEmpty) height += NODE_BOX.primitiveEmpty;
   if (kind === 'set' || kind === 'get') height += NODE_BOX.constant;

@@ -21,7 +21,9 @@ const ALLOWED_COPY = new Set([
   'TEST',
   'Русский',
   // Product names read the same in every language; they are not untranslated copy.
-  'ComfyUI', 'MCP', 'Ollama', 'OpenAI', 'Anthropic', 'Google',
+  'ComfyUI', 'MCP', 'Ollama', 'OpenAI', 'Anthropic', 'Google', 'LM Studio',
+  // Exact ComfyUI folder names are technical values in connection/upload explanations.
+  'input', 'output', 'models',
 ]);
 
 function leaf(catalog: Catalog, key: string): string {

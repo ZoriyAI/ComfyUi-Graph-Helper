@@ -140,10 +140,12 @@ test('an imported workflow is drawn as its file describes it', async () => {
     await expect(node(page, '11').locator('a')).toHaveCount(0);
     await expect(node(page, '11').locator('strong')).toHaveText('Put');
 
-    // A class that is not installed: dashed frame, a mark, its saved values read-only, object values as service data.
+    // A class that is not installed: dashed frame and editable saved slots; object values remain service data.
     await expect(node(page, '14').locator('[data-class-missing="true"]')).toBeVisible();
     await expect(node(page, '14').getByText('Not installed')).toBeVisible();
-    await expect(node(page, '14').locator('[data-saved-values="3"]')).toContainText('service data');
+    await expect(node(page, '14').locator('.node-fields .node-field')).toHaveCount(3);
+    await expect(node(page, '14').getByRole('textbox', { name: 'Saved value 2' })).toHaveValue('soft');
+    await expect(node(page, '14').locator('[data-service-data="true"]')).toHaveText('service data');
     await expect(node(page, '14').locator('.port-type')).toHaveText('…CLIPEMBEDS');
     await node(page, '14').click({ position: { x: 30, y: 12 } });
     await expect(page.locator('.inspector-look')).toContainText('This node is not installed in your ComfyUI');

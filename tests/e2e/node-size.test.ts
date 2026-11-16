@@ -247,13 +247,13 @@ test('nodes added one after another at the same place keep their distance, tall 
     const least = NEW_NODE_GAP - 4;
     expect(crowded(await drawn(page), least), `nodes closer than ${least} px`).toEqual([]);
 
-    // The same from the canvas's map (zoomed far out), where a node is drawn as a small block: the next node
-    // still gets room for the whole node.
+    // Zooming out keeps the full fields visible; the next node still gets room for the whole card.
     // Each press steps from where the camera is going (motion/camera.ts cameraBase), so eight quick presses reach
     // the map however slowly the glides run; the level switches once the zoom passes below its line.
     await page.locator('.react-flow__controls-fitview').click();
     for (let turn = 0; turn < 8; turn += 1) await page.locator('.react-flow__controls-zoomout').click();
-    await expect(page.locator('[data-canvas-mode="root"]')).toHaveAttribute('data-zoom', 'overview');
+    await expect(page.locator('[data-canvas-mode="root"]')).not.toHaveAttribute('data-zoom', 'overview');
+    await expect(page.locator('.node-field').first()).toBeVisible();
     await addFromLibrary(page, search, 'KSamplerAdvanced', added.length + 1);
     await search.fill('');
     await fullSize(page);

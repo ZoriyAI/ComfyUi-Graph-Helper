@@ -43,14 +43,14 @@ test('a file that breaks the connection is skipped, listed with its reason, retr
     // Done, not failed: the broken file does not stop the sync.
     await expect(indicator).toHaveAttribute('data-sync-state', 'idle', { timeout: 30000 });
     await expect(indicator).not.toHaveAttribute('data-sync-enriching', 'true', { timeout: 30000 });
-    const toast = window.getByText('Sync done. Could not be read: 1. See the list.');
+    const toast = window.getByText('Catalog updated. Still waiting to be read or checked: 1. Open the report.');
     await expect(toast).toBeVisible();
     await window.getByRole('button', { name: 'Show the list' }).click();
 
     const dialog = window.locator('[role="dialog"].sync-problems-dialog');
     const report = dialog.getByTestId('sync-unreadable');
     await expect(report).toBeVisible();
-    await expect(report.getByRole('status').first()).toHaveText(/^Model files read: \d+ of \d+; could not be read: 1; skipped: 0\.$/);
+    await expect(report.getByRole('status').first()).toHaveText(/^Read: \d+ of \d+ · waiting: \d+ · errors: 1 · excluded: 0\.$/);
     const row = report.locator('li').filter({ hasText: `“${BROKEN}” in the folder “loras”` });
     await expect(row).toHaveCount(1);
     await expect(row).toContainText('The server dropped the connection while reading this file, also on a new connection.');
@@ -74,7 +74,7 @@ test('a file that breaks the connection is skipped, listed with its reason, retr
     // "Skip this file": the row stays, marked skipped, and is no longer counted as a failure.
     await row.getByRole('switch', { name: `Skip this file: ${BROKEN}` }).click();
     await expect(row).toContainText('Automatic reading is skipped.');
-    await expect(report.getByRole('status').first()).toHaveText(/could not be read: 0; skipped: 1\.$/);
+    await expect(report.getByRole('status').first()).toHaveText(/errors: 0 · excluded: 1\.$/);
     await expect(row.getByRole('button', { name: `Try again now: ${BROKEN}` })).toBeEnabled();
 
     await report.getByRole('button', { name: 'Copy report' }).click();
@@ -92,7 +92,7 @@ test('a file that breaks the connection is skipped, listed with its reason, retr
     await (await chooser).setFiles(selected);
     await expect(report.getByText(`The header of “${BROKEN}” was read from this device.`)).toBeVisible();
     await expect(row).toHaveCount(0);
-    await expect(report.getByRole('status').first()).toHaveText(/could not be read: 0; skipped: 0\.$/);
+    await expect(report.getByRole('status').first()).toHaveText(/^Read: \d+ of \d+ · waiting: 0 · errors: 0 · excluded: 0\.$/);
     await expect(dialog.getByRole('region', { name: 'Read from this device' })).toContainText(BROKEN);
     if (process.env.NODEWISE_UI_EVIDENCE) await window.screenshot({ path: path.join(process.env.NODEWISE_UI_EVIDENCE, 'sync-repair-phone.png') });
     await dialog.getByRole('button', { name: 'Close', exact: true }).click();

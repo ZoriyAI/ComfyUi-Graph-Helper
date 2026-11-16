@@ -2,7 +2,7 @@
  * The React Flow canvas of the graph editor: the root graph, an open subgraph definition or a replayed version, with
  * its toolbar, minimap, context menu and the explanation layers (groups, ghosts, tour, descriptions, live build,
  * check marks). GraphWorkspace renders it inside the React Flow provider. Edits go through commitManual and the edit
- * batch, so every canvas gesture is one undo step; drags, zoom reports and the overview level are kept off the stores
+ * batch, so every canvas gesture is one undo step; drags and zoom reports are kept off the stores
  * on purpose because writing app-wide stores on every frame cost big graphs most of their frames.
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -305,7 +305,7 @@ export default function CanvasFlow() {
     : glidedNodes), [glidedNodes, dragPlaces]);
   const host = useRef<HTMLDivElement>(null);
 
-  // Sizes at a readable zoom, for Arrange the graph (canvas.arrangeGraph) while the overview has collapsed the nodes.
+  // Remember measured full card sizes for Arrange the graph, independently of camera scale.
   useEffect(() => {
     if (mode === 'root') rememberSizes(rootNodes);
   }, [mode, rootNodes]);

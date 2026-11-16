@@ -129,7 +129,6 @@ test('node card: says what a node is for before it is on the canvas', async () =
     // The card's button puts the node on the canvas; Escape closes the card.
     await bare.getByRole('button', { name: 'Add to canvas' }).click();
     await expect(window.locator('.react-flow__node').filter({ hasText: 'Seed (rgthree)' })).toHaveCount(1);
-    await bare.press('Escape');
     await expect(bare).toHaveCount(0);
 
     // A double click adds the node as it always did, and opens no card.

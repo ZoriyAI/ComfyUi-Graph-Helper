@@ -138,7 +138,7 @@ export function PortRow({ nodeId, port, side, connected, focusable, live = true 
       {live
         ? <PortHandle nodeId={nodeId} port={port} side={side} connected={connected} focusable={focusable} />
         : <span className={`${styles.handle} ${styles.dot}`} aria-hidden="true" />}
-      <span className={`${styles.portName} port-name`}>{port.name}</span>
+      <span className={`${styles.portName} port-name`} title={port.name}>{port.name}</span>
       {port.name.toLowerCase() === port.dataType.toLowerCase() ? null : <span className={`${styles.portType} port-type`} title={port.dataType} data-full-type={port.dataType}>{shortPortType(port.dataType)}</span>}
     </li>
   );

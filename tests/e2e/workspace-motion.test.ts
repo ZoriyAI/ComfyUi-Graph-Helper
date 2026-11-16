@@ -156,9 +156,9 @@ test('motion policy, dialog focus, and real workspace captures', async () => {
   await window.keyboard.press('Shift+Tab');
   await expect.poll(async () => window.evaluate(() => document.activeElement?.textContent?.trim() ?? '')).toBe('Connection');
   // The section list is Assistant · Connection · Sync · Canvas · Appearance & Motion · …
-  await window.keyboard.press('ArrowUp');
+  await window.keyboard.press('Home');
   await expect.poll(async () => window.evaluate(() => document.activeElement?.textContent?.trim() ?? '')).toBe('Assistant');
-  for (const label of ['Connection', 'Sync', 'Canvas', 'Appearance & Motion']) {
+  for (const label of ['Services', 'Connection', 'Browser access', 'Sync', 'Canvas', 'Appearance & Motion']) {
     await window.keyboard.press('ArrowDown');
     await expect.poll(async () => window.evaluate(() => document.activeElement?.textContent?.trim() ?? '')).toBe(label);
   }
@@ -530,6 +530,9 @@ test('motion policy, dialog focus, and real workspace captures', async () => {
   await window.evaluate(() => { document.documentElement.dataset.motion = 'off'; });
   await expect(window.locator('.graph-canvas')).toHaveAttribute('data-fit-duration', '0');
   console.log('FIT_DURATION 0/640/0');
+  // Measure the 24px handle at 100%; fitting now also reserves room for the taller toolbar and group titles.
+  await window.locator('.react-flow__controls-zoomreset').click();
+  await expect(window.locator('.react-flow__controls-zoomreset')).toHaveText('100%');
   const ports = await window.locator('.port-list li[data-port-side="input"]').first().evaluate((row) => {
     const handle = row.querySelector('.react-flow__handle')?.getBoundingClientRect();
     const name = row.querySelector('.port-name')?.getBoundingClientRect();
@@ -537,14 +540,16 @@ test('motion policy, dialog focus, and real workspace captures', async () => {
     if (!handle || !name) return { hit: false, typeShown: false, overlaps: true, swatch: true };
     const overlaps = handle.right > name.left + 0.5 && name.right > handle.left + 0.5 && handle.bottom > name.top + 0.5 && name.bottom > handle.top + 0.5;
     return {
-      hit: handle.width >= 24 && handle.height >= 24,
+      // The zoom readout rounds to 100% just before the final camera frame; tolerate a subpixel difference.
+      hit: handle.width >= 23.5 && handle.height >= 23.5,
+      width: handle.width, height: handle.height,
       typeShown: (row.textContent || '').toLowerCase().includes(type.toLowerCase()),
       overlaps,
       swatch: row.querySelector('.port-swatch') != null,
     };
   });
   expect(ports.swatch).toBe(false);
-  expect(ports.hit).toBe(true);
+  expect(ports.hit, JSON.stringify(ports)).toBe(true);
   expect(ports.typeShown).toBe(true);
   expect(ports.overlaps).toBe(false);
   await window.locator('.react-flow__controls-fitview').click();

@@ -1,6 +1,6 @@
 /**
  * E2E spec for the journey on the real window: the welcome card's three ways and "I have no ComfyUI yet", the window
- * tour on a first start, an example opened from the welcome card, a picture ComfyUI saved dropped on the window (the
+ * tour on a first start, an example opened from the File menu, a picture ComfyUI saved dropped on the window (the
  * workflow inside it opens, the one import message says so, File > Open recent lists it), the run card after Save
  * workflow for ComfyUI, a ComfyUI error pasted back and pointed at its node, glossary hints in a lesson, and a file
  * named on the command line. The ComfyUI is the fake MCP server's fixture; nothing reaches a real one.
@@ -107,8 +107,8 @@ test('journey: welcome ways, tour, example, a dropped picture, run card, a Comfy
 
     // The welcome card: three ways, the setup rows, help without ComfyUI.
     const welcome = page.locator('.canvas-empty');
-    for (const way of ['lesson', 'example', 'ask']) await expect(welcome.locator(`[data-way="${way}"]`)).toBeVisible();
-    await expect(welcome.locator('[data-way="example"]')).toContainText('once the app has read your ComfyUI');
+    for (const way of ['lesson', 'create', 'ask']) await expect(welcome.locator(`[data-way="${way}"]`)).toBeVisible();
+    await expect(welcome.locator('[data-way="create"]')).toContainText('Choose what to create');
     await welcome.getByRole('button', { name: 'I have no ComfyUI yet' }).click();
     const noComfy = page.locator('.journey-no-comfy-dialog');
     await expect(noComfy).toContainText('ComfyUI is a free program');
@@ -117,7 +117,7 @@ test('journey: welcome ways, tour, example, a dropped picture, run card, a Comfy
     // The library is open at the size the app opens at, and the right panel shows the assistant.
     await expect(page.locator('#library-rail')).toHaveAttribute('data-open', 'true');
 
-    // ComfyUI read: an example opens from the welcome card.
+    // ComfyUI read: examples remain available from File while the welcome card offers task-based creation.
     await page.evaluate(async (url) => {
       const api = (window as unknown as { electronAPI: Record<string, (...args: unknown[]) => Promise<any>> }).electronAPI;
       const read = await api.getSettings();
@@ -126,8 +126,9 @@ test('journey: welcome ways, tour, example, a dropped picture, run card, a Comfy
     }, fake.url);
     await page.reload();
     await page.locator('.app-shell').waitFor();
-    await expect(welcome.locator('[data-way="example"]').getByRole('button', { name: 'Open an example' })).toBeVisible({ timeout: 20_000 });
-    await welcome.locator('[data-way="example"]').getByRole('button', { name: 'Open an example' }).click();
+    await page.locator('.document-bar').getByRole('menuitem', { name: 'File', exact: true }).click();
+    await page.getByRole('menuitem', { name: 'Examples', exact: true }).click();
+    await page.getByRole('menuitem', { name: 'A first picture from text', exact: true }).click();
     await expect(page.locator('.react-flow__node')).toHaveCount(7, { timeout: 15_000 });
     await expect(page.getByText('An example: the finished graph of a lesson')).toBeVisible();
 
@@ -149,7 +150,8 @@ test('journey: welcome ways, tour, example, a dropped picture, run card, a Comfy
     await page.locator('.document-bar [role="menuitem"]').first().click();
     await page.getByRole('menuitem', { name: 'Save workflow for ComfyUI…' }).click();
     const guard = page.locator('.export-guard-dialog');
-    if (await guard.isVisible({ timeout: 3000 }).catch(() => false)) await guard.getByRole('button', { name: 'Save anyway' }).click();
+    await expect(guard).toBeVisible();
+    await guard.getByRole('button', { name: 'Save anyway' }).click();
     const run = page.locator('.journey-run-dialog');
     await expect(run).toBeVisible({ timeout: 10_000 });
     await expect(run).toContainText('saved.json');

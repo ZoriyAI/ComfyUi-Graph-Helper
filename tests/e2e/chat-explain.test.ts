@@ -90,6 +90,7 @@ test('propose a sampler: ghost card resolves through the proposals store', async
   await pickOption(window, 'Choose the assistant', 'TEST mode');
   await window.getByText('TEST mode is on').first().waitFor();
   await window.getByRole('tab', { name: 'Assistant' }).click();
+  await window.locator('[data-intent="ask"]').click();
   const before = await window.locator('.react-flow__node').count();
 
   const input = window.locator('textarea[aria-label="Chat message"]');

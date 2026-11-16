@@ -4,6 +4,7 @@
  * Check > Show and Ask why keep the identity of a node inside a definition even when the root has the same node id.
  * Otherwise undo would surprise a person, and the check could point at the wrong node.
  */
+import { finishSubgraphWizard } from './finishSubgraphWizard';
 import { test, expect, _electron as electron } from '@playwright/test';
 import * as fs from 'fs';
 import * as os from 'os';
@@ -109,6 +110,7 @@ test('a subgraph can be created immediately after New project', async () => {
   await expect(window.locator('.react-flow__node')).toHaveCount(1);
   await window.locator('.react-flow__node[data-id="1"]').click();
   await window.keyboard.press('Control+g');
+  await finishSubgraphWizard(window);
 
   const workflow = await exportDocument(window);
   expect(workflow.version).toBe(1);

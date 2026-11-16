@@ -46,7 +46,7 @@
 .status { display: flex; align-items: center; justify-content: flex-end; gap: 4px; flex: 0 1 auto; min-width: 0; }
 
 /* Menus: rows from ui/Menu.module.css, a little wider, the shortcut right-aligned. */
-.content { min-width: 248px; max-width: 360px; }
+.content { min-width: 248px; max-width: 360px; max-height: min(calc(100dvh - 20px), var(--radix-menubar-content-available-height, calc(100dvh - 20px))); overflow-y: auto; box-sizing: border-box; }
 .item { padding-right: 10px; }
 .itemLabel { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .shortcut { flex: 0 0 auto; }

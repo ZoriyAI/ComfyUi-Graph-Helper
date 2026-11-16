@@ -695,9 +695,11 @@ export default function DescriptionLayer() {
     if (!(view[3] > 0 && view[4] > 0 && scale > 0)) return null;
     const left = EDGE_PX;
     // The floating toolbar's room, the same number the camera keeps free (lib/followCamera.ts).
-    const top = TOOLBAR_ROOM_PX;
+    const canvas = typeof document === 'undefined' ? null : document.querySelector('.graph-canvas');
+    const measured = canvas ? Number.parseFloat(getComputedStyle(canvas).getPropertyValue('--canvas-toolbar-bottom')) : 0;
+    const top = Math.max(TOOLBAR_ROOM_PX, Number.isFinite(measured) ? measured : 0);
     return { x: (left - tx) / scale, y: (top - ty) / scale, width: (view[3] - left - EDGE_PX) / scale, height: (view[4] - top - EDGE_PX) / scale };
-  }, [view]);
+  }, [view, editingId]);
   // Cards of nodes far outside the view are not drawn: the window is the view grown by one screen on each side,
   // computed on a coarse grid of positions so a pan does not mount and unmount cards on every frame.
   const window_ = useMemo(() => cullWindow(view), [view]);

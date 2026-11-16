@@ -25,9 +25,9 @@ export const APP_AUDIT: AuditOptions = {
     '[role="listbox"] [role="option"]', '[role="dialog"] [role="option"]', '.project-chip', '.graph-node-title',
     // The build strip: the step counter comes first and stays whole; the reason after it is in the bubble by the node.
     '[data-live-build]',
-    // The data type beside a port is a hint, named by the pack that made it (WANVIDIMAGE_CLIPEMBEDS); the port's
-    // name stays whole, and the full type is in the tooltip.
-    '.port-type[title]',
+    // Pack identifiers can exceed a half-width ComfyUI slot. Names take priority over type hints;
+    // full identifiers remain in the tooltip and the accessible port label. Squeezed labels still fail.
+    '.port-type[title]', '.port-name[title]',
     // The class under a node's title is the pack's own identifier (WanVideoImageToVideoMultiTalk); the title above
     // names the node, and the full class is in the tooltip.
     '.graph-node-type[title]',

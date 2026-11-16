@@ -13,6 +13,7 @@ import { placeNewNode } from './placeNode';
 import { addedNodeId, revealNewNode } from './lib/reveal';
 import { useCanvasStore } from './canvasStore';
 import type { ComfyNodeData } from '../../types/graph';
+import { imageSourceName } from '../../../shared/workflow/comfyLook';
 import toolbar from './Toolbar.module.css';
 import fields from '../fields/FieldControl.module.css';
 import styles from './nodes/Node.module.css';
@@ -54,10 +55,19 @@ function previewOf(key: string, name: string): Promise<string | null> {
 }
 export function ImageSourcePreview({ data }: { data: ComfyNodeData }) {
   const { t } = useTranslation(); const [src, setSrc] = useState<string | null>(null);
-  const native = data.comfy && typeof data.comfy === 'object' ? data.comfy as { widgets_values?: unknown[] } : {};
-  const name = data.parameters?.image ?? native.widgets_values?.[0];
+  const [loading, setLoading] = useState(true); const [attempt, setAttempt] = useState(0);
+  const name = imageSourceName(data);
   const binding = useProjectionStore((s) => `${s.projectId}:${s.graphKey}`); const version = useKnowledgeStore((s) => `${s.sync?.comfyOrigin ?? ''}:${s.sync?.mcpUrl ?? ''}:${s.sync?.lastSyncAt ?? ''}`);
-  useEffect(() => { let alive = true; setSrc(null); if (typeof name === 'string' && name) void previewOf(`${binding}:${version}:${name}`, name).then((value) => { if (alive) setSrc(value); }); return () => { alive = false; }; }, [name, binding, version]);
-  if (!src) return null;
-  return <figure className={styles.imageSource} data-image-source><img src={src} alt={String(t('imageSource.preview', { name }))} draggable={false} loading="lazy" /><figcaption>{t('imageSource.output')}</figcaption></figure>;
+  const cacheKey = `${binding}:${version}:${name}`;
+  useEffect(() => {
+    let alive = true; setSrc(null); setLoading(Boolean(name));
+    if (name) void previewOf(cacheKey, name).then(value => { if (alive) { setSrc(value); setLoading(false); } });
+    return () => { alive = false; };
+  }, [name, cacheKey, attempt]);
+  if (!name) return null;
+  return <figure className={styles.imageSource} data-image-source aria-label={String(t('imageSource.preview', { name }))}>
+    {src ? <img src={src} alt={String(t('imageSource.preview', { name }))} draggable={false} loading="lazy" onError={() => setSrc(null)} />
+      : <div className={`${styles.imagePending} nodrag nopan`}><span role="status">{t(loading ? 'imageSource.loading' : 'imageSource.unavailable')}</span>{!loading ? <button type="button" onClick={() => { previews.delete(cacheKey); setAttempt(value => value + 1); }}>{t('imageSource.retry')}</button> : null}</div>}
+    <figcaption>{t('imageSource.output')}</figcaption>
+  </figure>;
 }

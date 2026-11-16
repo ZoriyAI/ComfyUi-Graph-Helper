@@ -10,6 +10,17 @@ import type { SubgraphDefinition } from '../graph/subgraphs';
  */
 
 import { groupNodeName } from './codec';
+
+/** Selected image, including native positional and named widget values imported without catalog metadata. */
+export function imageSourceName(data: { comfyType?: unknown; parameters?: unknown; comfy?: unknown } | null | undefined): string | null {
+  if (data?.comfyType !== 'LoadImage') return null;
+  const parameters = data.parameters && typeof data.parameters === 'object' ? data.parameters as Record<string, unknown> : {};
+  const comfy = data.comfy && typeof data.comfy === 'object' ? data.comfy as { widgets_values?: unknown } : {};
+  const values = comfy.widgets_values;
+  const saved = Array.isArray(values) ? values[0] : values && typeof values === 'object' ? (values as Record<string, unknown>).image : undefined;
+  const name = parameters.image ?? saved;
+  return typeof name === 'string' && name.length > 0 ? name : null;
+}
 /** A width and height in canvas pixels. */
 export interface Box {
   width: number;

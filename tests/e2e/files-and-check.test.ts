@@ -11,6 +11,7 @@
  * - a corrected number says why; the person's note is theirs; the view comes back after a restart.
  * Shots go to FILES_CHECK_SHOTS when set.
  */
+import { finishSubgraphWizard } from './finishSubgraphWizard';
 import { test, expect, _electron as electron, type ElectronApplication, type Page } from '@playwright/test';
 import * as fs from 'fs';
 import * as os from 'os';
@@ -145,7 +146,7 @@ test('files, history and the check behave as they say', async () => {
     // The card of a node this ComfyUI does not have is marked and lists the values the file saved for it.
     const madeUp = page.locator('[data-class-missing="true"]').filter({ hasText: 'FancyMadeUpNode' }).first();
     await expect(madeUp).toBeVisible({ timeout: 15_000 });
-    await expect(madeUp).toContainText('42');
+    await expect(madeUp.locator('input').first()).toHaveValue('42');
     await expect(chip(page)).toHaveAttribute('data-dirty', 'true');
     await shot(page, '01-import-unknown');
     await toast(page).getByRole('button', { name: 'Открыть проверку' }).click();
@@ -290,6 +291,7 @@ test('files, history and the check behave as they say', async () => {
     await blur(page);
     await page.keyboard.press('Control+a');
     await page.keyboard.press('Control+g');
+    await finishSubgraphWizard(page);
     await expect.poll(async () => ((await ctx.api('readProjection', ['desktop'])).snapshot.subgraphs as unknown[] | undefined)?.length ?? 0, { timeout: 15_000 }).toBe(1);
     await expect(toast(page).filter({ hasText: /формат/ })).toHaveCount(0);
     await shot(page, '05b-new-project-subgraph');

@@ -2,7 +2,7 @@
  * The live build strip (LiveBuildStrip.tsx). Sits under the floating canvas toolbar (top-center Panel), so both stay
  * readable.
  */
-.panel { margin-top: 64px; max-width: min(720px, calc(100% - 32px)); }
+.panel { margin-top: var(--canvas-toolbar-bottom, 64px); max-width: min(720px, calc(100% - 32px)); }
 .strip {
   display: flex;
   align-items: center;

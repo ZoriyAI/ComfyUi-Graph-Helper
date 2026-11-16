@@ -50,7 +50,7 @@ export default function MediaUploadButton({ value, spec, disabled, onCommit }: F
         {/* The tap lands on the native input itself. Mobile pickers need trusted user activation, including Safari. */}
         <input ref={picker} className={styles.nativePicker} type="file" accept={accept} tabIndex={-1} disabled={disabled || busy}
           aria-label={String(t('field.chooseFile'))} onClickCapture={rememberOrigin} onChange={(event) => void changed(event)} />
-        <Upload size={12} aria-hidden="true" />{busy ? t('field.uploading') : t('field.chooseFile')}
+        <Upload size={12} aria-hidden="true" /><span className={styles.uploadLabel}>{busy ? t('field.uploading') : t('field.chooseFile')}</span>
       </label>
       {error ? <span className={styles.uploadError} role="alert">{t(`field.uploadError.${error}`)}</span> : null}
     </>

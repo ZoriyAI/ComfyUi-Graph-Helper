@@ -109,9 +109,9 @@ test('keyboard route reaches a node and keeps graph shortcuts out of fields', as
   await window.keyboard.press('Shift+Tab');
   await expect.poll(async () => window.evaluate(() => document.activeElement?.textContent?.trim() ?? '')).toBe('Connection');
   // The section list is Assistant · Connection · Sync · Canvas · Appearance & Motion · …
-  await window.keyboard.press('ArrowUp');
+  await window.keyboard.press('Home');
   await expect.poll(async () => window.evaluate(() => document.activeElement?.textContent?.trim() ?? '')).toBe('Assistant');
-  for (const label of ['Connection', 'Sync', 'Canvas', 'Appearance & Motion']) {
+  for (const label of ['Services', 'Connection', 'Browser access', 'Sync', 'Canvas', 'Appearance & Motion']) {
     await window.keyboard.press('ArrowDown');
     await expect.poll(async () => window.evaluate(() => document.activeElement?.textContent?.trim() ?? '')).toBe(label);
   }

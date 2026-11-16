@@ -5,6 +5,7 @@
  * inner node with the keyboard, undo and redo (also after leaving), check the instance on the main canvas, and
  * read the workflow saved for ComfyUI, which must be well-formed for ComfyUI to load.
  */
+import { finishSubgraphWizard } from './finishSubgraphWizard';
 import { test, expect, _electron as electron, type Locator, type Page } from '@playwright/test';
 import * as fs from 'fs';
 import * as os from 'os';
@@ -125,7 +126,8 @@ test('a subgraph is edited from the inside like the main canvas, and the saved w
     await window.locator(`.react-flow__node[data-id="${positiveId}"] .graph-node-title`).click();
     await window.locator(`.react-flow__node[data-id="${negativeId}"] .graph-node-title`).click({ modifiers: ['Control'] });
     await window.locator(`.react-flow__node[data-id="${negativeId}"] .graph-node-title`).click({ button: 'right' });
-    await window.getByRole('menuitem', { name: 'Make a subgraph from selection' }).click();
+    await window.getByRole('menuitem', { name: 'Subgraph constructor…' }).click();
+  await finishSubgraphWizard(window);
     await expect.poll(async () => ((await snapshot(window)).subgraphs ?? []).length).toBe(1);
     const definitionId = String((await snapshot(window)).subgraphs![0].id);
     const instance = (await snapshot(window)).nodes.find((node) => node.data?.subgraphId === definitionId);

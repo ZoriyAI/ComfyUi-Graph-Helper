@@ -65,18 +65,18 @@ describe('manual placement', () => {
 
   it('gives a new node the size its class is drawn at', () => {
     // The heights the canvas draws these two at (tests/e2e/node-size.test.ts measures them).
-    expect(newNodeSize('KSampler', SAMPLER)).toEqual({ width: 240, height: 402 });
-    expect(newNodeSize('CLIPTextEncode', PROMPT)).toEqual({ width: 240, height: 209 });
+    expect(newNodeSize('KSampler', SAMPLER)).toEqual({ width: 240, height: 370 });
+    expect(newNodeSize('CLIPTextEncode', PROMPT)).toEqual({ width: 240, height: 177 });
     // Before ComfyUI is read a core class is a name without ports; main then gives the node the ports the app
-    // ships for it (four link inputs and an output for the sampler: 213 px on the canvas).
+    // ships for it (four link inputs and an output for the sampler: 181 px on the canvas).
     const unread: NodeClassDetail = { ...SAMPLER, detailed: false, inputs: [], outputs: [], widgetOrder: [] };
-    expect(newNodeSize('KSampler', unread)).toEqual({ width: 240, height: 213 });
-    expect(newNodeSize('KSampler', null)).toEqual({ width: 240, height: 213 });
+    expect(newNodeSize('KSampler', unread)).toEqual({ width: 240, height: 181 });
+    expect(newNodeSize('KSampler', null)).toEqual({ width: 240, height: 181 });
     // A class nobody knows: one output. The file a model loader comes with is a field.
     expect(newNodeSize('SomethingNew', null)).toEqual({ width: 240, height: 55 + (4 + 28) + 10 });
     expect(newNodeSize('SomethingNew', null, { parameters: { ckpt_name: 'a.safetensors' } }).height).toBe(55 + (4 + 28) + (9 + 30) + 10);
-    // A class of a pack that the server reports with no ports at all stays without them.
-    expect(newNodeSize('Note', { ...unread, classType: 'Note', pack: 'some-pack' })).toEqual({ width: 240, height: 65 });
+    // A Note has no ports, but placement still reserves its text editor.
+    expect(newNodeSize('Note', { ...unread, classType: 'Note', pack: 'some-pack' })).toEqual({ width: 240, height: 163 });
     // The widget order rides along: a node from a file keeps its values in widgets_values by it.
     expect(sizeHintsOf(PROMPT)).toEqual({ inputs: [{ name: 'text', widget: true, multiline: true }, { name: 'clip', widget: false, multiline: false }], widgetOrder: PROMPT.widgetOrder });
     expect(sizeHintsOf(null)).toBeNull();
@@ -97,7 +97,7 @@ describe('manual placement', () => {
   it('sizes a node first seen on the map of the canvas by its ports and fields, not by the small block drawn there', () => {
     setOverviewLevel(true);
     const folded = at('new', 0, 0, { measured: { width: 240, height: 48 }, data: { inputs: [{ name: 'model', dataType: 'MODEL' }], outputs: [{ name: 'LATENT' }], parameters: { steps: 20 } } });
-    expect(layoutRect(folded).height).toBe(55 + (4 + 28) + (4 + 28) + (9 + 30) + 10);
+    expect(layoutRect(folded).height).toBe(55 + (4 + 28) + (9 + 30) + 10);
     setOverviewLevel(false);
     expect(layoutRect(folded).height).toBe(48);
   });
@@ -106,7 +106,7 @@ describe('manual placement', () => {
     setOverviewLevel(false);
     const data = { inputs: [{ name: 'model', dataType: 'MODEL' }], outputs: [{ name: 'LATENT' }], parameters: { steps: 20 } };
     // Header, one input row, one output row, one field row and the bottom padding, in pixels.
-    const whole = 55 + (4 + 28) + (4 + 28) + (9 + 30) + 10;
+    const whole = 55 + (4 + 28) + (9 + 30) + 10;
     // Added a moment ago: no measurement, and nothing remembered of it.
     expect(layoutRect(at('just-added', 0, 0, { data, measured: undefined })).height).toBe(whole);
     // Once the canvas has measured it, the measurement is the size.
@@ -133,9 +133,9 @@ describe('a suggested node', () => {
     // The catalog has not answered yet: a size that suits most nodes.
     expect(ghostRoom(payload, undefined, false)).toEqual(GHOST_SIZE);
     // The ghost's own card shows link inputs only; the node that lands has its six fields too.
-    expect(ghostRoom(payload, SAMPLER, false)).toEqual({ width: 240, height: 402 });
+    expect(ghostRoom(payload, SAMPLER, false)).toEqual({ width: 240, height: 370 });
     // The catalog does not have the class: the node lands with the ports the app ships for it.
-    expect(ghostRoom(payload, null, false)).toEqual({ width: 240, height: 213 });
+    expect(ghostRoom(payload, null, false)).toEqual({ width: 240, height: 181 });
     // A small class: the ghost with its flag, note and buttons is the taller of the two.
     const small: NodeClassDetail = { ...SAMPLER, classType: 'PreviewImage', inputs: [{ name: 'images', type: 'IMAGE', widget: false, required: true }], outputs: [] };
     const lands = newNodeSize('PreviewImage', small).height;
@@ -147,7 +147,7 @@ describe('a suggested node', () => {
     expect(insertRoom(undefined, undefined, false)).toEqual(GHOST_SIZE);
     const definition = { name: 'Upscale', inputs: [{ name: 'image', type: 'IMAGE' }], outputs: [{ name: 'IMAGE', type: 'IMAGE' }] } as Parameters<typeof insertRoom>[0];
     // The card: header, one input, one output, bottom; over it the flag, under it the buttons.
-    const card = 55 + (4 + 28) + (4 + 28) + 10;
+    const card = 55 + (4 + 28) + 10;
     expect(insertRoom(definition, undefined, false)).toEqual({ width: 240, height: 26 + card + 30 });
     // A title of its own adds the line that names the subgraph; a note adds its block.
     expect(insertRoom(definition, 'Second upscale', true).height).toBe(26 + card + 26 + 65 + 30);
