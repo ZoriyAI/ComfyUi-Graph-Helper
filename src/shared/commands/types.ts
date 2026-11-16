@@ -155,6 +155,14 @@ export const setGroupColorMutation = z.object({
 });
 // --- editing commands (end) ---
 
+export const dissolveSubgraphMutation = z.object({ type: z.literal('dissolve-subgraph'), nodeId: z.string().min(1) });
+export const addGroupMutation = z.object({
+  type: z.literal('add-group'), title: z.string().max(500),
+  nodeIds: z.array(z.string().min(1)).min(1).max(MOVE_NODES_MAX), color: z.string().max(64).optional(),
+});
+export const removeGroupMutation = z.object({ type: z.literal('remove-group'), groupId: z.string().min(1) });
+export const renameGroupMutation = z.object({ type: z.literal('rename-group'), groupId: z.string().min(1), title: z.string().max(500) });
+
 /** Every graph command, told apart by `type`. */
 export const mutationSchema = z.discriminatedUnion('type', [
   batchMutation,
@@ -275,28 +283,10 @@ export const mutationSchema = z.discriminatedUnion('type', [
     definitionId: z.string().min(1),
     name: z.string().min(1).max(200),
   }),
-  z.object({
-    type: z.literal('dissolve-subgraph'),
-    nodeId: z.string().min(1),
-  }),
-  z.object({
-    type: z.literal('add-group'),
-    title: z.string().max(500),
-    nodeIds: z.array(z.string().min(1)).min(1),
-    color: z.string().max(64).optional(),
-  }),
-  z.object({
-    type: z.literal('remove-group'),
-    groupId: z.string().min(1),
-  }),
-  // --- group rename (begin) ---
-  z.object({
-    /** A group's title, as typed on the canvas. Empty is allowed: ComfyUI keeps untitled groups too. */
-    type: z.literal('rename-group'),
-    groupId: z.string().min(1),
-    title: z.string().max(500),
-  }),
-  // --- group rename (end) ---
+  dissolveSubgraphMutation,
+  addGroupMutation,
+  removeGroupMutation,
+  renameGroupMutation,
   // --- edits inside a subgraph definition (begin) ---
   z.object({
     /**
@@ -307,6 +297,12 @@ export const mutationSchema = z.discriminatedUnion('type', [
     definitionId: z.string().min(1),
     edit: z.discriminatedUnion('type', [
       createSubgraphMutation,
+      dissolveSubgraphMutation,
+      addGroupMutation,
+      removeGroupMutation,
+      renameGroupMutation,
+      setGroupMembersMutation,
+      setGroupColorMutation,
       z.object({ type: z.literal('move-node'), nodeId: z.string().min(1), x: z.number(), y: z.number() }),
       z.object({
         type: z.literal('set-parameter'),

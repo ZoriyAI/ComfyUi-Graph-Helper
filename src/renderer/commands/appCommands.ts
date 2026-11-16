@@ -150,7 +150,7 @@ export function buildAppCommands(): Command[] {
     },
     {
       id: 'graph.dissolveSubgraph', group: 'graph', labelKey: 'contextMenu.dissolve', icon: Ungroup,
-      enabled: () => canEditGraph() && selectedSubgraphInstance() !== null,
+      enabled: () => canEditLevel() && selectedSubgraphInstance() !== null,
       run: () => {
         const node = selectedSubgraphInstance();
         if (node) void dissolveSubgraph(node.id);
@@ -159,7 +159,7 @@ export function buildAppCommands(): Command[] {
     {
       // Mod+Shift+G: next to Mod+G (subgraph from selection) and free everywhere else (editing package).
       id: 'graph.addGroup', group: 'graph', labelKey: 'contextMenu.addGroup', icon: Group, shortcut: 'Mod+Shift+G',
-      enabled: () => canEditGraph() && selectedNodes().length > 0,
+      enabled: () => canEditLevel() && selectedNodes().length > 0,
       run: () => void addGroup(selectedNodes().map((node) => node.id)),
     },
     // Collapse the selected nodes to their title row, or open them again, as ComfyUI's Alt+C does.

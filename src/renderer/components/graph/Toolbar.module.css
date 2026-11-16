@@ -210,3 +210,12 @@
 
 .touchActions button { min-width: 44px; }
 .touchActions button[aria-pressed=true] { color: var(--accent); background: var(--accent-soft); }
+
+/* Touch tools take extra rows. Keep subgraph navigation below the canvas, clear of those controls. */
+@media (pointer: coarse), (max-width: 700px) {
+  .crumbBar { top: auto; bottom: 12px; left: 8px; max-width: calc(100% - 16px); }
+  .crumbs { max-width: 100%; overflow-x: auto; }
+  .crumb, .crumbCurrent { flex-shrink: 0; white-space: nowrap; }
+  .crumb, .crumbs .button { min-height: 44px; min-width: 44px; }
+  .crumbHint { display: none; }
+}

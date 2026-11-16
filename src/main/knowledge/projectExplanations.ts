@@ -133,7 +133,7 @@ function rowsOfGraph(db: Database.Database, projectId: string, graphKey: string)
 interface SnapshotLike {
   nodes: Array<Record<string, any>>;
   edges: Array<Record<string, any>>;
-  subgraphs?: Array<{ id: string; nodes: Array<Record<string, any>>; edges: Array<Record<string, any>>; opaque?: true }>;
+  subgraphs?: Array<{ id: string; nodes: Array<Record<string, any>>; edges: Array<Record<string, any>>; groups?: Array<{ id: string }>; opaque?: true }>;
   groups?: Array<{ id: string }>;
 }
 
@@ -266,7 +266,7 @@ function copyOutOfDefinition(db: Database.Database, facts: CommitFacts, key: str
 /** Whether the object a row is about is still in the graph, so a save writes only explanations of what is there. */
 function present(snapshot: SnapshotLike, row: Row, owner: ObjectRef): boolean {
   const level = row.scope === ''
-    ? { nodes: snapshot.nodes, edges: snapshot.edges }
+    ? { nodes: snapshot.nodes, edges: snapshot.edges, groups: snapshot.groups }
     : (snapshot.subgraphs ?? []).find((item) => item.id === row.scope);
   if (!level) return false;
   const hasNode = (id: string | null) => id !== null && level.nodes.some((node) => String(node.id) === id);
@@ -277,7 +277,7 @@ function present(snapshot: SnapshotLike, row: Row, owner: ObjectRef): boolean {
     case 'edge':
       return level.edges.some((edge) => String(edge.id) === row.owner_id);
     case 'group':
-      return row.scope === '' && (snapshot.groups ?? []).some((group) => String(group.id) === row.owner_id);
+      return (level.groups ?? []).some((group) => String(group.id) === row.owner_id);
     case 'subgraph':
       return (snapshot.subgraphs ?? []).some((item) => item.id === row.owner_id);
     case 'process':

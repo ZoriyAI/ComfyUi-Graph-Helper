@@ -114,7 +114,7 @@ export function nodeEditingItems(t: Translate, node: GraphNode, targets: GraphNo
 
 /**
  * Add to group (editing.addToGroup, a submenu of the groups) and Take out of group (editing.removeFromGroup): a
- * group's frame is drawn around its nodes, so this is how a group grows or shrinks. Main canvas only, where groups live.
+ * group's frame is drawn around its nodes, so this is how a group grows or shrinks. Uses the groups of the displayed graph level.
  */
 export function groupMembershipItems(t: Translate, targets: GraphNode[], groups: GroupRecord[], disabled: boolean): React.ReactNode[] {
   const ids = targets.map((item) => item.id);

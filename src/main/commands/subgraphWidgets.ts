@@ -15,6 +15,13 @@ function sourceValue(definition: SubgraphDefinition, field: ExposedWidget, catal
   const node = definition.nodes.find((item) => String(item.id) === field.nodeId);
   if (!node) return { found: false };
   const data = node.data ?? {};
+  const nativeProxies = data.comfy?.properties?.proxyWidgets;
+  const nativeValues = data.comfy?.widgets_values;
+  if (Array.isArray(nativeProxies) && Array.isArray(nativeValues)) {
+    const exact = nativeProxies.flatMap((pair: unknown, index: number) => Array.isArray(pair) && field.name === `${pair[0]}::${pair[1]}` ? [index] : []);
+    const slots = exact.length ? exact : nativeProxies.flatMap((pair: unknown, index: number) => Array.isArray(pair) && field.name === String(pair[1]) ? [index] : []);
+    if (slots.length === 1 && slots[0] < nativeValues.length) return { found: true, value: nativeValues[slots[0]] };
+  }
   const spec = catalog?.nodes.find((item) => item.classType === data.comfyType);
   const input = spec?.inputs.find((item) => item.name === field.name && item.widget);
   // Arbitrary names (including synthetic positional labels) are never turned into ComfyUI widget names.

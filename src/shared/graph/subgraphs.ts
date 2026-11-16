@@ -42,6 +42,8 @@ export interface SubgraphDefinition {
   outputs: SubgraphSlot[];
   nodes: Array<Record<string, any>>;
   edges: Array<Record<string, any>>;
+  /** Native group frames on this level; optional for snapshots saved before inner group editing. */
+  groups?: GroupRecord[];
   /**
    * Id of the definition whose own `definitions.subgraphs` held this one at import; null = root list.
    * New definitions are always root-level, as ComfyUI_frontend flattens them on save.

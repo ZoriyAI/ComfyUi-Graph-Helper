@@ -53,7 +53,8 @@
 .swatch { display: inline-block; width: 12px; height: 12px; border-radius: var(--radius-xs); border: 1px solid var(--line, #2a3648); }
 
 @media (pointer: coarse), (max-width: 700px) {
-  .content { max-width: calc(100vw - 16px); min-width: min(300px, calc(100vw - 16px)); }
+  .content { max-width: min(calc(100vw - 16px), var(--radix-context-menu-content-available-width, 100vw)); min-width: min(300px, calc(100vw - 16px), var(--radix-context-menu-content-available-width, 100vw)); }
   .item { min-height: 44px; height: auto; padding-block: 8px; font-size: 14px; }
   .shortcut { display: none; }
+  .label { white-space: normal; overflow-wrap: anywhere; line-height: 1.35; }
 }

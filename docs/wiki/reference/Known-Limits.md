@@ -62,7 +62,7 @@ what to expect. Wishes go to the project's Discussions, problems to its Issues.
 
 ## The graph
 
-- Subgraphs can be created inside another subgraph. Inner groups and dissolving a nested instance remain unavailable: do those operations on the main canvas. Groups that came inside a subgraph from ComfyUI are kept on save but not shown.
+- Subgraphs and groups can be created and edited on inner levels. Dissolving a nested instance preserves boundary links, inner frames and resolvable promoted controls. An ambiguous or unknown control mapping is refused without changing the graph.
 - A workflow saved in the older format (0.4) cannot hold a subgraph; the app says so. Open it in a current ComfyUI and
   save it again, or copy its nodes into a new project (which uses format 1). [Subgraphs](../graph/Subgraphs.md)
 - Legacy group nodes of older workflows are shown as one unknown node; they are saved back as they were.

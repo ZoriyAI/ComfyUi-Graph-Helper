@@ -31,7 +31,7 @@ Open an existing node through its **Open** button, double-click its background, 
 
 Select its instance and open **Properties → Configure subgraph node**. Change its name/purpose, add interface ports or choose the outer controls. Existing ports can be renamed or removed from the inner editor. Copies share the definition's structure and default inner settings; exposed values on each instance remain independent, including after control reordering. Editing the common inner graph affects all copies.
 
-**Dissolve subgraph** on the main canvas restores ordinary nodes and links, applying that instance's exposed values to them. `Ctrl+Z` restores the previous revision.
+**Dissolve subgraph** works on the main canvas and inside another subgraph. It restores nodes, boundary links and inner groups, applies that instance's exposed values, and retargets controls exposed through parent nodes. Other instances keep their independent values. `Ctrl+Z` restores the previous revision. A shared definition is retained while another instance uses it. Unknown or ambiguous widget layouts are refused without changing the graph.
 
 ## Ask the assistant
 

@@ -38,3 +38,11 @@ Baseline: v1.2.4, b18112c7f34782450f661bbf783482dddae281f0. The owner requested 
 - Physical-device testing, arbitrary remote OS administration, all-provider mutable context, automatic installation of third-party Python and guaranteed GPU fit are not established by these changes. Keep these limits explicit.
 
 References: [systemctl](https://www.freedesktop.org/software/systemd/man/latest/systemctl.html), [polkit pkexec](https://www.freedesktop.org/software/polkit/docs/latest/pkexec.1.html). The implementation uses execFile with fixed arguments and bounded output; no shell commands from the UI.
+
+## Delivery outcome
+
+- **1.2.5 published 2026-11-16:** supported local Linux service controls, state/RAM monitoring, paired-browser access and named sync profiles. Seven assets and anonymous Debian download verified at source `2f715679397c52d43ade3a054ddd63399689456c`.
+- **1.2.6 implementation:** groups are modelled on their own definition level and survive native project save as well as ComfyUI export. Nested dissolve restores inner frames and boundary links, remaps outer promoted controls through ancestors, retains per-instance values and shared definitions, and remains one undo step. Group menus support touch and keyboard.
+- Initial checks caught and corrected a project parser that discarded the new optional group projection and an allocator that counted nodes in unrelated definitions. Unknown control mappings are refused atomically. Final packaged/public delivery is recorded in the versioned release evidence.
+
+Graph design checked against [ComfyUI subgraphs](https://docs.comfy.org/interface/features/subgraph) and the [developer guide](https://docs.comfy.org/custom-nodes/js/subgraphs): node IDs are local to their immediate graph; the visible layer must be distinguished from the root. These sources document nesting, unpacking and widget promotion; runtime compatibility with every third-party widget is not claimed.

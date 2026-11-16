@@ -15,11 +15,13 @@ import {
 import {
   WORKFLOW_FORMAT_V1,
   makeEdge,
+  liftGroups,
   monotonicCounter,
   numericSlot,
   type GraphSnapshot,
   type WorkflowDocumentState,
 } from '../../shared/workflow/codec';
+import { retargetDissolvedWidgets, retargetWrappedWidgets } from './dissolvedWidgets';
 import { GraphOpError, Ids, SUBGRAPH_ERRORS, instanceNode } from './graphOps';
 
 /**
@@ -77,21 +79,23 @@ function stateOf(definition: SubgraphDefinition): Record<string, unknown> {
 }
 
 /** The highest node and link ids a definition has used: its stored counters, or more when its graph holds more. */
-export function definitionCounters(definition: SubgraphDefinition): { lastNodeId: number; lastLinkId: number } {
+export function definitionCounters(definition: SubgraphDefinition): { lastNodeId: number; lastLinkId: number; lastGroupId: number } {
   const state = stateOf(definition);
   return {
     lastNodeId: monotonicCounter(state.lastNodeId, numericIds(definition.nodes.map((node) => node.id))),
     lastLinkId: monotonicCounter(state.lastLinkId, linkIdsOf(definition.edges)),
+    lastGroupId: monotonicCounter(state.lastGroupId, numericIds((definition.groups ?? liftGroups(definition.raw.groups, definition.nodes)).map((group) => group.id))),
   };
 }
 
 /** A copy of the definition whose stored counters are at least `counters`. Other native state fields stay. */
-function withCounters(definition: SubgraphDefinition, counters: { lastNodeId: number; lastLinkId: number }): SubgraphDefinition {
+function withCounters(definition: SubgraphDefinition, counters: { lastNodeId: number; lastLinkId: number; lastGroupId: number }): SubgraphDefinition {
   const state = stateOf(definition);
   const lastNodeId = monotonicCounter(state.lastNodeId, [counters.lastNodeId]);
   const lastLinkId = monotonicCounter(state.lastLinkId, [counters.lastLinkId]);
-  if (state.lastNodeId === lastNodeId && state.lastLinkId === lastLinkId) return definition;
-  return { ...definition, raw: { ...definition.raw, state: { lastGroupId: 0, lastRerouteId: 0, ...state, lastNodeId, lastLinkId } } };
+  const lastGroupId = monotonicCounter(state.lastGroupId, [counters.lastGroupId]);
+  if (state.lastNodeId === lastNodeId && state.lastLinkId === lastLinkId && state.lastGroupId === lastGroupId) return definition;
+  return { ...definition, raw: { ...definition.raw, state: { lastRerouteId: 0, ...state, lastNodeId, lastLinkId, lastGroupId } } };
 }
 
 /**
@@ -193,14 +197,14 @@ export function applyInnerEdit(
   // The definition's graph with its own counters: the root rules allocate ids from them.
   const document: WorkflowDocumentState = {
     formatVersion: WORKFLOW_FORMAT_V1,
-    raw: { state: { lastNodeId: before.lastNodeId, lastLinkId: before.lastLinkId } },
+    raw: { state: { ...before } },
   };
   const work: GraphSnapshot = {
     nodes: definition.nodes.map((node) => ({ ...node, data: { ...node.data }, position: { ...node.position } })),
     edges: definition.edges.map((edge) => ({ ...edge })),
     document,
-    subgraphs: [],
-    groups: [],
+    subgraphs: payload.edit.type === 'dissolve-subgraph' ? definitions : [],
+    groups: structuredClone(definition.groups ?? liftGroups(definition.raw.groups, definition.nodes)),
   };
   const edit = payload.edit;
   const boundary = (id: string) => id === SUBGRAPH_INPUT_NODE_ID || id === SUBGRAPH_OUTPUT_NODE_ID;
@@ -212,13 +216,32 @@ export function applyInnerEdit(
   const nodes = applied.snapshot.nodes as Node[];
   const edges = applied.snapshot.edges as Edge[];
   // The counters only grow: what the edit used, or what the definition had before, whichever is higher.
-  const used = definitionCounters({ ...definition, nodes, edges, raw: { state: applied.snapshot.document?.raw?.state ?? {} } });
-  const updated = withCounters({ ...definition, nodes, edges }, {
+  const present = new Set(nodes.map((node) => String(node.id)));
+  const groups = (applied.snapshot.groups ?? work.groups ?? []).map((group) => ({ ...group, nodeIds: group.nodeIds.filter((id) => present.has(id)) }));
+  const used = definitionCounters({ ...definition, nodes, edges, groups, raw: { state: applied.snapshot.document?.raw?.state ?? {} } });
+  const updated = withCounters({ ...definition, nodes, edges, groups }, {
     lastNodeId: Math.max(before.lastNodeId, used.lastNodeId),
     lastLinkId: Math.max(before.lastLinkId, used.lastLinkId),
+    lastGroupId: Math.max(before.lastGroupId, used.lastGroupId),
   });
-  return {
-    snapshot: { ...snapshot, subgraphs: [...definitions.map((item) => (item === definition ? updated : item)), ...(applied.snapshot.subgraphs ?? [])] },
-    result: { definitionId: definition.id, edit: edit.type, ...applied.result },
-  };
+  const next: GraphSnapshot = { ...snapshot, subgraphs: [
+    ...definitions.map((item) => (item === definition ? updated : item)),
+    ...(edit.type === 'dissolve-subgraph' ? [] : applied.snapshot.subgraphs ?? []),
+  ] };
+  if (edit.type === 'create-subgraph') {
+    const isolated = structuredClone(next);
+    retargetWrappedWidgets(isolated, definition.id, String(applied.result.definitionId), String(applied.result.nodeId), catalog);
+    return { snapshot: isolated, result: { definitionId: definition.id, edit: edit.type, ...applied.result } };
+  }
+  if (edit.type === 'dissolve-subgraph') {
+    const isolated = structuredClone(next);
+    const instance = definition.nodes.find((node) => String(node.id) === edit.nodeId)!;
+    const removed = definitions.find((item) => item.id === instance.data?.comfyType)!;
+    retargetDissolvedWidgets(isolated, definition.id, instance, removed, applied.result.nodeIdMap as Record<string, string>);
+    const stillUsed = [...isolated.nodes, ...isolated.subgraphs!.filter((item) => item.id !== removed.id).flatMap((item) => item.nodes)]
+      .some((node) => node.data?.comfyType === removed.id);
+    if (!stillUsed) isolated.subgraphs = isolated.subgraphs!.filter((item) => item.id !== removed.id);
+    return { snapshot: isolated, result: { ...applied.result, definitionRemoved: !stillUsed, definitionId: definition.id, dissolvedDefinitionId: removed.id, edit: edit.type } };
+  }
+  return { snapshot: next, result: { definitionId: definition.id, edit: edit.type, ...applied.result } };
 }

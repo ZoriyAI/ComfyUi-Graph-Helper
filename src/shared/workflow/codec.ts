@@ -1139,6 +1139,7 @@ function liftDefinition(item: Record<string, unknown>, nestedIn: string | null):
     outputs: slotsFrom(item.outputs, 'output'),
     nodes,
     edges,
+    groups: liftGroups(item.groups, nodes),
     importedLinks: edges.flatMap((edge) => {
       const linkId = linkIdOf(edge);
       return linkId === null ? [] : [linkId];
@@ -1209,7 +1210,7 @@ function centreInside(node: Record<string, any>, bounding: [number, number, numb
   return positionInside({ x: (node.position.x ?? 0) + w / 2, y: (node.position.y ?? 0) + h / 2 }, bounding);
 }
 
-function liftGroups(value: unknown, nodes: Array<Record<string, any>>): GroupRecord[] {
+export function liftGroups(value: unknown, nodes: Array<Record<string, any>>): GroupRecord[] {
   if (!Array.isArray(value)) return [];
   return value.flatMap((item, index) => {
     if (!isPlainRecord(item)) return [];
@@ -1254,7 +1255,7 @@ export function groupBounding(members: Array<Record<string, any>>): [number, num
   return [minX - GROUP_PADDING, top, maxX - minX + GROUP_PADDING * 2, maxY - top + GROUP_PADDING];
 }
 
-function exportGroup(group: GroupRecord, nodes: Array<Record<string, any>>): Record<string, unknown> {
+export function exportGroup(group: GroupRecord, nodes: Array<Record<string, any>>): Record<string, unknown> {
   const members = nodes.filter((node) => group.nodeIds.includes(String(node.id)));
   const stored = group.bounding;
   const bounding = stored && members.every((node) => centreInside(node, stored))
@@ -1324,6 +1325,9 @@ function exportDefinition(
   if ('outputs' in raw || outputs.length > 0) out.outputs = outputs;
   if ('nodes' in raw || nodes.length > 0) out.nodes = nodes;
   if ('links' in raw || links.length > 0) out.links = links;
+  if (definition.groups !== undefined && ('groups' in raw || definition.groups.length > 0)) {
+    out.groups = definition.groups.map((group) => exportGroup(group, definition.nodes));
+  }
   const children = all.filter((item) => item.nestedIn === definition.id).map((item) => exportDefinition(item, all, catalog, lenient));
   if (children.length > 0 || (isPlainRecord(raw.definitions) && Array.isArray(raw.definitions.subgraphs))) {
     out.definitions = { ...(isPlainRecord(raw.definitions) ? raw.definitions : {}), subgraphs: children };
@@ -1333,6 +1337,7 @@ function exportDefinition(
       ...raw.state,
       lastNodeId: exportedCounter(raw.state.lastNodeId, collectNumericIds(nodes.map((node) => node.id))),
       lastLinkId: exportedCounter(raw.state.lastLinkId, collectNumericIds(links.map((link) => (link as { id?: unknown }).id))),
+      lastGroupId: exportedCounter(raw.state.lastGroupId, collectNumericIds((definition.groups ?? []).map((group) => group.id))),
     };
   }
   return out;

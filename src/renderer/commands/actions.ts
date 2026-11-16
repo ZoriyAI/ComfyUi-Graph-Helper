@@ -359,7 +359,7 @@ export function createSubgraph(nodeIds: string[]): Promise<unknown> {
   return Promise.resolve();
 }
 
-/** Puts a subgraph instance's inner nodes back on the root graph. */
+/** Puts a subgraph instance's inner nodes back on the displayed graph level. */
 export function dissolveSubgraph(nodeId: string): Promise<unknown> {
   return commitManual({ type: 'dissolve-subgraph', nodeId });
 }

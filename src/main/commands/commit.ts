@@ -796,7 +796,7 @@ function applyMutation(snapshot: Snapshot, actionId: string, payload: GraphMutat
     // counters, then written back into the definition (innerEdits.ts). The root canvas keeps its nodes and edges.
     try {
       const inner = applyInnerEdit(snapshot as GraphSnapshot, actionId, payload, catalog, (level, id, edit, view) => applyMutation(level as Snapshot, id, edit, view, { definitions: snapshot.subgraphs ?? [], destinationId: payload.definitionId }) as { snapshot: GraphSnapshot; result: Record<string, unknown> });
-      return { snapshot: { ...snapshot, nodes, edges, subgraphs: inner.snapshot.subgraphs }, result: inner.result };
+      return { snapshot: { ...snapshot, ...inner.snapshot }, result: inner.result };
     } catch (error) {
       if (error instanceof GraphOpError) throw new CommandSignal('rejected', { error: error.message });
       throw error;
@@ -934,6 +934,12 @@ function restoreRevision(
   if (!document && (lastNode > 0 || lastLink > 0)) document = blankDocument();
   if (document && lastNode > 0 && nextNodeId({ ...restored, document }) - 1 < lastNode) document = rememberNodeId(document, lastNode);
   if (document && lastLink > 0 && nextLinkId({ ...restored, document }) - 1 < lastLink) document = rememberLinkId(document, lastLink);
+  const currentState = current.document?.raw.state as Record<string, unknown> | undefined;
+  const lastGroupId = typeof currentState?.lastGroupId === 'number' ? currentState.lastGroupId : 0;
+  if (document && lastGroupId > 0) {
+    const state = (document.raw.state ?? {}) as Record<string, unknown>;
+    document = { ...document, raw: { ...document.raw, state: { ...state, lastGroupId: Math.max(Number(state.lastGroupId) || 0, lastGroupId) } } };
+  }
   return {
     // Definitions keep their counters too, so an inner node made after an undo gets a fresh id.
     snapshot: { ...restored, document, subgraphs: keepDefinitionCounters(restored.subgraphs, current.subgraphs) },

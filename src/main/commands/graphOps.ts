@@ -27,6 +27,7 @@ import {
   WORKFLOW_FORMAT_V1,
   emptyWorkflowState,
   groupBounding,
+  liftGroups,
   makeEdge,
   nextLinkId,
   nextNodeId,
@@ -92,8 +93,9 @@ export class Ids {
 
   constructor(private readonly work: GraphSnapshot) {
     if (!this.work.document) this.work.document = blankDocument();
-    this.nodeCounter = nextNodeId(work);
-    this.linkCounter = nextLinkId(work);
+    // Definitions are available for operations, but their local ids do not belong to this level.
+    this.nodeCounter = nextNodeId({ ...work, subgraphs: [] });
+    this.linkCounter = nextLinkId({ ...work, subgraphs: [] });
   }
 
   /** The next free node id, skipping ids in `taken` (nodes kept from an older numbering). */
@@ -364,6 +366,7 @@ function createSubgraph(work: GraphSnapshot, ids: Ids, payload: Extract<GraphMut
     outputs,
     nodes: moved,
     edges: [...innerEdges, ...boundary],
+    groups: (work.groups ?? []).filter((group) => group.nodeIds.length > 0 && group.nodeIds.every((id) => set.has(id))),
     nestedIn: null,
     raw: newDefinitionRaw(payload.name, moved),
   };
@@ -385,7 +388,7 @@ function createSubgraph(work: GraphSnapshot, ids: Ids, payload: Extract<GraphMut
   work.nodes = [...work.nodes.filter((node) => !set.has(String(node.id))), instance];
   work.edges = work.edges.filter((edge) => !innerEdges.includes(edge));
   work.subgraphs = [...(work.subgraphs ?? []), definition];
-  work.groups = (work.groups ?? []).map((group) => {
+  work.groups = (work.groups ?? []).filter((group) => !definition.groups!.includes(group)).map((group) => {
     if (!group.nodeIds.some((id) => set.has(id))) return group;
     return { ...group, nodeIds: [...group.nodeIds.filter((id) => !set.has(id)), instanceId] };
   });
@@ -529,7 +532,10 @@ function promoteInstanceValues(instance: Node, restored: Node[], idMap: Map<stri
     const names = widgetOrderMatches(widgets, spec?.widgetOrder, spec?.widgetOrderReliable !== false)
       ? spec!.widgetOrder
       : Array.isArray(inner.widgets) ? inner.widgets.map((item: { name?: unknown }) => String(item?.name ?? '')) : [];
-    const slot = names.indexOf(name);
+    const nativeProxies = inner.properties?.proxyWidgets;
+    const proxySlots = Array.isArray(nativeProxies) ? nativeProxies.flatMap((pair: unknown, index: number) =>
+      Array.isArray(pair) && (rawName === `${pair[0]}::${pair[1]}` || rawName === String(pair[1])) ? [index] : []) : [];
+    const slot = proxySlots.length === 1 ? proxySlots[0] : names.indexOf(name);
     if (Array.isArray(widgets) && slot >= 0 && slot < widgets.length) {
       const copy = widgets.slice(); copy[slot] = value; inner.widgets_values = copy;
       target.data.parameters = { ...(target.data.parameters ?? {}), [name]: value };
@@ -582,9 +588,20 @@ function dissolveSubgraph(work: GraphSnapshot, ids: Ids, payload: Extract<GraphM
   const mapped = (id: unknown) => idMap.get(String(id)) ?? String(id);
   const isBoundary = (edge: Edge) => String(edge.source) === SUBGRAPH_INPUT_NODE_ID || String(edge.target) === SUBGRAPH_OUTPUT_NODE_ID;
   const created: Edge[] = [];
+  // Preserve native extension fields while assigning fresh link ids and endpoints on this graph level.
+  const restoredEdge = (source: string, sourceHandle: string, target: string, targetHandle: string, dataType: string, ...originals: Edge[]) => {
+    const fresh = makeEdge(ids.link(), source, sourceHandle, target, targetHandle, dataType, format);
+    const data = Object.assign({}, ...originals.map((edge) => edge.data ?? {}));
+    const native = Object.assign({}, ...originals.map((edge) => {
+      const link = edge.data?.comfyLink;
+      return link && typeof link === 'object' && !Array.isArray(link) ? link : {};
+    }));
+    return { ...Object.assign({}, ...originals), ...fresh, data: { ...data, ...fresh.data,
+      ...(format === WORKFLOW_FORMAT_V1 ? { comfyLink: { ...native, ...fresh.data.comfyLink } } : {}) } };
+  };
   for (const edge of definition.edges) {
     if (isBoundary(edge)) continue;
-    created.push(makeEdge(ids.link(), mapped(edge.source), String(edge.sourceHandle), mapped(edge.target), String(edge.targetHandle), String(edge.data?.dataType ?? ''), format));
+    created.push(restoredEdge(mapped(edge.source), String(edge.sourceHandle), mapped(edge.target), String(edge.targetHandle), String(edge.data?.dataType ?? ''), edge));
   }
   const instanceId = String(instance.id);
   const leaving = work.edges.filter((edge) => String(edge.source) === instanceId);
@@ -597,11 +614,11 @@ function dissolveSubgraph(work: GraphSnapshot, ids: Ids, payload: Extract<GraphM
         // A pass-through (input slot wired straight to an output slot): join the outer source to the outer targets.
         const outSlot = slotIndex(inner.targetHandle);
         for (const next of leaving.filter((edge) => slotIndex(edge.sourceHandle) === outSlot)) {
-          created.push(makeEdge(ids.link(), String(outer.source), String(outer.sourceHandle), String(next.target), String(next.targetHandle), dataType, format));
+          created.push(restoredEdge(String(outer.source), String(outer.sourceHandle), String(next.target), String(next.targetHandle), dataType, inner, outer, next));
         }
         continue;
       }
-      created.push(makeEdge(ids.link(), String(outer.source), String(outer.sourceHandle), mapped(inner.target), String(inner.targetHandle), dataType, format));
+      created.push(restoredEdge(String(outer.source), String(outer.sourceHandle), mapped(inner.target), String(inner.targetHandle), dataType, inner, outer));
     }
   }
   for (const outer of leaving) {
@@ -610,7 +627,7 @@ function dissolveSubgraph(work: GraphSnapshot, ids: Ids, payload: Extract<GraphM
       String(edge.target) === SUBGRAPH_OUTPUT_NODE_ID && slotIndex(edge.targetHandle) === slot && String(edge.source) !== SUBGRAPH_INPUT_NODE_ID
     ));
     for (const inner of sources) {
-      created.push(makeEdge(ids.link(), mapped(inner.source), String(inner.sourceHandle), String(outer.target), String(outer.targetHandle), String(outer.data?.dataType ?? definition.outputs[slot]?.type ?? ''), format));
+      created.push(restoredEdge(mapped(inner.source), String(inner.sourceHandle), String(outer.target), String(outer.targetHandle), String(outer.data?.dataType ?? definition.outputs[slot]?.type ?? ''), inner, outer));
     }
   }
   work.nodes = [...work.nodes.filter((node) => node !== instance), ...restored];
@@ -620,10 +637,18 @@ function dissolveSubgraph(work: GraphSnapshot, ids: Ids, payload: Extract<GraphM
       ? { ...group, nodeIds: [...group.nodeIds.filter((id) => id !== instanceId), ...restored.map((node) => String(node.id))] }
       : group
   ));
+  for (const group of definition.groups ?? liftGroups(definition.raw.groups, definition.nodes)) {
+    const id = allocateGroupId(work);
+    work.groups.push({ ...structuredClone(group), id,
+      nodeIds: group.nodeIds.map(mapped),
+      ...(group.raw ? { raw: { ...structuredClone(group.raw), id: Number(id) } } : {}),
+      ...(group.bounding ? { bounding: [group.bounding[0] + dx, group.bounding[1] + dy, group.bounding[2], group.bounding[3]] as [number, number, number, number] } : {}),
+    });
+  }
   const stillUsed = work.nodes.some((node) => node.data?.comfyType === definition.id)
     || (work.subgraphs ?? []).some((item) => item !== definition && item.nodes.some((node) => node.data?.comfyType === definition.id));
   if (!stillUsed) work.subgraphs = (work.subgraphs ?? []).filter((item) => item !== definition);
-  return { nodeId: payload.nodeId, definitionId: definition.id, nodeIds: restored.map((node) => String(node.id)), definitionRemoved: !stillUsed };
+  return { nodeId: payload.nodeId, definitionId: definition.id, nodeIds: restored.map((node) => String(node.id)), nodeIdMap: Object.fromEntries(idMap), definitionRemoved: !stillUsed };
 }
 
 /** One past the highest group id the document's counter or any group has used. */
@@ -639,12 +664,20 @@ function nextGroupId(work: GraphSnapshot): string {
   return String(Math.max(stored, 0, ...ids) + 1);
 }
 
+function allocateGroupId(work: GraphSnapshot): string {
+  const id = nextGroupId(work);
+  const document = work.document ?? blankDocument();
+  const state = document.raw.state as Record<string, unknown> | undefined;
+  work.document = { ...document, raw: { ...document.raw, state: { ...state, lastGroupId: Number(id) } } };
+  return id;
+}
+
 /** A new group framing the named canvas nodes; refused when one of them is not on the canvas. */
 function addGroup(work: GraphSnapshot, payload: Extract<GraphMutation, { type: 'add-group' }>) {
   const wanted = [...new Set(payload.nodeIds)];
   const members = wanted.map((id) => work.nodes.find((node) => String(node.id) === id));
   if (members.some((node) => !node)) fail(SUBGRAPH_ERRORS.nodeMissing);
-  const group: GroupRecord = { id: nextGroupId(work), title: payload.title, nodeIds: wanted, bounding: groupBounding(members as Node[]) };
+  const group: GroupRecord = { id: allocateGroupId(work), title: payload.title, nodeIds: wanted, bounding: groupBounding(members as Node[]) };
   if (payload.color !== undefined) group.color = payload.color;
   work.groups = [...(work.groups ?? []), group];
   return { groupId: group.id };

@@ -27,7 +27,7 @@ export interface ObjectRef {
   directory?: string;
   name?: string;
   /**
-   * For a node, port or link inside a subgraph definition: that definition's id. Node numbers inside a definition
+   * For a node, port, link or group inside a subgraph definition: that definition's id. Node numbers inside a definition
    * repeat the numbers of the main canvas, so the definition is part of who the object is. Absent on the main canvas.
    */
   subgraphId?: string;

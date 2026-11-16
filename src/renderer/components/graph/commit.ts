@@ -77,6 +77,10 @@ export function scopedToLevel(payload: GraphMutation): GraphMutation {
   else if ((payload.type === 'set-node-mode' || payload.type === 'set-node-color') && payload.nodeIds.every((id) => nodeIds.has(id))) edit = payload;
   else if ((payload.type === 'set-note-text' || payload.type === 'replace-node') && nodeIds.has(payload.nodeId)) edit = payload;
   else if (payload.type === 'insert-node-on-edge' && edgeIds.has(payload.edgeId)) edit = payload;
+  // Always scope these to the displayed definition, even when a stale id is no longer present there.
+  // Let main refuse it; falling back to root could edit a different group with the same local id.
+  else if (payload.type === 'dissolve-subgraph' || payload.type === 'add-group' || payload.type === 'remove-group'
+    || payload.type === 'rename-group' || payload.type === 'set-group-members' || payload.type === 'set-group-color') edit = payload;
   return edit ? { type: 'edit-in-subgraph', definitionId, edit } : payload;
 }
 

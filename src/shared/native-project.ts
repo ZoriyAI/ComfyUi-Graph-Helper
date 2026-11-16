@@ -163,6 +163,8 @@ function readSubgraphs(value: unknown): SubgraphDefinition[] | undefined {
     const inputs = readSlots(item.inputs);
     const outputs = readSlots(item.outputs);
     if (!inputs || !outputs) return undefined;
+    const groups = item.groups === undefined ? undefined : readGroups(item.groups);
+    if (item.groups !== undefined && !groups) return undefined;
     if (!item.nodes.every(isRecord) || !item.edges.every(isRecord)) return undefined;
     seen.add(item.id);
     out.push({
@@ -172,6 +174,7 @@ function readSubgraphs(value: unknown): SubgraphDefinition[] | undefined {
       outputs,
       nodes: item.nodes as Array<Record<string, unknown>>,
       edges: item.edges as Array<Record<string, unknown>>,
+      ...(groups ? { groups } : {}),
       nestedIn: item.nestedIn,
       ...(item.opaque === true ? { opaque: true as const } : {}),
       raw: item.raw,

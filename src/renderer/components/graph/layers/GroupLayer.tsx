@@ -3,7 +3,10 @@
  * that can be renamed in place and dragged to move the whole group. CanvasFlow mounts it. Groups are not React Flow
  * nodes, so they never count as graph nodes; their geometry comes from lib/geometry.ts groupRect.
  */
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { MoreHorizontal } from 'lucide-react';
+import { liftGroups } from '../../../../shared/workflow/codec';
+import { useProjectionStore } from '../../../services/commands/projection';
 import { useTranslation } from 'react-i18next';
 import { useNodes, useReactFlow, ViewportPortal } from '@xyflow/react';
 import { useGraphStore } from '../../../state/graphState';
@@ -24,14 +27,15 @@ function GroupTitle({ id, title, editable, members }: { id: string; title: strin
   const { t } = useTranslation();
   const flow = useReactFlow();
   // A drag of the title moves the whole group: its members follow the pointer and land as one step.
-  const drag = useRef<{ x: number; y: number; zoom: number; from: Map<string, { x: number; y: number }>; moved: boolean } | null>(null);
+  const drag = useRef<{ x: number; y: number; zoom: number; from: Map<string, { x: number; y: number }>; moved: boolean; dx: number; dy: number; levelId: string | null; projectId: string; graphKey: string } | null>(null);
   // No group drag while nodes are pinned in place, during a replay, or for a group without members.
   const onPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
     if (event.button !== 0 || !editable || useCanvasStore.getState().nodesPinned || members.length === 0) return;
     event.stopPropagation();
-    const nodes = useGraphStore.getState().nodes;
+    const nodes = flow.getNodes();
     const from = new Map(nodes.filter((node) => members.includes(node.id)).map((node) => [node.id, { ...node.position }]));
-    drag.current = { x: event.clientX, y: event.clientY, zoom: flow.getZoom(), from, moved: false };
+    const { projectId, graphKey } = useProjectionStore.getState();
+    drag.current = { x: event.clientX, y: event.clientY, zoom: flow.getZoom(), from, moved: false, dx: 0, dy: 0, levelId: useGraphStore.getState().activeSubgraphId, projectId, graphKey };
     event.currentTarget.setPointerCapture(event.pointerId);
   };
   const onPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
@@ -42,12 +46,11 @@ function GroupTitle({ id, title, editable, members }: { id: string; title: strin
     // Under 3 screen pixels the pointer has not really moved: a double-click to rename must not nudge the group.
     if (!state.moved && Math.hypot(dx * state.zoom, dy * state.zoom) < 3) return;
     state.moved = true;
-    // While dragging only the local store moves; the engine gets one move-nodes commit at the end.
-    useGraphStore.setState((graph) => ({
-      nodes: graph.nodes.map((node) => {
-        const start = state.from.get(node.id);
-        return start ? { ...node, position: { x: start.x + dx, y: start.y + dy } } : node;
-      }),
+    state.dx = dx; state.dy = dy;
+    // React Flow updates the visible level locally; one command is saved at release.
+    flow.setNodes((nodes) => nodes.map((node) => {
+      const start = state.from.get(node.id);
+      return start ? { ...node, position: { x: start.x + dx, y: start.y + dy } } : node;
     }));
   };
   const onPointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
@@ -55,10 +58,9 @@ function GroupTitle({ id, title, editable, members }: { id: string; title: strin
     drag.current = null;
     if (!state?.moved) return;
     event.currentTarget.releasePointerCapture(event.pointerId);
-    const moves = useGraphStore.getState().nodes
-      .filter((node) => state.from.has(node.id))
-      .map((node) => ({ nodeId: node.id, x: Math.round(node.position.x), y: Math.round(node.position.y) }));
-    if (moves.length > 0) void commitManual({ type: 'move-nodes', moves }, 'move-group');
+    if (state.levelId !== useGraphStore.getState().activeSubgraphId) return;
+    const moves = [...state.from].map(([nodeId, position]) => ({ nodeId, x: Math.round(position.x + state.dx), y: Math.round(position.y + state.dy) }));
+    if (moves.length > 0) void commitManual({ type: 'move-nodes', moves }, 'move-group', { context: { projectId: state.projectId, graphKey: state.graphKey } });
   };
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(title);
@@ -72,7 +74,7 @@ function GroupTitle({ id, title, editable, members }: { id: string; title: strin
     input.current?.select();
   }, [editing]);
 
-  const start = (event: React.MouseEvent) => {
+  const start = (event: React.SyntheticEvent) => {
     // The canvas would zoom on a double-click; this one is for the title.
     event.stopPropagation();
     event.preventDefault();
@@ -122,14 +124,29 @@ function GroupTitle({ id, title, editable, members }: { id: string; title: strin
     <div
       className={`${styles.title} ${editable ? styles.titleMovable : ''} nodrag nopan`}
       data-group-id={id}
+      data-group-title={id}
+      tabIndex={editable ? 0 : undefined}
+      onKeyDown={(event) => { if (event.key === 'Enter') start(event); }}
       title={editable ? String(t('canvas.groupMoveHint')) : undefined}
       onDoubleClick={start}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
-      onPointerCancel={() => { drag.current = null; }}
+      onPointerCancel={() => {
+        const state = drag.current; drag.current = null;
+        if (state?.moved && state.levelId === useGraphStore.getState().activeSubgraphId) flow.setNodes((nodes) => nodes.map((node) => {
+          const position = state.from.get(node.id); return position ? { ...node, position } : node;
+        }));
+      }}
     >
-      {title || '—'}
+      <span>{title || '—'}</span>
+      {editable ? <button type="button" className={styles.menu} aria-label={`${t('contextMenu.label')}: ${title || '—'}`}
+        onPointerDown={(event) => event.stopPropagation()} onDoubleClick={(event) => event.stopPropagation()}
+        onClick={(event) => {
+          event.stopPropagation();
+          const box = event.currentTarget.getBoundingClientRect();
+          event.currentTarget.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: box.left, clientY: box.bottom }));
+        }}><MoreHorizontal size={16} aria-hidden="true" /></button> : null}
     </div>
   );
 }
@@ -137,14 +154,15 @@ function GroupTitle({ id, title, editable, members }: { id: string; title: strin
 /**
  * Groups as translucent rounded rectangles behind their members, with the title on top. Bounds follow the
  * members as they move (measured sizes from React Flow), else the stored native bounding.
- * Not React Flow nodes, so they never count as graph nodes. Only on the root level.
+ * Not React Flow nodes, so they never count as graph nodes. On the root and inside a definition.
  */
 export default function GroupLayer() {
-  const groups = useGraphStore((state) => state.groups);
-  const inDefinition = useGraphStore((state) => state.activeSubgraphId !== null);
+  const rootGroups = useGraphStore((state) => state.groups);
+  const definition = useGraphStore((state) => state.subgraphs.find((item) => item.id === state.activeSubgraphId));
+  const groups = useMemo(() => definition ? definition.groups ?? liftGroups(definition.raw.groups, definition.nodes) : rootGroups, [definition, rootGroups]);
   const replay = useCanvasStore((state) => state.replay);
   const nodes = useNodes() as PositionedNode[];
-  if (inDefinition || groups.length === 0) return null;
+  if (groups.length === 0) return null;
   return (
     <ViewportPortal>
       {groups.map((group) => {
@@ -152,7 +170,7 @@ export default function GroupLayer() {
         if (!rect) return null;
         return (
           <div
-            key={group.id}
+            key={`${definition?.id ?? 'root'}:${group.id}`}
             className={styles.group}
             data-group-id={group.id}
             style={{

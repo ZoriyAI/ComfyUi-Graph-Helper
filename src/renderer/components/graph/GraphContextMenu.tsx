@@ -12,6 +12,7 @@ import {
   ArrowRight, ArrowRightLeft, Cable, CircleArrowRight, CircleHelp, CircleMinus, Compass, Ghost, Layers, LogIn, LogOut,
   MessageCircleQuestion, PenLine, Plug, StickyNote, Tag, Trash2, Ungroup, Unlink, type LucideIcon,
 } from 'lucide-react';
+import { liftGroups } from '../../../shared/workflow/codec';
 import { lookMenuItems } from './lookMenu';
 import type { ObjectRef } from '../../../shared/contracts/objects';
 import { SUBGRAPH_INPUT_NODE_ID, SUBGRAPH_OUTPUT_NODE_ID, modelledSubgraphs, nestsItself } from '../../../shared/graph/subgraphs';
@@ -100,7 +101,7 @@ export default function GraphContextMenu({ children, nodes: levelNodes, edges, r
   const flow = useReactFlow();
   const [target, setTarget] = useState<MenuTarget>({ kind: 'pane', at: { x: 0, y: 0 } });
   const rootNodes = useGraphStore((state) => state.nodes);
-  const groups = useGraphStore((state) => state.groups);
+  const rootGroups = useGraphStore((state) => state.groups);
   const subgraphs = useGraphStore((state) => state.subgraphs);
   const activeSubgraphId = useGraphStore((state) => state.activeSubgraphId);
   const enter = useGraphStore((state) => state.enterSubgraph);
@@ -111,6 +112,7 @@ export default function GraphContextMenu({ children, nodes: levelNodes, edges, r
   const nodes = levelNodes as GraphNode[];
   const inDefinition = activeSubgraphId !== null;
   const definition = subgraphs.find((item) => item.id === activeSubgraphId);
+  const groups = definition ? definition.groups ?? liftGroups(definition.raw.groups, definition.nodes) : rootGroups;
 
   const onContextMenu = useCallback((event: React.MouseEvent) => {
     // The canvas toolbar and its search are controls, not graph objects: no canvas menu there.
@@ -123,7 +125,7 @@ export default function GraphContextMenu({ children, nodes: levelNodes, edges, r
     const ref: ObjectRef | null = next.kind === 'node'
       ? nodeRef(nodes.find((node) => node.id === next.nodeId) ?? { id: next.nodeId }, activeSubgraphId)
       : next.kind === 'edge' ? edgeRef(next.edgeId, activeSubgraphId)
-        : next.kind === 'group' ? { kind: 'group', id: next.groupId }
+        : next.kind === 'group' ? { kind: 'group', id: next.groupId, ...(activeSubgraphId ? { subgraphId: activeSubgraphId } : {}) }
           : next.kind === 'port' ? portRef(next.nodeId, next.handle, next.direction, findPort(nodes.find((node) => node.id === next.nodeId), next.direction, next.handle)?.name, activeSubgraphId)
             : null;
     setContextTarget(ref);
@@ -172,10 +174,8 @@ export default function GraphContextMenu({ children, nodes: levelNodes, edges, r
   const separator = (key: string) => <Menu.Separator key={key} className={styles.separator} />;
   /** A small caption over the questions: they go to the helper, the rows below act on the graph. */
   const askLabel = <Menu.Label key="ask-label" className={styles.groupLabel}>{t('contextMenu.askHelper')}</Menu.Label>;
-  // Node, link and slot edits work on every level; making or dissolving subgraphs, groups and the helper's
-  // suggestions belong to the root canvas.
+  // Graph edits target the displayed level; suggestions keep their original root scope.
   const canBuild = !readOnly;
-  const canBuildRoot = canBuild && !inDefinition;
 
   if (target.kind === 'node') {
     const node = nodes.find((item) => item.id === target.nodeId);
@@ -198,7 +198,7 @@ export default function GraphContextMenu({ children, nodes: levelNodes, edges, r
       if (instance) {
         items.push(
           item('enter', t('contextMenu.enter'), () => enter(definitionId), { icon: Layers, disabled: readOnly }),
-          item('dissolve', t('contextMenu.dissolve'), () => void dissolveSubgraph(node.id), { icon: Ungroup, disabled: !canBuildRoot }),
+          item('dissolve', t('contextMenu.dissolve'), () => void dissolveSubgraph(node.id), { icon: Ungroup, disabled: !canBuild }),
         );
       }
       // Copy, cut and duplicate act on the selection; a right-click on a node outside it selects that node first.
@@ -213,7 +213,7 @@ export default function GraphContextMenu({ children, nodes: levelNodes, edges, r
         commandItem('edit.duplicate', onSelection(duplicateSelection), { disabled: !canBuild }),
         separator('s-clip'),
         commandItem('graph.createSubgraph', () => void createSubgraph(selectionFor(node.id)), { disabled: !canBuild }),
-        commandItem('graph.addGroup', () => void addGroup(selectionFor(node.id)), { disabled: !canBuildRoot }),
+        commandItem('graph.addGroup', () => void addGroup(selectionFor(node.id)), { disabled: !canBuild }),
         item('rename', t('contextMenu.rename'), () => {
           setSelection([ref]);
           selectOnLevel([node.id]);
@@ -235,7 +235,7 @@ export default function GraphContextMenu({ children, nodes: levelNodes, edges, r
         ...lookMenuItems(node, nodes, selectionFor(node.id), !canBuild).map((entry) => item(entry.id, String(t(entry.labelKey, entry.values ?? {})), entry.run, { icon: entry.icon, shortcut: entry.shortcut, disabled: entry.disabled })),
         // Editing rows (editingMenu.tsx) beside collapse: bypass, mute, colour, replace.
         ...nodeEditingItems((key) => String(t(key)), node, nodes.filter((item): item is GraphNode => item.type === 'comfy' && selectionFor(node.id).includes(item.id)), !canBuild),
-        ...(inDefinition ? [] : groupMembershipItems((key) => String(t(key)), nodes.filter((item): item is GraphNode => item.type === 'comfy' && selectionFor(node.id).includes(item.id)), groups, !canBuildRoot)),
+        ...groupMembershipItems((key) => String(t(key)), nodes.filter((item): item is GraphNode => item.type === 'comfy' && selectionFor(node.id).includes(item.id)), groups, !canBuild),
         separator('s2'),
         item('remove', t('contextMenu.remove'), () => void commitManual({ type: 'remove-node', nodeId: node.id }), { icon: Trash2, danger: true, disabled: !canBuild, shortcut: 'Delete' }),
       );
@@ -305,13 +305,16 @@ export default function GraphContextMenu({ children, nodes: levelNodes, edges, r
   } else if (target.kind === 'group') {
     const group = groups.find((item) => item.id === target.groupId);
     if (group) {
-      const ref: ObjectRef = { kind: 'group', id: group.id };
+      const ref: ObjectRef = { kind: 'group', id: group.id, ...(activeSubgraphId ? { subgraphId: activeSubgraphId } : {}) };
       items.push(
         askLabel,
         item('what', t('contextMenu.whatGroup'), () => askAbout(ref, say('contextMenu.askGroup', { name: group.title })), { icon: CircleHelp }),
         separator('s1'),
-        ...groupEditingItems((key) => String(t(key)), group.id, group.color, !canBuildRoot),
-        item('remove', t('contextMenu.removeGroup'), () => void commitManual({ type: 'remove-group', groupId: group.id }), { icon: Ungroup, danger: true, disabled: !canBuildRoot }),
+        item('rename-group', t('contextMenu.rename'), () => {
+          document.querySelector(`[data-group-title="${CSS.escape(group.id)}"]`)?.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+        }, { icon: PenLine, disabled: !canBuild }),
+        ...groupEditingItems((key) => String(t(key)), group.id, group.color, !canBuild),
+        item('remove', t('contextMenu.removeGroup'), () => void commitManual({ type: 'remove-group', groupId: group.id }), { icon: Ungroup, danger: true, disabled: !canBuild }),
       );
     }
   } else {
