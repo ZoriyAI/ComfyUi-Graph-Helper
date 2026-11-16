@@ -136,6 +136,15 @@ export const syncItemSchema = z.object({
 /** "Skip this file" on or off for one model file. */
 export const syncSkipSchema = syncItemSchema.extend({ skip: z.boolean() }).strict();
 
+export const importModelHeaderSchema = syncItemSchema.extend({
+  catalogRevision: z.number().int().nonnegative(),
+  fileName: z.string().min(1).max(1000).refine(name => !/[\\/]/.test(name)),
+  fileSize: z.number().int().min(10).max(Number.MAX_SAFE_INTEGER),
+  headerBytes: z.number().int().min(2).max(64 * 1024 * 1024),
+  metadata: z.record(z.string().max(256).refine(key => !['__proto__', 'prototype', 'constructor'].includes(key)), z.string().max(4000))
+    .refine(value => Object.keys(value).length <= 200),
+}).strict();
+
 /** The input of "sync automatically": on or off, and how often. */
 export const setAutoSchema = z.object({
   enabled: z.boolean(),

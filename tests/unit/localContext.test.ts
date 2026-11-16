@@ -384,6 +384,7 @@ describe('the reduced tool set for a small window', () => {
     const ask = await turnWith(db, 'ask', { localContextTokens: () => 8192 });
     expect(ask.tools.sort()).toEqual([...compactToolNames(false)].sort());
     expect(ask.tools).toContain('proposeNode');
+    expect(ask.tools).toContain('assessResources');
     expect(ask.tools).not.toContain('addNode');
     expect(ask.system).toContain('- propose*');
     expect(ask.system).not.toContain('Building step by step');

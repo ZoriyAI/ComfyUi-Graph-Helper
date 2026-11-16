@@ -14,7 +14,7 @@ import { useEnglish } from './locale';
 
 type Created = { model: string; from: string; parameters: { num_ctx: number } };
 
-function fixtureServer(state: { window: number; created: Created[] }) {
+function fixtureServer(state: { window: number; created: Created[]; unloaded: Set<string> }) {
   return http.createServer((req, res) => {
     const send = (status: number, body: unknown) => {
       res.writeHead(status, { 'content-type': 'application/json' });
@@ -31,7 +31,12 @@ function fixtureServer(state: { window: number; created: Created[] }) {
         if (model.startsWith('fixture-plain')) return send(200, { capabilities: ['completion'] });
         return send(200, { capabilities: ['embedding'] });
       }
-      if (req.method === 'GET' && req.url === '/api/ps') return send(200, { models: [{ name: 'fixture-tools:8b', context_length: state.window }, { name: 'fixture-tools:8b-ctx16k', context_length: 16384 }] });
+      if (req.method === 'GET' && req.url === '/api/ps') return send(200, { models: [{ name: 'fixture-tools:8b', context_length: state.window, size: 8_000_000_000, size_vram: 7_000_000_000 }, { name: 'fixture-tools:8b-ctx16k', context_length: 16384, size: 9_000_000_000, size_vram: 8_000_000_000 }].filter(model => !state.unloaded.has(model.name)) });
+      if (req.method === 'POST' && req.url === '/api/generate') {
+        const body = JSON.parse(raw) as { model: string; keep_alive: unknown };
+        if (body.keep_alive === 0) state.unloaded.add(body.model); else state.unloaded.delete(body.model);
+        return send(200, { done: true });
+      }
       if (req.method === 'POST' && req.url === '/api/create') {
         state.created.push(JSON.parse(raw) as Created);
         return send(200, { status: 'success' });
@@ -53,7 +58,7 @@ async function openAssistantSettings(window: Page) {
 
 test('Settings ▸ Assistant: model advice, tools marks, a larger window, a compatible service and the proxy', async () => {
   test.setTimeout(180_000);
-  const state = { window: 8192, created: [] as Created[] };
+  const state = { window: 8192, created: [] as Created[], unloaded: new Set<string>() };
   const server = fixtureServer(state);
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
   const address = server.address();
@@ -99,11 +104,32 @@ test('Settings ▸ Assistant: model advice, tools marks, a larger window, a comp
     // A small window: Ollama's copy with a larger window, chosen in place of the model.
     await dialog.getByRole('button', { name: 'Test connection' }).click();
     await expect(dialog.locator('.context-window-note')).toHaveAttribute('data-window', '8192', { timeout: 20_000 });
-    await expect(dialog.locator('.window-help')).toContainText('How to set the window by hand');
-    await dialog.getByRole('button', { name: /Make a copy with a 16,384-token window/ }).click();
-    await expect(dialog.locator('.window-help')).toContainText('fixture-tools:8b-ctx16k', { timeout: 15_000 });
+    await expect(dialog.locator('.window-help')).toContainText('Configure the local model from this app.');
+    await dialog.getByRole('button', { name: 'Apply dialogue mode to Ollama' }).click();
+    await expect(dialog.locator('.window-help')).toContainText('Ollama confirmed 16,384 tokens', { timeout: 15_000 });
     expect(state.created).toEqual([{ model: 'fixture-tools:8b-ctx16k', from: 'fixture-tools:8b', parameters: { num_ctx: 16384 }, stream: false }]);
     await expect(dialog.getByRole('textbox', { name: 'Model', exact: true })).toHaveValue('fixture-tools:8b-ctx16k');
+
+    // Loaded model controls are verified against server state, not a successful HTTP acknowledgement.
+    const monitor = dialog.locator('.local-models-panel');
+    await monitor.getByRole('button', { name: 'Refresh status' }).click();
+    const configured = monitor.locator('li').filter({ hasText: 'fixture-tools:8b-ctx16k' });
+    await expect(configured).toContainText('in video memory');
+    await configured.getByRole('button', { name: 'Unload and free memory' }).click();
+    await expect(configured).toHaveCount(0);
+    expect(state.unloaded.has('fixture-tools:8b-ctx16k')).toBe(true);
+    await monitor.getByRole('button', { name: 'Load selected model' }).click();
+    await expect(configured).toBeVisible();
+    if (process.env.NODEWISE_UI_EVIDENCE) {
+      await monitor.scrollIntoViewIfNeeded();
+      await window.screenshot({ path: path.join(process.env.NODEWISE_UI_EVIDENCE, 'model-controls-desktop.png') });
+      await window.setViewportSize({ width: 390, height: 844 });
+      await monitor.scrollIntoViewIfNeeded();
+      await window.screenshot({ path: path.join(process.env.NODEWISE_UI_EVIDENCE, 'model-controls-phone.png') });
+      const bounds = await dialog.boundingBox();
+      expect(bounds!.width).toBeLessThanOrEqual(390);
+      await window.setViewportSize({ width: 1400, height: 860 });
+    }
 
     // The proxy refuses an address with a password, takes a plain one.
     const proxy = dialog.getByRole('textbox', { name: 'Proxy (optional)' });

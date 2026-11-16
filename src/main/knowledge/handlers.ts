@@ -18,6 +18,7 @@ import {
   searchNodesSchema,
   setAutoSchema,
   syncItemSchema,
+  importModelHeaderSchema,
   syncSkipSchema,
 } from '../../shared/knowledge/schemas';
 import type { SyncService } from '../mcp/sync';
@@ -139,6 +140,7 @@ export function knowledgeHandlers(deps: {
       const parsed = syncSkipSchema.parse(request);
       return sync.setSkipped(db(), parsed.directory, parsed.name, parsed.skip);
     },
+    [IPC_CHANNELS.SYNC_IMPORT_HEADER]: (request) => sync.importModelHeader(db(), importModelHeaderSchema.parse(request)),
     [IPC_CHANNELS.SYNC_RETRY_ALL]: () => sync.retryAll(db()),
   };
   return Object.fromEntries(Object.entries(table).map(([channel, handler]) => [channel, guarded(handler)]));

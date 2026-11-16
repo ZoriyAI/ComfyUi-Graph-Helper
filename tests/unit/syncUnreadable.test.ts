@@ -220,7 +220,7 @@ describe('the run', () => {
     // Nothing at all could be read and the library holds nothing: then, and only then, the sync failed, and says why.
     expect(status).toMatchObject({ state: 'error', lastError: ALL_FAILED_CONNECTION });
     expect(translateKnownError(createTranslator('ru'), ALL_FAILED_CONNECTION)).toMatch(/соединение/);
-    expect(translateKnownError(createTranslator('en'), METADATA_CONNECTION_LOST)).toMatch(/Restart the MCP server/);
+    expect(translateKnownError(createTranslator('en'), METADATA_CONNECTION_LOST)).toMatch(/Problems and repairs/);
     sync.stop();
     db.close();
   });
@@ -343,7 +343,7 @@ describe('the words of the report', () => {
     }
     const en = createTranslator('en');
     expect(rowLabel(rows[0], en)).toBe('“broken.safetensors” in the folder “loras”');
-    expect(rowTodo(rows[0], en, 'en')).toMatch(/damaged/);
+    expect(rowTodo(rows[0], en, 'en')).toContain('read its header directly');
     expect(rowWhy(rows[1], en)).toBe('The server answered with an error: bad header');
     expect(rowLabel(rows[4], en)).toBe('Catalog: the list of packs');
     expect(rowTodo(rows[4], en, 'en')).toBe('Start ComfyUI and sync again.');

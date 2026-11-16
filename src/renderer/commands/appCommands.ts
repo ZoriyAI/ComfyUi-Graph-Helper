@@ -323,6 +323,7 @@ export function buildAppCommands(): Command[] {
         return undefined;
       },
     },
+    { id: 'sync.problems', group: 'sync', labelKey: 'sync.repair.title', icon: LifeBuoy, enabled: always, run: () => useUiStore.getState().setDialog('sync-problems') },
     { id: 'sync.settings', group: 'sync', labelKey: 'menu.syncSettings', icon: Settings, enabled: always, run: () => useUiStore.getState().openSettings('sync') },
 
     // Help

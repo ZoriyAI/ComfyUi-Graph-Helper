@@ -102,6 +102,8 @@ export const IPC_CHANNELS = {
   /** Local OpenAI-compatible servers: named by the MCP server, or answering on this computer. */
   LLM_DISCOVER_LOCAL: 'llm:discover-local',
   LLM_OLLAMA_WINDOW: 'llm:ollama-window',
+  LLM_LOCAL_STATUS: 'llm:local-status',
+  LLM_LOCAL_CONTROL: 'llm:local-control',
   /** Addresses to pick from in Settings ▸ Connection. */
   SETTINGS_CONNECTION_SUGGESTIONS: 'settings:connection-suggestions',
   LLM_CANCEL: 'llm:cancel',
@@ -130,6 +132,7 @@ export const IPC_CHANNELS = {
   SYNC_SET_AUTO: 'sync:set-auto',
   SYNC_PAUSE_ENRICHMENT: 'sync:pause-enrichment',
   SYNC_RETRY_ITEM: 'sync:retry-item',
+  SYNC_IMPORT_HEADER: 'sync:import-header',
   SYNC_SKIP_ITEM: 'sync:skip-item',
   SYNC_RETRY_ALL: 'sync:retry-all',
   SYNC_EVENT: 'sync:event',

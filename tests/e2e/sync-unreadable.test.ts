@@ -47,14 +47,14 @@ test('a file that breaks the connection is skipped, listed with its reason, retr
     await expect(toast).toBeVisible();
     await window.getByRole('button', { name: 'Show the list' }).click();
 
-    const dialog = window.locator('[role="dialog"].settings-dialog');
+    const dialog = window.locator('[role="dialog"].sync-problems-dialog');
     const report = dialog.getByTestId('sync-unreadable');
     await expect(report).toBeVisible();
     await expect(report.getByRole('status').first()).toHaveText(/^Model files read: \d+ of \d+; could not be read: 1; skipped: 0\.$/);
     const row = report.locator('li').filter({ hasText: `“${BROKEN}” in the folder “loras”` });
     await expect(row).toHaveCount(1);
     await expect(row).toContainText('The server dropped the connection while reading this file, also on a new connection.');
-    await expect(row).toContainText('The file may be damaged');
+    await expect(row).toContainText('read its header directly');
 
     // "Try again now": the file is asked again at once, and fails again.
     const before = fake.calls.filter((call) => call.tool === 'model_metadata' && call.args?.name === BROKEN).length;
@@ -73,12 +73,35 @@ test('a file that breaks the connection is skipped, listed with its reason, retr
 
     // "Skip this file": the row stays, marked skipped, and is no longer counted as a failure.
     await row.getByRole('switch', { name: `Skip this file: ${BROKEN}` }).click();
-    await expect(row).toContainText('Skipped: not read until you turn the switch off.');
+    await expect(row).toContainText('Automatic reading is skipped.');
     await expect(report.getByRole('status').first()).toHaveText(/could not be read: 0; skipped: 1\.$/);
-    await expect(row.getByRole('button', { name: `Try again now: ${BROKEN}` })).toHaveCount(0);
+    await expect(row.getByRole('button', { name: `Try again now: ${BROKEN}` })).toBeEnabled();
 
     await report.getByRole('button', { name: 'Copy report' }).click();
     await expect(report.getByText('The report is copied.')).toBeVisible();
+    // The owner can read the same file directly even while excluded. Sparse fixture: no weights are read.
+    const selected = path.join(userData, BROKEN);
+    const header = Buffer.from(JSON.stringify({ __metadata__: { ss_output_name: 'Fixture recovered model' },
+      tensor: { dtype: 'F32', shape: [1], data_offsets: [0, 4] } }));
+    const prefix = Buffer.alloc(8); prefix.writeBigUInt64LE(BigInt(header.length));
+    fs.writeFileSync(selected, Buffer.concat([prefix, header])); fs.truncateSync(selected, 170_000_000);
+    await window.setViewportSize({ width: 390, height: 844 });
+    await row.getByRole('button', { name: 'Read file from this device' }).scrollIntoViewIfNeeded();
+    const chooser = window.waitForEvent('filechooser');
+    await row.getByRole('button', { name: 'Read file from this device' }).click();
+    await (await chooser).setFiles(selected);
+    await expect(report.getByText(`The header of “${BROKEN}” was read from this device.`)).toBeVisible();
+    await expect(row).toHaveCount(0);
+    await expect(report.getByRole('status').first()).toHaveText(/could not be read: 0; skipped: 0\.$/);
+    await expect(dialog.getByRole('region', { name: 'Read from this device' })).toContainText(BROKEN);
+    if (process.env.NODEWISE_UI_EVIDENCE) await window.screenshot({ path: path.join(process.env.NODEWISE_UI_EVIDENCE, 'sync-repair-phone.png') });
+    await dialog.getByRole('button', { name: 'Close', exact: true }).click();
+    await window.setViewportSize({ width: 1440, height: 900 });
+    await window.getByRole('menubar').getByRole('menuitem', { name: 'Sync', exact: true }).click();
+    await window.getByRole('menuitem', { name: 'Sync problems and repairs' }).click();
+    await expect(dialog.getByRole('region', { name: 'Read from this device' })).toContainText(BROKEN);
+    if (process.env.NODEWISE_UI_EVIDENCE) await window.screenshot({ path: path.join(process.env.NODEWISE_UI_EVIDENCE, 'sync-repair-desktop.png') });
+
   } finally {
     await app.close();
     await fake.close();

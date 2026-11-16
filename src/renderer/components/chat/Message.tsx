@@ -6,9 +6,8 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { AnimatePresence, motion } from 'motion/react';
-import { Check, ChevronRight, Copy, OctagonAlert, PauseCircle, Play, RotateCcw, ScrollText, Settings2, Square, TriangleAlert } from 'lucide-react';
+import { ChevronRight, OctagonAlert, PauseCircle, Play, RotateCcw, ScrollText, Settings2, Square, TriangleAlert } from 'lucide-react';
 import Button from '../../ui/Button';
-import IconButton from '../../ui/IconButton';
 import { formatClock, redactDiagnostic, type AppLanguage } from '../../../shared/i18n';
 import { useGraphStore } from '../../state/graphState';
 import { useUiStore } from '../../state/uiState';
@@ -21,7 +20,7 @@ import { RECOMMENDED_WINDOW } from '../../../shared/agent/contextWindow';
 import MarkdownLite from './MarkdownLite';
 import { turnErrorActions } from '../../services/llm/turnErrorText';
 import { isFailedTurn } from '../../services/llm/chatModel';
-import { ollamaWindowSteps } from '../../../shared/agent/windowHowTo';
+import ContextRepair from './ContextRepair';
 import { objectLabel } from './objectLabel';
 import ToolCard from './ToolCard';
 import BuildCard from './BuildCard';
@@ -78,54 +77,6 @@ function CheckpointCard({ messageId, checkpoint }: { messageId: string; checkpoi
   );
 }
 
-/** A command to type on the server: a calm code block, and an icon button that copies it and says so. */
-function HowCommand({ command }: { command: string }) {
-  const { t } = useTranslation();
-  const [copied, setCopied] = React.useState(false);
-  return (
-    <div className={`window-how-command ${styles.howCommand}`}>
-      <pre className={styles.howPre}>{command}</pre>
-      <IconButton
-        size="sm"
-        className={styles.howCopy}
-        label={String(copied ? t('chat.commandCopied') : t('chat.copyCommand'))}
-        onClick={() => {
-          void navigator.clipboard?.writeText(command).then(() => {
-            setCopied(true);
-            window.setTimeout(() => setCopied(false), 1600);
-          }, () => undefined);
-        }}
-      >
-        {copied ? <Check size={14} aria-hidden="true" /> : <Copy size={14} aria-hidden="true" />}
-      </IconButton>
-    </div>
-  );
-}
-
-/** The "how to do it" fold (chat.windowHowTitle) under the small-window advice: the steps render only when opened. */
-function WindowHowTo() {
-  const { t } = useTranslation();
-  const [open, setOpen] = React.useState(false);
-  return (
-    <details className={`window-how ${styles.how}`} data-window-how onToggle={(event) => setOpen((event.currentTarget as HTMLDetailsElement).open)}>
-      <summary className={styles.howSummary}>
-        <ChevronRight size={12} aria-hidden="true" />
-        {t('chat.windowHowTitle')}
-      </summary>
-      {open ? (
-        <ol className={styles.howSteps}>
-          {ollamaWindowSteps(RECOMMENDED_WINDOW).map((step) => (
-            <li key={step.key}>
-              <p>{t(step.key)}</p>
-              {step.command ? <HowCommand command={step.command} /> : null}
-            </li>
-          ))}
-        </ol>
-      ) : null}
-    </details>
-  );
-}
-
 /**
  * What the app noticed about the turn, said by the app and not by the model: the model on the person's own
  * server reads only what fits its context window, so an answer after a cut request cannot be trusted. The card
@@ -155,7 +106,7 @@ function NoticeCard({ notice, logId }: { notice: TurnNotice; logId?: string }) {
       {/* When the server stopped at the window's edge nobody knows how much the request really needed. */}
       <p className={styles.noticeText}>{t(notice.state === 'tight' ? 'chat.windowTightBody' : notice.needed > notice.window ? 'chat.windowCutBody' : 'chat.windowCutBodyEdge', values)}</p>
       <p className={styles.noticeText}>{t('chat.windowFix', values)}</p>
-      <WindowHowTo />
+      <ContextRepair model={notice.model} />
       {notice.compact ? null : <p className={styles.noticeText}>{t('chat.windowNextCompact')}</p>}
       {logId ? (
         <Button variant="subtle" size="sm" className={`message-log-open ${styles.logOpen}`} icon={<ScrollText size={13} />} onClick={() => openModelLog(logId)}>

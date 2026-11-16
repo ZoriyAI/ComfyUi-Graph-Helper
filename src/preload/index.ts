@@ -7,6 +7,7 @@
  * they equal src/shared/ipc-channels.ts).
  */
 import { contextBridge, ipcRenderer, webFrame, webUtils } from 'electron';
+import type { LocalModelStatus, LocalModelAction, LocalGenerationStyle } from '../shared/contracts/localModels';
 import type { ChatRuntimeConfig, NonSecretSettings, SettingsRead } from '../shared/config/schema';
 import type { Preferences } from '../shared/config/preferences';
 import type { KeyProvider } from '../shared/config/keyOrigin';
@@ -55,6 +56,8 @@ import type {
   SearchNodesRequest,
   SyncStatus,
   RetryItemResult,
+  ImportModelHeaderRequest,
+  ImportModelHeaderResult,
   McpReadOutcome,
 } from '../shared/contracts';
 
@@ -138,6 +141,8 @@ const IPC_CHANNELS = {
   LLM_LIST_MODELS: 'llm:list-models',
   LLM_DISCOVER_LOCAL: 'llm:discover-local',
   LLM_OLLAMA_WINDOW: 'llm:ollama-window',
+  LLM_LOCAL_STATUS: 'llm:local-status',
+  LLM_LOCAL_CONTROL: 'llm:local-control',
   SETTINGS_CONNECTION_SUGGESTIONS: 'settings:connection-suggestions',
   KNOWLEDGE_SEARCH_NODES: 'knowledge:search-nodes',
   KNOWLEDGE_NODE_DETAIL: 'knowledge:node-detail',
@@ -158,6 +163,7 @@ const IPC_CHANNELS = {
   SYNC_SET_AUTO: 'sync:set-auto',
   SYNC_PAUSE_ENRICHMENT: 'sync:pause-enrichment',
   SYNC_RETRY_ITEM: 'sync:retry-item',
+  SYNC_IMPORT_HEADER: 'sync:import-header',
   SYNC_SKIP_ITEM: 'sync:skip-item',
   SYNC_RETRY_ALL: 'sync:retry-all',
   SYNC_EVENT: 'sync:event',
@@ -357,7 +363,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   llmProbe: (draft: { provider: string; model: string; baseURL: string }) => ipcRenderer.invoke(IPC_CHANNELS.LLM_PROBE, draft) as Promise<LlmProbeResult>,
   llmListModels: (draft: { provider: string; model?: string; baseURL: string }) => ipcRenderer.invoke(IPC_CHANNELS.LLM_LIST_MODELS, draft) as Promise<ModelListResult>,
   llmDiscoverLocal: () => ipcRenderer.invoke(IPC_CHANNELS.LLM_DISCOVER_LOCAL) as Promise<LocalDiscovery>,
-  llmOllamaWindow: (draft: { provider: string; model: string; baseURL: string }, window: number) => ipcRenderer.invoke(IPC_CHANNELS.LLM_OLLAMA_WINDOW, draft, window) as Promise<{ ok: true; model: string } | { ok: false; error: string }>,
+  llmLocalStatus: (draft: ChatRuntimeConfig) => ipcRenderer.invoke(IPC_CHANNELS.LLM_LOCAL_STATUS, draft) as Promise<LocalModelStatus>,
+  llmLocalControl: (draft: ChatRuntimeConfig, model: string, action: LocalModelAction) => ipcRenderer.invoke(IPC_CHANNELS.LLM_LOCAL_CONTROL, draft, model, action) as Promise<LocalModelStatus>,
+  llmOllamaWindow: (draft: { provider: string; model: string; baseURL: string }, window: number, style: LocalGenerationStyle = 'model') => ipcRenderer.invoke(IPC_CHANNELS.LLM_OLLAMA_WINDOW, draft, window, style) as Promise<{ ok: true; model: string; contextTokens: number; requestedTokens: number } | { ok: false; error: string }>,
   connectionSuggestions: (probe?: boolean) => ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_CONNECTION_SUGGESTIONS, probe === true) as Promise<ConnectionSuggestions>,
   llmStreamChat: (
     messages: Array<{ role: string; content: string }>,
@@ -423,6 +431,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   syncPauseEnrichment: () => ipcRenderer.invoke(IPC_CHANNELS.SYNC_PAUSE_ENRICHMENT) as Promise<SyncStatus>,
   syncRetryItem: (item: { directory: string; name: string }) => ipcRenderer.invoke(IPC_CHANNELS.SYNC_RETRY_ITEM, item) as Promise<RetryItemResult>,
   syncSkipItem: (item: { directory: string; name: string; skip: boolean }) => ipcRenderer.invoke(IPC_CHANNELS.SYNC_SKIP_ITEM, item) as Promise<SyncStatus>,
+  syncImportHeader: (request: ImportModelHeaderRequest) => ipcRenderer.invoke(IPC_CHANNELS.SYNC_IMPORT_HEADER, request) as Promise<ImportModelHeaderResult>,
   syncRetryAll: () => ipcRenderer.invoke(IPC_CHANNELS.SYNC_RETRY_ALL) as Promise<SyncStatus>,
   onSyncEvent: (listener: (status: SyncStatus) => void) => {
     const handler = (_event: unknown, status: SyncStatus) => listener(status);
@@ -674,7 +683,9 @@ export interface ElectronAPI {
   /** Settings ▸ Assistant ▸ Find local servers: the MCP server's Ollama targets and servers answering on this computer. */
   llmDiscoverLocal: () => Promise<LocalDiscovery>;
   /** Asks Ollama for a copy of the draft model that loads with a larger window (Settings ▸ Assistant). */
-  llmOllamaWindow: (draft: { provider: string; model: string; baseURL: string }, window: number) => Promise<{ ok: true; model: string } | { ok: false; error: string }>;
+  llmLocalStatus: (draft: ChatRuntimeConfig) => Promise<LocalModelStatus>;
+  llmLocalControl: (draft: ChatRuntimeConfig, model: string, action: LocalModelAction) => Promise<LocalModelStatus>;
+  llmOllamaWindow: (draft: { provider: string; model: string; baseURL: string }, window: number, style?: LocalGenerationStyle) => Promise<{ ok: true; model: string; contextTokens: number; requestedTokens: number } | { ok: false; error: string }>;
   /** Settings ▸ Connection: reported, saved and recent addresses; with `probe`, also a ComfyUI answering on this computer. */
   connectionSuggestions: (probe?: boolean) => Promise<ConnectionSuggestions>;
   llmStreamChat: (
@@ -720,6 +731,7 @@ export interface ElectronAPI {
   /** "Skip this file" on or off: a skipped file is not read until the switch is off. */
   syncSkipItem: (item: { directory: string; name: string; skip: boolean }) => Promise<SyncStatus>;
   /** "Try all again": every wait cleared, and a sync starts. */
+  syncImportHeader: (request: ImportModelHeaderRequest) => Promise<ImportModelHeaderResult>;
   syncRetryAll: () => Promise<SyncStatus>;
   onSyncEvent: (listener: (status: SyncStatus) => void) => () => void;
   listProposals: (projectId: string) => Promise<Proposal[]>;

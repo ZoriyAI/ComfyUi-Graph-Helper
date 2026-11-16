@@ -458,7 +458,7 @@ export default function SettingsPanel({
                 );
               })}
             </TabsList>
-            {panel('assistant', <AssistantSection {...draft} onSession={(sources) => onSessionRef.current(sources)} />)}
+            {panel('assistant', <AssistantSection {...draft} active={open && section === 'assistant'} onSession={(sources) => onSessionRef.current(sources)} />)}
             {panel('connection', <ConnectionSection {...draft} />)}
             {panel('browserAccess', <BrowserAccessSection {...draft} />)}
             {panel('sync', (

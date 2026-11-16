@@ -5,6 +5,12 @@
 Releases, newest first. Each release has full notes in `docs/releases/`.
 This file is written by `node scripts/changelog.js`: change the notes, not this file.
 
+## 1.2.4
+
+Sync problems now have a separate **Sync → Sync problems and repairs** window. It collects connection warnings, unread and excluded files, with retry and direct-file repair. A skipped file can be retried immediately; a successful read removes its exclusion.
+
+Notes: [docs/releases/v1.2.4.md](docs/releases/v1.2.4.md)
+
 ## 1.2.3
 
 Fixes a model-metadata sync that repeatedly stopped at the same file after MCP reported `Not connected`. ComfyUI's native metadata route also returns HTTP 404 for headers above its 1 MiB limit or without embedded metadata. Previously, failure on that first fallback file stopped the entire pass.

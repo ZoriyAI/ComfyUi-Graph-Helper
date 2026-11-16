@@ -14,7 +14,7 @@ import { expectSoundLayout } from './layoutProfile';
 
 const MODEL = 'fixture-small:4b';
 
-function fixtureServer(state: { window: number; bodies: string[]; ps: number }) {
+function fixtureServer(state: { window: number; bodies: string[]; ps: number; variant: { name: string; window: number } | null }) {
   return http.createServer((req, res) => {
     const send = (status: number, type: string, body: string) => {
       res.writeHead(status, { 'content-type': type });
@@ -30,7 +30,18 @@ function fixtureServer(state: { window: number; bodies: string[]; ps: number }) 
     }
     if (req.method === 'GET' && req.url === '/api/ps') {
       state.ps += 1;
-      send(200, 'application/json', JSON.stringify({ models: [{ name: MODEL, model: MODEL, context_length: state.window }] }));
+      send(200, 'application/json', JSON.stringify({ models: [{ name: MODEL, model: MODEL, context_length: state.window }, ...(state.variant ? [{ name: state.variant.name, context_length: state.variant.window }] : [])] }));
+      return;
+    }
+    if (req.method === 'POST' && ['/api/show', '/api/create', '/api/generate'].includes(req.url ?? '')) {
+      let raw = '';
+      req.on('data', chunk => { raw += String(chunk); });
+      req.on('end', () => {
+        const body = JSON.parse(raw || '{}') as { model: string; parameters?: { num_ctx: number } };
+        if (req.url === '/api/show') return send(200, 'application/json', JSON.stringify({ model_info: { 'fixture.context_length': 65536 }, capabilities: ['completion', 'tools'] }));
+        if (req.url === '/api/create') state.variant = { name: body.model, window: body.parameters!.num_ctx };
+        send(200, 'application/json', JSON.stringify(req.url === '/api/create' ? { status: 'success' } : { done: true }));
+      });
       return;
     }
     if (req.method === 'POST' && req.url === '/v1/chat/completions') {
@@ -67,7 +78,7 @@ function fixtureServer(state: { window: number; bodies: string[]; ps: number }) 
 }
 
 test('a local model with a small context window: Settings, the chat and the log all say so', async () => {
-  const state = { window: 4096, bodies: [] as string[], ps: 0 };
+  const state = { window: 4096, bodies: [] as string[], ps: 0, variant: null as { name: string; window: number } | null };
   const server = fixtureServer(state);
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
   const address = server.address();
@@ -95,9 +106,9 @@ test('a local model with a small context window: Settings, the chat and the log 
     await dialog.getByRole('button', { name: 'Test connection' }).click();
     const note = dialog.locator('.context-window-note');
     await expect(note).toHaveAttribute('data-window', '4096', { timeout: 20_000 });
-    await expect(note).toContainText('Context window on the server: 4,096 tokens. That is too small');
-    await expect(note).toContainText('OLLAMA_CONTEXT_LENGTH');
-    // The note is a paragraph with a command in it: it must fit the settings panel in the smallest window too.
+    await expect(note).toContainText('The server allocated 4,096 tokens. The request and tools may not fit.');
+    await expect(note).toContainText('Configure conversation capacity automatically below.');
+    // The explanation and action must fit the settings panel.
     await note.scrollIntoViewIfNeeded();
     await expectSoundLayout(window, 'settings with the context-window note');
     await dialog.getByRole('button', { name: 'Save settings' }).click();
@@ -110,28 +121,22 @@ test('a local model with a small context window: Settings, the chat and the log 
     await input.press('Enter');
     const notice = window.locator('.turn-notice');
     await expect(notice).toBeVisible({ timeout: 30_000 });
-    // The reduced request fits a 4k window, but with no room to work in: the chat says so before it goes wrong.
-    await expect(notice).toHaveAttribute('data-state', 'tight');
-    await expect(notice).toContainText('context window is almost full');
+    // Even the essential resource tool needs space: the fixture honestly reports truncation at 4k.
+    await expect(notice).toHaveAttribute('data-state', 'cut');
+    await expect(notice).toContainText('model read only part of the request');
     await expect(notice).toContainText(MODEL);
     await expect(notice).toContainText('4,096');
-    await expect(notice).toContainText('at least 16,384 tokens');
+    await expect(notice.getByRole('button', { name: 'Configure automatically' })).toBeVisible();
     // The model's own words are still shown: the notice explains the answer, it does not replace it.
     await expect(window.getByText('A fixture answer.')).toBeVisible();
     await expect(input).toBeEnabled();
     await expectSoundLayout(window, 'chat with the context-window notice');
-    // "How to do it": the real steps for Ollama on Linux with commands to copy, and the memory warning.
-    await notice.locator('[data-window-how] summary').click();
-    await expect(notice.locator('[data-window-how] pre').first()).toBeVisible();
-    await expect(notice.locator('[data-window-how]')).toContainText('Environment="OLLAMA_CONTEXT_LENGTH=16384"');
-    await expect(notice.locator('[data-window-how]')).toContainText('needs more memory');
-    await expectSoundLayout(window, 'chat with the context-window steps open');
-    await notice.locator('[data-window-how] summary').click();
+    await expect(notice).not.toContainText('systemctl');
 
     const chat = state.bodies.map((body) => JSON.parse(body) as { stream?: boolean; tools?: Array<{ function: { name: string } }>; messages: Array<{ role: string; content: string }> }).filter((body) => body.stream);
     expect(chat).toHaveLength(1);
     const names = (chat[0].tools ?? []).map((tool) => tool.function.name).sort();
-    expect(names).toEqual(['checkGraph', 'describeModel', 'describeNodeType', 'explain', 'findInstalledModels', 'getGraph', 'proposeConnection', 'proposeNode', 'proposeParameter', 'searchNodeTypes']);
+    expect(names).toEqual(['assessResources', 'checkGraph', 'describeModel', 'describeNodeType', 'explain', 'findInstalledModels', 'getGraph', 'proposeConnection', 'proposeNode', 'proposeParameter', 'searchNodeTypes']);
     expect(chat[0].messages[0].content).toContain('small context window here (4096 tokens)');
     expect(state.ps).toBeGreaterThan(0);
 
@@ -147,19 +152,32 @@ test('a local model with a small context window: Settings, the chat and the log 
     const report = await app.evaluate(({ clipboard }) => clipboard.readText());
     // The report follows the language of the interface, which is English in this test.
     expect(report).toContain('context window on the server: 4096');
-    expect(report).toContain('almost no room left');
+    expect(report).toContain('THE REQUEST DID NOT FIT');
     expect(report).toContain('compact mode');
     await log.getByRole('button', { name: 'Close' }).click();
 
-    // The person gives the server a larger window: the next answer comes without a warning.
-    state.window = 32768;
+    // Apply from the notice: native settings are verified, saved, and the next request uses the new model.
+    await notice.getByRole('button', { name: 'Configure automatically' }).click();
+    await expect(notice).toContainText('Applied and saved.', { timeout: 20_000 });
+    expect(state.variant?.window).toBeGreaterThanOrEqual(16384);
+    const savedModel = await window.evaluate(async () => {
+      const api = (window as unknown as { electronAPI: { getSettings: () => Promise<{ values: { model: string } }> } }).electronAPI;
+      return (await api.getSettings()).values.model;
+    });
+    expect(savedModel).toBe(state.variant?.name);
+    state.window = state.variant!.window;
+    if (process.env.NODEWISE_UI_EVIDENCE) await window.screenshot({ path: path.join(process.env.NODEWISE_UI_EVIDENCE, 'context-repaired-chat.png') });
     await input.fill('And the scheduler?');
     await input.press('Enter');
     await expect(window.locator('.message-row[data-role="assistant"]')).toHaveCount(2, { timeout: 30_000 });
     await expect(input).toBeEnabled();
     await expect(window.locator('.turn-notice')).toHaveCount(1);
+    const nextRequest = JSON.parse(state.bodies.filter(body => JSON.parse(body).stream).at(-1)!);
+    expect(nextRequest.model).toBe(state.variant!.name);
+    await expect(window.locator('#chat-provider')).toContainText(state.variant!.name);
   } finally {
     await app.close();
-    server.close();
+    await new Promise<void>(resolve => server.close(() => resolve()));
+    fs.rmSync(userData, { recursive: true, force: true });
   }
 });

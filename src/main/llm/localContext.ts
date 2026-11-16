@@ -1,3 +1,5 @@
+import { LOCAL_GENERATION_STYLES, type LocalGenerationStyle } from '../../shared/contracts/localModels';
+import { isOllamaCloudModel } from '../../shared/config/ollamaCloud';
 /**
  * How much text a model on the person's own server can hold at once.
  *
@@ -295,44 +297,68 @@ export function windowVariantName(model: string, window: number): string {
   const colon = trimmed.lastIndexOf(':');
   const slash = trimmed.lastIndexOf('/');
   if (colon > slash) {
-    const tag = trimmed.slice(colon + 1).replace(/-ctx\d+k$/, '');
+    const tag = trimmed.slice(colon + 1).replace(/-ctx\d+k(?:-(?:focused|creative))?$/, '');
     return `${trimmed.slice(0, colon)}:${tag}-${size}`;
   }
   return `${trimmed}:${size}`;
 }
 
-/** The name of the new copy, or the fixed sentence that says why there is none. */
-export type WindowVariantResult = { ok: true; model: string } | { ok: false; error: string };
+/** A successful configuration includes the window actually reported by the loaded model. */
+export type WindowVariantResult = { ok: true; model: string; contextTokens: number; requestedTokens: number } | { ok: false; error: string };
 export const WINDOW_VARIANT_NOT_OLLAMA = 'Only an Ollama server can make a copy with a larger window.';
 export const WINDOW_VARIANT_FAILED = 'Ollama did not make the copy.';
+export const WINDOW_VARIANT_UNVERIFIED = 'The configured context window was not confirmed by Ollama.';
+export const WINDOW_VARIANT_LIMIT = 'This model cannot hold the requested conversation.';
+export const WINDOW_VARIANT_CLOUD = 'An Ollama cloud model manages its context on the provider server.';
 
-/**
- * Asks Ollama (its own /api/create) for a copy of `model` that loads with a larger context window. The copy shares
- * the model's files (no download, no disk space beyond a small description) and is chosen in place of the model;
- * the original stays as it is. The person asks for it with a button; the app never does it on its own.
- */
-export async function createWindowVariant(base: string, model: string, window: number, fetchImpl: Fetch, timeoutMs = 30_000): Promise<WindowVariantResult> {
+/** Minimum practical room for tools, then room for the measured request, its answer and later tool results. */
+export function suggestedContextTokens(needed = 0): number {
+  return Math.max(16_384, Math.ceil((Math.max(0, needed) + WORKING_ROOM) / 0.7 / 4096) * 4096);
+}
+
+/** Apply through Ollama's supported API, then load and read back. Does not edit or restart a system service. */
+export async function createWindowVariant(base: string, model: string, window: number, fetchImpl: Fetch, timeoutMs = 90_000, needed = 0, style: LocalGenerationStyle = 'model'): Promise<WindowVariantResult> {
   const origin = ollamaOrigin(base.trim().replace(/\/+$/, ''));
   if (!origin || model.trim() === '') return { ok: false, error: WINDOW_VARIANT_NOT_OLLAMA };
-  const name = windowVariantName(model, window);
+  if (isOllamaCloudModel(model)) return { ok: false, error: WINDOW_VARIANT_CLOUD };
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   timer.unref?.();
+  const post = async (route: string, body: unknown) => {
+    const response = await fetchImpl(`${origin}${route}`, { method: 'POST', redirect: 'error',
+      headers: { 'content-type': 'application/json' }, body: JSON.stringify(body), signal: controller.signal });
+    if (!response.ok) throw new Error(route === '/api/show' ? WINDOW_VARIANT_NOT_OLLAMA : WINDOW_VARIANT_FAILED);
+    const json: unknown = await response.json();
+    if (!json || typeof json !== 'object' || Array.isArray(json) || 'error' in json) throw new Error(WINDOW_VARIANT_FAILED);
+    return json as Record<string, unknown>;
+  };
   try {
-    const response = await fetchImpl(`${origin}/api/create`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ model: name, from: model.trim(), parameters: { num_ctx: Math.round(window) }, stream: false }),
-      signal: controller.signal,
-    });
-    const text = await response.text().catch(() => '');
-    if (response.status === 404) return { ok: false, error: WINDOW_VARIANT_NOT_OLLAMA };
-    // Ollama can answer 200 with an error object in the body, so the text is checked too.
-    if (!response.ok || /"error"/.test(text)) return { ok: false, error: WINDOW_VARIANT_FAILED };
-    return { ok: true, model: name };
-  } catch {
-    return { ok: false, error: WINDOW_VARIANT_FAILED };
-  } finally {
-    clearTimeout(timer);
-  }
+    // Do not POST a mutation to an arbitrary OpenAI-compatible server. Confirm Ollama's native model contract first.
+    const shown = await post('/api/show', { model: model.trim() });
+    if (!shown.model_info || typeof shown.model_info !== 'object' || Array.isArray(shown.model_info)) return { ok: false, error: WINDOW_VARIANT_NOT_OLLAMA };
+    const limits = Object.entries(shown.model_info).filter(([key]) => key.endsWith('.context_length'))
+      .map(([, value]) => sane(value)).filter((value): value is number => value !== null);
+    const max = Math.min(262_144, ...(limits.length ? limits : [262_144]));
+    const desired = window > 0 ? Math.round(window) : suggestedContextTokens(needed);
+    const size = Math.min(max, Math.max(4096, desired));
+    if (size < 6000 || (window > 0 && desired > max) || size < needed + WORKING_ROOM) return { ok: false, error: WINDOW_VARIANT_LIMIT };
+    const parameters = LOCAL_GENERATION_STYLES[style] ?? {};
+    const name = windowVariantName(model, size) + (style === 'model' ? '' : `-${style}`);
+    // The variant references the existing weights. The original model and global server defaults stay intact.
+    const created = await post('/api/create', { model: name, from: model.trim(), parameters: { ...parameters, num_ctx: size }, stream: false });
+    if (created.status !== 'success') return { ok: false, error: WINDOW_VARIANT_FAILED };
+    if (style !== 'model') {
+      const applied = await post('/api/show', { model: name });
+      const text = typeof applied.parameters === 'string' ? applied.parameters : '';
+      const fields = new Map(text.split('\n').map(line => { const [key, value] = line.trim().split(/\s+/); return [key, Number(value)]; }));
+      if (Object.entries(parameters).some(([key, value]) => !Number.isFinite(fields.get(key)) || Math.abs(fields.get(key)! - value) > 0.000001)) return { ok: false, error: WINDOW_VARIANT_UNVERIFIED };
+    }
+    await post('/api/generate', { model: name, prompt: '', stream: false, keep_alive: '10m' });
+    const response = await fetchImpl(`${origin}/api/ps`, { redirect: 'error', signal: controller.signal });
+    const actual = response.ok ? parseOllamaPs(await response.json(), name) : null;
+    if (actual === null || actual < size) return { ok: false, error: WINDOW_VARIANT_UNVERIFIED };
+    return { ok: true, model: name, contextTokens: actual, requestedTokens: size };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error && error.message === WINDOW_VARIANT_NOT_OLLAMA ? WINDOW_VARIANT_NOT_OLLAMA : WINDOW_VARIANT_FAILED };
+  } finally { clearTimeout(timer); }
 }

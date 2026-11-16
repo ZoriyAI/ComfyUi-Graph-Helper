@@ -6,11 +6,14 @@
  */
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import LocalModelsPanel from './LocalModelsPanel';
+import { useChatStore } from '../../../state/chatState';
+import type { LocalGenerationStyle } from '../../../../shared/contracts/localModels';
 import { COMPACT_WINDOW, MIN_WORKING_WINDOW, RECOMMENDED_WINDOW } from '../../../../shared/agent/contextWindow';
 import { PlugZap, Radar, RefreshCw } from 'lucide-react';
 import type { LocalServer, ModelChoice } from '../../../../shared/contracts/pickers';
 import type { NonSecretSettings } from '../../../../shared/config/schema';
-import { CONTEXT_TOKENS, isPreferenceProvider, MODEL_SUGGESTIONS, STEP_LIMIT, type PreferenceProvider } from '../../../../shared/config/preferences';
+import { isPreferenceProvider, MODEL_SUGGESTIONS, STEP_LIMIT, type PreferenceProvider } from '../../../../shared/config/preferences';
 import { effectiveContextWindow } from '../../../../shared/agent/contextWindow';
 import { contextSourceKey } from './pickerItems';
 import { FETCH_PAGE_BYTE_CAP, FETCH_PAGE_TEXT_CAP } from '../../../../shared/agent/limits';
@@ -74,7 +77,7 @@ export function compatibleHost(baseURL: string): string | null {
 const LIST_DEBOUNCE_MS = 450;
 
 /** Settings ▸ Assistant: provider cards, model and base URL, Test connection, and how the helper behaves. */
-export default function AssistantSection({ values, setValues, prefs, setPrefs, container, fieldError, pending, onSession }: DraftProps & { onSession: (sources: KeySources) => void }) {
+export default function AssistantSection({ values, setValues, prefs, setPrefs, container, fieldError, pending, onSession, active }: DraftProps & { onSession: (sources: KeySources) => void; active: boolean }) {
   const { t, i18n } = useTranslation();
   const translate: Translator = (key, options) => (options ? String(t(key, options)) : String(t(key)));
   // Each card shows its own provider's key; a key held for one provider says nothing about another.
@@ -83,6 +86,10 @@ export default function AssistantSection({ values, setValues, prefs, setPrefs, c
   const [modelList, setModelList] = useState<ModelList>({ kind: 'idle' });
   const [listTick, setListTick] = useState(0);
   const [discovery, setDiscovery] = useState<Discovery>({ kind: 'idle' });
+  const [generationStyle, setGenerationStyle] = useState<LocalGenerationStyle>('model');
+  const configurationRef = useRef({ tokens: prefs.assistant.contextTokens, style: generationStyle });
+  configurationRef.current = { tokens: prefs.assistant.contextTokens, style: generationStyle };
+  const streaming = useChatStore(state => state.isStreaming);
   const [variant, setVariant] = useState<{ busy: boolean; note: string }>({ busy: false, note: '' });
   // Each list request takes a new ticket; an answer for an older ticket is ignored.
   const listRequest = useRef(0);
@@ -158,12 +165,18 @@ export default function AssistantSection({ values, setValues, prefs, setPrefs, c
   // Ollama makes a copy of the model that loads with a larger window; the copy is chosen in its place.
   const makeVariant = async () => {
     setVariant({ busy: true, note: '' });
+    const before = { provider: values.provider, model: values.model, baseURL: values.baseURL };
+    const requested = configurationRef.current;
     try {
-      const result = await window.electronAPI.llmOllamaWindow({ provider: values.provider, model: values.model, baseURL: values.baseURL }, RECOMMENDED_WINDOW);
+      const result = await window.electronAPI.llmOllamaWindow(before, prefs.assistant.contextTokens, generationStyle);
+      if (valuesRef.current.provider !== before.provider || valuesRef.current.model !== before.model || valuesRef.current.baseURL !== before.baseURL
+        || configurationRef.current.tokens !== requested.tokens || configurationRef.current.style !== requested.style) {
+        setVariant({ busy: false, note: String(t('contextSetup.changed')) }); return;
+      }
       if (result.ok) {
         setRuntime('model', result.model);
         setProbe({ kind: 'idle' });
-        setVariant({ busy: false, note: String(t('providers.variantMade', { model: result.model })) });
+        setVariant({ busy: false, note: String(t('contextSetup.draft', { window: result.contextTokens })) });
       } else {
         setVariant({ busy: false, note: errorText(result.error) });
       }
@@ -446,9 +459,7 @@ export default function AssistantSection({ values, setValues, prefs, setPrefs, c
           })}
         </p>
       ) : null}
-      {provider === 'local' && ((probe.kind === 'ok' && probe.contextTokens !== null && probe.contextTokens < COMPACT_WINDOW) || variant.note !== '') ? (
-        <WindowHelp onVariant={probe.kind === 'ok' ? () => void makeVariant() : null} busy={variant.busy} note={variant.note} />
-      ) : null}
+
       </>) : null}
 
       <Group title={String(t('preferences.behaviour'))}>
@@ -473,17 +484,27 @@ export default function AssistantSection({ values, setValues, prefs, setPrefs, c
           increaseLabel={String(t('preferences.increase', { label: t('preferences.maxSteps') }))}
           onChange={(next) => patchSection(setPrefs, 'assistant', { maxStepsPerTurn: next })}
         />
-        {provider !== '' ? <NumberField
-          label={String(t('preferences.contextTokens'))}
-          value={assistant.contextTokens}
-          min={CONTEXT_TOKENS.min}
-          max={CONTEXT_TOKENS.max}
-          step={CONTEXT_TOKENS.step}
-          hint={contextHint}
-          decreaseLabel={String(t('preferences.decrease', { label: t('preferences.contextTokens') }))}
-          increaseLabel={String(t('preferences.increase', { label: t('preferences.contextTokens') }))}
-          onChange={(next) => patchSection(setPrefs, 'assistant', { contextTokens: next })}
-        /> : null}
+        {provider !== '' ? <>
+          <SelectField label={String(t('contextSetup.mode'))} value={String(assistant.contextTokens)} container={container}
+            options={[
+              { value: '0', label: String(t('contextSetup.auto')) },
+              { value: '16384', label: String(t('contextSetup.conversation')) },
+              { value: '32768', label: String(t('contextSetup.graphs')) },
+              { value: '65536', label: String(t('contextSetup.projects')) },
+              ...([0, 16384, 32768, 65536].includes(assistant.contextTokens) ? [] : [{ value: String(assistant.contextTokens), label: String(t('contextSetup.previous', { window: assistant.contextTokens })) }]),
+            ]}
+            onChange={next => patchSection(setPrefs, 'assistant', { contextTokens: Number(next) })} />
+          <p className={hintClass}>{t('contextSetup.modeHint')}</p>
+          <p className={hintClass}>{contextHint}</p>
+      {provider === 'local' ? <>
+        <SelectField label={String(t('contextSetup.style'))} value={generationStyle} container={container}
+          options={(['model', 'focused', 'creative'] as const).map(value => ({ value, label: String(t(`contextSetup.styleName.${value}`)) }))}
+          onChange={value => setGenerationStyle(value as LocalGenerationStyle)} />
+        <p className={hintClass}>{t(`contextSetup.styleHint.${generationStyle}`)}</p>
+        <WindowHelp onVariant={values.model.trim() && values.baseURL.trim() ? () => void makeVariant() : null} busy={variant.busy || pending} disabled={streaming} note={variant.note} />
+        {values.baseURL.trim() ? <LocalModelsPanel runtime={values} active={active} /> : null}
+      </> : null}
+        </> : null}
         <Switch label={t('preferences.allowWebSearch')} checked={assistant.allowWebSearch} onCheckedChange={(next) => patchSection(setPrefs, 'assistant', { allowWebSearch: next })} />
         <Switch label={t('preferences.allowFetchPage')} checked={assistant.allowFetchPage} onCheckedChange={(next) => patchSection(setPrefs, 'assistant', { allowFetchPage: next })} />
         <p className={hintClass}>{t('preferences.webHint')}</p>

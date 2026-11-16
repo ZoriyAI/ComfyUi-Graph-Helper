@@ -1,0 +1,17 @@
+.dialog { width: min(820px, calc(100vw - 24px)); max-height: min(90dvh, 900px); display: flex; flex-direction: column; padding: 0; overflow: hidden; }
+.header { padding: 20px 22px 14px; border-bottom: 1px solid var(--border); }
+.title { margin: 0 0 8px; font-size: var(--text-lg); }
+.lead { margin: 0; color: var(--text-dim); line-height: 1.5; }
+.body { padding: 16px 22px; overflow-y: auto; min-height: 0; overscroll-behavior: contain; }
+.footer { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; padding: 12px 22px; border-top: 1px solid var(--border); }
+.warning { color: var(--warn); overflow-wrap: anywhere; }
+.subtitle { font-size: var(--text-sm); margin-top: 24px; }
+.history { list-style: none; padding: 0; display: grid; gap: 10px; font-size: var(--text-sm); overflow-wrap: anywhere; }
+.history li { border-left: 2px solid var(--border); padding-left: 12px; }
+.history p { margin: 4px 0; color: var(--text-dim); }
+@media (max-width: 600px) {
+  .dialog { max-height: calc(100dvh - 16px); }
+  .header, .body { padding: 14px; }
+  .footer { padding: 10px 14px; }
+  .footer button { min-height: 44px; }
+}

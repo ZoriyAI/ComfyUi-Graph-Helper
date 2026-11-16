@@ -377,6 +377,9 @@ export interface SyncStatus {
    * sections whose list did not come. Built in main from the stored failure records. Optional for older callers.
    */
   unreadable?: UnreadableItem[];
+  /** Recent header repairs explicitly imported by the person, newest first. */
+  headerRepairs?: Array<{ directory: string; name: string; at: number; headerBytes: number; empty: boolean }>;
+
 }
 
 /**
@@ -406,7 +409,22 @@ export interface UnreadableItem {
   skipped: boolean;
 }
 
-/** The result of Settings ▸ Sync ▸ "Try again now" for one file. */
+/** An explicit selection on this device, tied to the catalogue that was visible when selected. */
+export interface ImportModelHeaderRequest {
+  directory: string;
+  name: string;
+  catalogRevision: number;
+  fileName: string;
+  fileSize: number;
+  headerBytes: number;
+  metadata: Record<string, string>;
+}
+export interface ImportModelHeaderResult {
+  status: SyncStatus;
+  outcome: 'read' | 'empty' | 'busy' | 'stale' | 'mismatch';
+}
+
+/** The result of Sync ▸ Problems ▸ "Try again now" for one file. */
 export interface RetryItemResult {
   status: SyncStatus;
   /** read: accepted; failed: failed again; busy: another read runs; cancelled: its source or file changed. */

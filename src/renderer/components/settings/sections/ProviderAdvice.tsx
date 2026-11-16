@@ -80,43 +80,18 @@ export function LocalAdvice() {
 }
 
 /**
- * Under the window note when your own server loads the model with too small a window: for Ollama a button that
- * makes a copy of the model with a larger window (Ollama's own interface, on the person's click), and in every
- * case how to set the window by hand for the ways a server is usually run.
+ * Explicit application of the chosen context mode through Ollama's native API, followed by actual readback.
  */
-export function WindowHelp({ onVariant, busy, note }: { onVariant: (() => void) | null; busy: boolean; note: string }) {
+export function WindowHelp({ onVariant, busy, disabled = false, note }: { onVariant: (() => void) | null; busy: boolean; disabled?: boolean; note: string }) {
   const { t } = useTranslation();
-  // The usual ways to run a local server, each with a sentence and, where there is one, a command to copy.
-  const ways: Array<{ text: string; command?: string }> = [
-    { text: 'providers.windowService', command: 'sudo systemctl edit ollama.service' },
-    { text: 'providers.windowServiceLines', command: `[Service]\nEnvironment="OLLAMA_CONTEXT_LENGTH=${LOCAL_WINDOW_ADVICE}"` },
-    { text: 'providers.windowServiceRestart', command: 'sudo systemctl daemon-reload && sudo systemctl restart ollama' },
-    { text: 'providers.windowDocker', command: `-e OLLAMA_CONTEXT_LENGTH=${LOCAL_WINDOW_ADVICE}` },
-    { text: 'providers.windowOther' },
-    { text: 'providers.windowLmStudio' },
-    { text: 'providers.windowLlamaCpp', command: `llama-server -m model.gguf -c ${LOCAL_WINDOW_ADVICE} --jinja` },
-  ];
   return (
     <div className={`${styles.block} window-help`}>
-      {onVariant ? (
-        <>
-          <p className={styles.line}>{t('providers.variantLead', { window: LOCAL_WINDOW_ADVICE })}</p>
-          <div>
-            <Button size="sm" variant="subtle" loading={busy} disabled={busy} onClick={onVariant}>
-              {t('providers.variantButton', { window: LOCAL_WINDOW_ADVICE })}
-            </Button>
-          </div>
-        </>
-      ) : null}
+      <p className={styles.line}>{t('contextSetup.lead')}</p>
+      {onVariant ? <Button size="sm" variant="primary" loading={busy} disabled={busy || disabled} onClick={onVariant}>
+        {t('contextSetup.applyButton')}
+      </Button> : <p className={styles.line}>{t('contextSetup.chooseModel')}</p>}
       {note ? <p className={styles.line} role="status">{note}</p> : null}
-      <p className={styles.title}>{t('providers.windowHowTitle')}</p>
-      {ways.map((way) => (
-        <React.Fragment key={way.text}>
-          <p className={styles.line}>{t(way.text, { window: LOCAL_WINDOW_ADVICE })}</p>
-          {way.command ? <pre className={styles.command}>{way.command}</pre> : null}
-        </React.Fragment>
-      ))}
-      <p className={styles.line}>{t('providers.windowMemory')}</p>
+      <p className={styles.line}>{t('contextSetup.memory')}</p>
     </div>
   );
 }

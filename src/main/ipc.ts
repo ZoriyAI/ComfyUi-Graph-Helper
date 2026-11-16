@@ -1,3 +1,4 @@
+import { localModelStatus, controlLocalModel } from './llm/localModels';
 /**
  * The IPC setup of the main process: setupIPC (called once by main/index.ts after the database opens) holds the
  * saved keys and tokens again, applies the network settings, registers every area's handlers (ipc/*.ts) and
@@ -734,10 +735,22 @@ export async function setupIPC(): Promise<void> {
   });
 
   // Settings ▸ Assistant: an Ollama copy of the model with a larger context window, made only on the person's click.
-  ipcMain.handle(IPC_CHANNELS.LLM_OLLAMA_WINDOW, async (_event, draft: unknown, window: unknown) => {
+  ipcMain.handle(IPC_CHANNELS.LLM_OLLAMA_WINDOW, async (_event, draft: unknown, window: unknown, style: unknown = 'model') => {
     const input = (draft && typeof draft === 'object' ? draft : {}) as { provider?: unknown; model?: unknown; baseURL?: unknown };
     const size = typeof window === 'number' && Number.isFinite(window) ? window : 0;
-    return mainLLMService.makeWindowVariant({ provider: input.provider, model: input.model, baseURL: input.baseURL }, size);
+    if (style !== 'model' && style !== 'focused' && style !== 'creative') return { ok: false, error: 'Local model style is not valid.' };
+    return mainLLMService.makeWindowVariant({ provider: input.provider, model: input.model, baseURL: input.baseURL }, size, globalThis.fetch, style);
+  });
+
+  ipcMain.handle(IPC_CHANNELS.LLM_LOCAL_STATUS, async (_event, draft: unknown) => {
+    const input = draft && typeof draft === 'object' ? draft as Record<string, unknown> : {};
+    if (input.provider !== 'local' || typeof input.baseURL !== 'string') return { ok: false, error: 'Ollama model management is unavailable at this address.' };
+    return localModelStatus(String(draftBaseUrl(input.baseURL).url), globalThis.fetch);
+  });
+  ipcMain.handle(IPC_CHANNELS.LLM_LOCAL_CONTROL, async (_event, draft: unknown, model: unknown, action: unknown) => {
+    const input = draft && typeof draft === 'object' ? draft as Record<string, unknown> : {};
+    if (input.provider !== 'local' || typeof input.baseURL !== 'string' || typeof model !== 'string' || (action !== 'load' && action !== 'unload')) return { ok: false, error: 'Ollama model management is unavailable at this address.' };
+    return controlLocalModel(String(draftBaseUrl(input.baseURL).url), model, action, globalThis.fetch);
   });
 
   // Settings ▸ Assistant ▸ Find local servers: the MCP server's Ollama targets (read-only tools) and loopback probes.

@@ -10,3 +10,9 @@
 .url { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; font-family: var(--font-mono); color: var(--text-mono); }
 .list { margin: 0; padding-left: 18px; color: var(--text-dim); font-size: var(--text-xs); line-height: 18px; }
 .command { margin: 0; padding: 6px 8px; border: 1px solid var(--border-subtle); border-radius: 6px; background: var(--surface-sunken); font-family: var(--font-mono); font-size: var(--text-mono-xs); color: var(--text-mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+
+:global(.local-model-actions) { display: flex; flex-wrap: wrap; gap: 8px; }
+:global(.local-model-list) { list-style: none; padding: 0; display: grid; gap: 12px; }
+:global(.local-model-list li) { padding: 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); overflow-wrap: anywhere; }
+:global(.local-model-list p) { color: var(--text-dim); font-size: var(--text-xs); }
+@media (pointer: coarse), (max-width: 600px) { :global(.local-models-panel button) { min-height: 44px; } }

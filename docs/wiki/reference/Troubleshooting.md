@@ -35,8 +35,7 @@ the assistant's request with its tools takes 3 to 6 thousand tokens; the server 
 The app notices and says so above the answer; Settings ▸ Assistant ▸ Test connection shows the window right away. With Ollama it can also make a copy of
 the model with a 16 384-token window, without a download.
 
-Make the window on the server at least 16 384 tokens. For Ollama: `OLLAMA_CONTEXT_LENGTH=16384` when the server
-starts, or `num_ctx` on the model. More: [The context window](../assistant/Context-Window.md).
+Press **Configure automatically** in the warning, or choose a conversation mode in **Settings → Assistant** and apply it to Ollama. The app checks the real loaded window. If memory is insufficient, unload another model here or choose a smaller mode. More: [The context window](../assistant/Context-Window.md).
 
 ## The app does not start as root
 

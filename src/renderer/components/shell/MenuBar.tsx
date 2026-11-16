@@ -95,7 +95,7 @@ const MENUS: Array<{ value: string; labelKey: string; entries: Entry[] }> = [
   {
     value: 'sync',
     labelKey: 'menu.sync',
-    entries: [command('sync.now'), check('sync.auto'), separator, command('sync.settings')],
+    entries: [command('sync.now'), check('sync.auto'), separator, command('sync.problems'), command('sync.settings')],
   },
   {
     value: 'help',

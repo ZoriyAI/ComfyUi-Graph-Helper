@@ -11,7 +11,7 @@
  * opened again (bounded) instead of being blamed on the files asked after it.
  */
 import type Database from 'better-sqlite3';
-import type { McpReadOutcome, RetryItemResult, SyncStatus } from '../../shared/contracts/knowledge';
+import type { ImportModelHeaderRequest, ImportModelHeaderResult, McpReadOutcome, RetryItemResult, SyncStatus } from '../../shared/contracts/knowledge';
 import { toolPayload, type McpSession } from '../../shared/mcp/catalogSource';
 import { inferBaseModel } from '../../shared/knowledge/baseModel';
 import { inferModelKind } from '../../shared/knowledge/modelKind';
@@ -486,7 +486,7 @@ export class SyncService {
       autoHeld: this.autoHeld,
       lastRunAt: numberOrNull(state.last_run_at),
       lastRunDurationMs: numberOrNull(state.last_run_duration_ms),
-      warnings: readWarnings(state),
+      warnings: readWarnings(state).filter(warning => warning !== METADATA_CONNECTION_LOST || metadata.total === 0 || metadata.done < metadata.total),
       metadata,
       enrichmentPaused: this.enrichmentPaused,
       authMode: authModeOf(state),
@@ -496,6 +496,7 @@ export class SyncService {
       librarySource: librarySourceOf(state),
       mcpProfile: mcpProfileOf(state),
       catalogRevision: Number(state.catalog_revision) || 0,
+      headerRepairs: readHeaderRepairs(state),
       unreadable: unreadableRows(state),
     };
   }
@@ -913,7 +914,9 @@ export class SyncService {
           writeModelEnrichment(db, directory, name, enrichmentOf(directory, name, outcome.parsed, null, this.deps.now()));
           bumpCatalogRevision(db);
           delete failures[key];
-          writeState(db, { [ENRICH_FAILURES_KEY]: JSON.stringify(failures) });
+          const skipped = readSkipped(readState(db));
+          delete skipped[key];
+          writeState(db, { [ENRICH_FAILURES_KEY]: JSON.stringify(failures), [ENRICH_SKIPPED_KEY]: JSON.stringify(skipped) });
           return 'read';
         }
         failures[key] = {
@@ -922,7 +925,9 @@ export class SyncService {
           reason: outcome.failure.reason,
           ...(outcome.failure.detail ? { detail: outcome.failure.detail } : {}),
         };
-        writeState(db, { [ENRICH_FAILURES_KEY]: JSON.stringify(failures) });
+        const skipped = readSkipped(readState(db));
+        if (skipped[key]) skipped[key] = { at: this.deps.now(), reason: outcome.failure.reason, ...(outcome.failure.detail ? { detail: outcome.failure.detail } : {}) };
+        writeState(db, { [ENRICH_FAILURES_KEY]: JSON.stringify(failures), [ENRICH_SKIPPED_KEY]: JSON.stringify(skipped) });
         return 'failed';
       }).immediate();
     })().finally(async () => {
@@ -935,6 +940,37 @@ export class SyncService {
     }).then((outcome) => ({ status: this.status(db), outcome }));
     this.emit(db);
     return this.retrying;
+  }
+
+  /** Explicit local header repair: no server calls, file writes or tensor loading. */
+  importModelHeader(db: Database.Database, input: ImportModelHeaderRequest): ImportModelHeaderResult {
+    this.db = db;
+    const result = (outcome: ImportModelHeaderResult['outcome']): ImportModelHeaderResult => ({ status: this.status(db), outcome });
+    if (this.running || this.background || this.retrying) return result('busy');
+    const state = readState(db);
+    if (input.catalogRevision !== (Number(state.catalog_revision) || 0) || this.status(db).libraryElsewhere) return result('stale');
+    const row = db.prepare(`SELECT ${ENRICH_COLUMNS}, size_bytes FROM model_catalog WHERE directory = ? AND name = ?`)
+      .get(input.directory, input.name) as (EnrichRow & { size_bytes: number | null }) | undefined;
+    if (!row) return result('stale');
+    if (!isHeaderFile(input.name) || input.fileName !== input.name.replace(/\\/g, '/').split('/').pop()
+      || input.headerBytes + 8 > input.fileSize || (row.size_bytes != null && row.size_bytes !== input.fileSize)) return result('mismatch');
+    const now = this.deps.now();
+    const key = fileKey(input.directory, input.name);
+    const empty = Object.keys(input.metadata).length === 0;
+    db.transaction(() => {
+      const value = enrichmentOf(input.directory, input.name, { metadata: input.metadata, sidecar: null }, null, now);
+      // A header-only repair does not erase an existing sidecar description or source.
+      writeModelEnrichment(db, input.directory, input.name, { ...value, description: value.description || row.description || '',
+        sourceUrl: value.sourceUrl || row.source_url || '', triggerWords: value.triggerWords.length ? value.triggerWords : parseWords(row.trigger_words) });
+      const failures = readFailures(state); const skipped = readSkipped(state);
+      delete failures[key]; delete skipped[key];
+      const repairs = [{ directory: input.directory, name: input.name, at: now, headerBytes: input.headerBytes, empty },
+        ...readHeaderRepairs(state).filter(item => fileKey(item.directory, item.name) !== key)].slice(0, 50);
+      writeState(db, { [ENRICH_FAILURES_KEY]: JSON.stringify(failures), [ENRICH_SKIPPED_KEY]: JSON.stringify(skipped), header_repairs: JSON.stringify(repairs), header_repairs_source: JSON.stringify([state.library_url ?? '', state.library_comfy_origin ?? '']) });
+      bumpCatalogRevision(db);
+    }).immediate();
+    this.emit(db);
+    return result(empty ? 'empty' : 'read');
   }
 
   /**
@@ -1801,3 +1837,17 @@ function enrichmentOf(directory: string, name: string, parsed: ParsedModelMetada
 
 /** The app-wide instance. knowledgeIpc starts it and forwards its status to windows. */
 export const syncService = new SyncService();
+
+function parseWords(raw: string | null): string[] {
+  try { const value: unknown = JSON.parse(raw || '[]'); return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string').slice(0, 50) : []; } catch { return []; }
+}
+
+function readHeaderRepairs(state: Record<string, string>): NonNullable<SyncStatus['headerRepairs']> {
+  try {
+    if (state.header_repairs_source !== JSON.stringify([state.library_url ?? '', state.library_comfy_origin ?? ''])) return [];
+    const value: unknown = JSON.parse(state.header_repairs || '[]');
+    if (!Array.isArray(value)) return [];
+    return value.filter(item => item && typeof item.directory === 'string' && typeof item.name === 'string'
+      && Number.isFinite(item.at) && Number.isFinite(item.headerBytes) && typeof item.empty === 'boolean').slice(0, 50);
+  } catch { return []; }
+}

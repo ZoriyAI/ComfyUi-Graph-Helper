@@ -176,10 +176,10 @@ describe('your own server', () => {
     expect(windowVariantName('qwen3:8b-ctx8k', 16384)).toBe('qwen3:8b-ctx16k');
     expect(windowVariantName('library/llama3.1', 32768)).toBe('library/llama3.1:ctx32k');
     const seen: Seen[] = [];
-    const made = await createWindowVariant('http://127.0.0.1:11434/v1', 'qwen3:8b', 16384, fakeFetch(seen, () => json({ status: 'success' })));
-    expect(made).toEqual({ ok: true, model: 'qwen3:8b-ctx16k' });
-    expect(seen[0].url).toBe('http://127.0.0.1:11434/api/create');
-    expect(JSON.parse(seen[0].body)).toEqual({ model: 'qwen3:8b-ctx16k', from: 'qwen3:8b', parameters: { num_ctx: 16384 }, stream: false });
+    const made = await createWindowVariant('http://127.0.0.1:11434/v1', 'qwen3:8b', 16384, fakeFetch(seen, url => url.endsWith('/api/show') ? json({ model_info: { 'qwen.context_length': 32768 } }) : url.endsWith('/api/ps') ? json({ models: [{ name: 'qwen3:8b-ctx16k', context_length: 16384 }] }) : json({ status: 'success' })));
+    expect(made).toEqual({ ok: true, model: 'qwen3:8b-ctx16k', contextTokens: 16384, requestedTokens: 16384 });
+    expect(seen.map(item => item.url.split('/').pop())).toEqual(['show', 'create', 'generate', 'ps']);
+    expect(JSON.parse(seen[1].body)).toEqual({ model: 'qwen3:8b-ctx16k', from: 'qwen3:8b', parameters: { num_ctx: 16384 }, stream: false });
     const notOllama = await createWindowVariant('http://127.0.0.1:1234/v1', 'some-model', 16384, fakeFetch([], () => new Response('no', { status: 404 })));
     expect(notOllama.ok).toBe(false);
     const service = new MainLLMService();

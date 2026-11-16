@@ -152,7 +152,7 @@ export default function SyncIndicator() {
         id: 'sync-result',
         tone: 'warn',
         title: String(t('sync.unread.toast', { count: unreadCount(status) })),
-        action: { label: String(t('sync.unread.toastAction')), onSelect: () => useUiStore.getState().openSettings('sync') },
+        action: { label: String(t('sync.unread.toastAction')), onSelect: () => useUiStore.getState().setDialog('sync-problems') },
       });
     } else if (transition === 'done') {
       const summary = syncSummary(status);

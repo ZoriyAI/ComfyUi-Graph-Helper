@@ -110,15 +110,27 @@ function readRecent(db: Database.Database, projectId: string): RecentCommand[] {
  * its steps: only the tools a turn cannot do without are offered. A build keeps reading and the four step tools;
  * an ask or chat turn keeps reading, explaining and the three everyday proposals.
  */
-const COMPACT_READ = ['getGraph', 'searchNodeTypes', 'describeNodeType', 'findInstalledModels', 'checkGraph'] as const;
+const COMPACT_READ = ['assessResources', 'getGraph', 'searchNodeTypes', 'describeNodeType', 'findInstalledModels', 'checkGraph'] as const;
 const COMPACT_BUILD = [...COMPACT_READ, 'addNode', 'connectNodes', 'setParameter', 'removeNode'] as const;
 const COMPACT_ASK = [...COMPACT_READ, 'describeModel', 'explain', 'proposeNode', 'proposeConnection', 'proposeParameter'] as const;
 /** Roughly what one tool's name, description and schema take in the request, in characters. */
 const TOOL_CHARS = 700;
 
 /** The tools a compact turn offers: the build set in a build turn, the ask set otherwise. */
-export function compactToolNames(buildAllowed: boolean): readonly string[] {
-  return buildAllowed ? COMPACT_BUILD : COMPACT_ASK;
+export function compactToolNames(buildAllowed: boolean, question = ''): readonly string[] {
+  const names = new Set<string>(buildAllowed ? COMPACT_BUILD : COMPACT_ASK);
+  if (/blueprint|template|шаблон|темплейт|блюпринт|визард|wizard/i.test(question)) {
+    names.add('searchBlueprints'); names.add('inspectBlueprint');
+    if (buildAllowed) names.add('insertBlueprint');
+  }
+  if (/subgraph|субграф|подграф/i.test(question)) {
+    for (const name of (buildAllowed ? ['createSubgraph', 'configureSubgraph', 'insertSubgraph'] : ['proposeSubgraph'])) names.add(name);
+  }
+  // Exact tools requested by the person stay available; the regular permissions still filter execution below.
+  for (const name of ['searchBlueprints', 'inspectBlueprint', 'describeModel', 'searchWeb', 'fetchPage']) {
+    if (question.includes(name)) names.add(name);
+  }
+  return [...names];
 }
 
 /** Nodes the prompt lists even past its cap: the selection, the object asked about, nodes touched recently. */
@@ -248,7 +260,7 @@ export async function runAgentTurn(options: AgentTurnOptions): Promise<void> {
     const small = (loadedWindow !== null && loadedWindow < COMPACT_WINDOW) || unknownLocal;
     // The page reader stays when the person's own message holds a link: they asked for that page.
     const personLink = assistant.allowFetchPage !== false && linksInText(question).length > 0;
-    const compact = small ? { offered: [...compactToolNames(buildAllowed), ...(personLink ? ['fetchPage'] : [])], window: loadedWindow ?? 0 } : null;
+    const compact = small ? { offered: [...compactToolNames(buildAllowed, question), ...(personLink ? ['fetchPage'] : [])], window: loadedWindow ?? 0 } : null;
     let catalogView: CatalogView | null = null;
     try {
       catalogView = readCatalog(db);

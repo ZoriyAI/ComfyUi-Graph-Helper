@@ -1,3 +1,4 @@
+import type { LocalGenerationStyle } from '../shared/contracts/localModels';
 /**
  * The main-process LLM service: holds the chat runtime (provider, model, address) and one key per provider, builds
  * the AI SDK model for a send, and streams a turn with tools to the caller. Keys live in this process only: pasted
@@ -288,6 +289,7 @@ class MainLLMService {
   private keys = new Map<KeyProvider, { value: string; source: HeldSource; origin: string }>();
   /** Context windows local servers were seen to load a model with, by "origin|model". */
   private loadedWindows = new Map<string, number>();
+  private contextNeeds = new Map<string, number>();
   /** 'tight' notices already shown, by "origin|model|window": said once per run, not on every turn. */
   private tightSaid = new Set<string>();
 
@@ -326,13 +328,16 @@ class MainLLMService {
    * Settings ▸ Assistant ▸ "Make a copy with a larger window": Ollama makes a copy of the draft model that loads with
    * `window` tokens. Only a local Ollama address; the person asks for it with the button.
    */
-  async makeWindowVariant(draft: ProbeDraft, window: number, fetchImpl: typeof fetch = (...args) => globalThis.fetch(...args)): Promise<WindowVariantResult> {
+  async makeWindowVariant(draft: ProbeDraft, window: number, fetchImpl: typeof fetch = (...args) => globalThis.fetch(...args), style: LocalGenerationStyle = 'model'): Promise<WindowVariantResult> {
     const base = typeof draft.baseURL === 'string' ? draft.baseURL.trim() : '';
     const model = typeof draft.model === 'string' ? draft.model.trim() : '';
     if (knownProvider(draft.provider) !== 'local' || !httpEndpoint(base) || model === '') return { ok: false, error: 'Local model has no endpoint.' };
     // The copy's window stays in a sane range: 4k to 256k tokens.
-    const size = Math.max(4096, Math.min(262_144, Math.round(window)));
-    return createWindowVariant(base, model, size, fetchImpl);
+    const size = Number.isFinite(window) && window > 0 ? Math.max(4096, Math.min(262_144, Math.round(window))) : 0;
+    const key = `${originOf(base)}|${model}`;
+    const result = await createWindowVariant(base, model, size, fetchImpl, 90_000, this.contextNeeds.get(key) ?? 0, style);
+    if (result.ok) this.loadedWindows.set(`${originOf(base)}|${result.model}`, result.contextTokens);
+    return result;
   }
 
   /** The window each model's list entry gave (provider|model → tokens), so a turn uses what the list said. */
@@ -793,6 +798,7 @@ class MainLLMService {
     if (local.said === 'cut') return null;
     // Later steps: only the server's own count says whether the growing conversation still fits.
     const fit = first ? contextFit(window, local.requestChars, counted) : contextFit(window, 0, counted);
+    if (local.key) this.contextNeeds.set(local.key, Math.max(this.contextNeeds.get(local.key) ?? 0, fit.needed));
     if (first || fit.state === 'cut') {
       trace?.note('context', { window: fit.window, requestChars: first ? local.requestChars : undefined, needed: fit.needed, counted, state: fit.state, compact });
       turnLog(`[MainLLMService] Local context window ${fit.window} tokens, request about ${fit.needed}: ${fit.state}`);
