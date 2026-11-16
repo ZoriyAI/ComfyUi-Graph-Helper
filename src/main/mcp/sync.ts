@@ -38,7 +38,7 @@ import { mcpToken, releaseMcpTokenIfOriginChanged } from './token';
 import { redactSecrets } from '../../shared/config/draft';
 import { isLoopbackHost } from '../../shared/mcp/loopback';
 import { readCustomNodeRoots, type ServerIdentity } from './inventory';
-import { COMFY_PREVIEW_FILE, comfyMetadataSession, readComfyDirect, readComfyPreview } from '../comfy/direct';
+import { COMFY_PREVIEW_FILE, ComfyMetadataReadError, comfyMetadataSession, readComfyDirect, readComfyPreview } from '../comfy/direct';
 import { MCP_UNKNOWN_SERVER } from './client';
 import { dueLookups, writeWebOutcome } from '../knowledge/modelWeb';
 import { appWebClient, SYNC_LOOKUP_PAUSE_MS, SYNC_LOOKUPS_PER_RUN, type ModelWebClient } from '../knowledge/webLookup';
@@ -64,6 +64,8 @@ export const STARTUP_DELAY_MS = 5_000;
 export const MAX_CONSECUTIVE_FAILURES = 5;
 /** A lost connection is opened again at most this many times per run (each time after RECONNECT_PAUSE_MS). */
 export const MAX_RECONNECTS = 3;
+/** A native 404 can describe one oversized/metadata-free file; verify recovery on at most five other headers. */
+export const MAX_METADATA_RECOVERY_PROBES = 5;
 /** The pause before a new connection is opened, so a server that is restarting has a moment. */
 export const RECONNECT_PAUSE_MS = 1_000;
 /** Same-size/root replacements have no fingerprint; supported headers are refreshed at least daily. */
@@ -366,6 +368,8 @@ interface EnrichRun {
   /** Read-only native fallback, only after this run verified the accepted ComfyUI origin. */
   metadataFallback?: McpSession;
   nativeMetadata?: boolean;
+  /** Bounded recovery lookahead, consumed in ordinary order (including across metadata batches). */
+  metadataProbes?: Map<string, MetadataOutcome>;
   /** When the sync this reading belongs to began. */
   startedAt: number;
   hasTool: boolean;
@@ -1334,6 +1338,8 @@ export class SyncService {
    */
   private allFailedError(db: Database.Database, run: EnrichRun): string | null {
     if (run.attempted === 0 || run.read > 0) return null;
+    // A successful lookahead will be published in the next batch; the first unavailable file must not end it.
+    if (run.metadataProbes && [...run.metadataProbes.values()].some(result => result.ok)) return null;
     if (!run.lost && run.failed < run.attempted) return null;
     try {
       if (catalogTotals(db).enrichedModels > 0) return null;
@@ -1437,7 +1443,8 @@ export class SyncService {
         const headerDue = row.enriched_at == null || (run.hasTool && isHeaderFile(row.name) && now - row.enriched_at >= HEADER_REFRESH_MS);
         let parsed: ParsedModelMetadata | null = null;
         if (headerDue && run.hasTool && isHeaderFile(row.name)) {
-          let outcome = await readMetadata(run.nativeMetadata && run.metadataFallback ? run.metadataFallback : run.session, row.directory, row.name);
+          let outcome = run.metadataProbes?.get(key) ?? await readMetadata(run.nativeMetadata && run.metadataFallback ? run.metadataFallback : run.session, row.directory, row.name);
+          run.metadataProbes?.delete(key);
           if (run.cancelled || !run.isCurrent()) break;
           run.attempted += 1;
           if (!outcome.ok && isConnectionLoss(outcome.failure) && !run.nativeMetadata) {
@@ -1453,7 +1460,36 @@ export class SyncService {
               // sidecars; read this and subsequent headers through the already verified native origin instead.
               const fallback = await readMetadata(run.metadataFallback, row.directory, row.name);
               if (run.cancelled || !run.isCurrent()) break;
-              if (fallback.ok) { outcome = fallback; run.nativeMetadata = true; }
+              let recovered = fallback.ok;
+              if (!fallback.ok && (fallback.failure.reason === 'unreadable' || fallback.failure.reason === 'tooLarge')) {
+                // /view_metadata returns 404 for an oversized or metadata-free header as well as a missing
+                // route. One such file cannot establish whether recovery works. Require real metadata from
+                // another header before switching; never count the original 404 as an empty success. Known
+                // metadata also permits a later sync to retry the last unavailable file without a false outage.
+                const later = due.slice(index + 1).filter(candidate => /\.safetensors$/i.test(candidate.name)
+                  && (candidate.enriched_at == null || now - candidate.enriched_at >= HEADER_REFRESH_MS));
+                const pendingKeys = new Set(due.map(candidate => fileKey(candidate.directory, candidate.name)));
+                const known = this.scopeRows(db, run.scope, false).filter(candidate => /\.safetensors$/i.test(candidate.name)
+                  && candidate.enriched_at != null && candidate.metadata_json && candidate.metadata_json !== '{}'
+                  && !pendingKeys.has(fileKey(candidate.directory, candidate.name)));
+                const probes = [...later, ...known].slice(0, MAX_METADATA_RECOVERY_PROBES);
+                run.metadataProbes = new Map();
+                for (const candidate of probes) {
+                  const probe = await readMetadata(run.metadataFallback, candidate.directory, candidate.name);
+                  if (run.cancelled || !run.isCurrent()) break;
+                  const probeKey = fileKey(candidate.directory, candidate.name);
+                  if (pendingKeys.has(probeKey)) run.metadataProbes.set(probeKey, probe);
+                  if (probe.ok) { recovered = true; break; }
+                  if (probe.failure.reason !== 'unreadable' && probe.failure.reason !== 'tooLarge') break;
+                }
+                if (!recovered) run.metadataProbes = undefined;
+              }
+              if (run.cancelled || !run.isCurrent()) break;
+              if (recovered) {
+                outcome = fallback;
+                run.nativeMetadata = true;
+                (this.deps.log ?? console.info)('[Sync] Model metadata reading recovered through ComfyUI; unavailable headers are reported separately');
+              }
             }
             if (!outcome.ok && isConnectionLoss(outcome.failure)) {
               // The file broke a connection and fails again on a new one: it is the one that breaks it. It alone
@@ -1711,6 +1747,13 @@ async function readMetadata(session: McpSession, directory: string, name: string
     return parsed ? { ok: true, parsed } : { ok: false, failure: { reason: 'unreadable' } };
   } catch (error) {
     if (error instanceof McpRefusedError) throw error;
+    if (error instanceof ComfyMetadataReadError) {
+      const reason: ReadFailure['reason'] = error.failure === 'notFound' ? 'unreadable'
+        : error.failure === 'large' ? 'tooLarge'
+          : error.failure === 'timeout' ? 'timeout'
+            : error.failure === 'unreachable' || error.failure === 'hostNotFound' ? 'dropped' : 'serverError';
+      return { ok: false, failure: { reason } };
+    }
     return { ok: false, failure: classifyReadError(error) };
   }
 }

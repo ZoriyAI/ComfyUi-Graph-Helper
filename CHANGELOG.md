@@ -5,6 +5,12 @@
 Releases, newest first. Each release has full notes in `docs/releases/`.
 This file is written by `node scripts/changelog.js`: change the notes, not this file.
 
+## 1.2.3
+
+Fixes a model-metadata sync that repeatedly stopped at the same file after MCP reported `Not connected`. ComfyUI's native metadata route also returns HTTP 404 for headers above its 1 MiB limit or without embedded metadata. Previously, failure on that first fallback file stopped the entire pass.
+
+Notes: [docs/releases/v1.2.3.md](docs/releases/v1.2.3.md)
+
 ## 1.2.2
 
 Phone and tablet panels now close with a second tap or the back-to-canvas action, including their floating cards. Photo selection uses the current device's native picker. The **Image** button, paste and file drop add an ordinary ComfyUI `LoadImage` source with preview and an `IMAGE` output.

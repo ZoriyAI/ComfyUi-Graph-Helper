@@ -27,7 +27,7 @@ import {
   upsertObjectInfo,
   type NodePackRow,
 } from '../catalog/repository';
-import { COMFY_ROUTES, comfyGet, ComfyGateError, type ComfyAnswer, type ComfyRoute } from './gate';
+import { COMFY_ROUTES, comfyGet, ComfyGateError, type ComfyAnswer, type ComfyFailure, type ComfyRoute } from './gate';
 
 /*
  * Reading the catalog straight from a ComfyUI address: what a plain ComfyUI serves over its own HTTP API, through
@@ -440,6 +440,13 @@ export async function readComfyDirect(db: Database.Database, address: string, fe
  * no metadata (ComfyUI answers 404) is a file read with nothing to say; a failed read throws so it is retried later.
  * Only `model_metadata` is answered; any other name is refused.
  */
+export class ComfyMetadataReadError extends Error {
+  constructor(readonly failure: ComfyFailure, readonly status: number | null) {
+    super('ComfyUI metadata read failed');
+    this.name = 'ComfyMetadataReadError';
+  }
+}
+
 export function comfyMetadataSession(originText: string, fetchImpl: typeof fetch, signal?: AbortSignal, options: { allowMissing?: boolean } = {}): McpSession {
   const origin = new URL(originText);
   const answer = (payload: unknown): McpToolCallResult => ({ content: [{ type: 'text', text: JSON.stringify(payload) }], structuredContent: payload as Record<string, unknown> });
@@ -450,14 +457,17 @@ export function comfyMetadataSession(originText: string, fetchImpl: typeof fetch
       const category = String((args as { category?: unknown }).category ?? '');
       const file = String((args as { name?: unknown }).name ?? '');
       // ComfyUI reads the header of .safetensors files only; any other file has none to read.
-      if (!/\.safetensors$/i.test(file)) return answer({ embedded_metadata: {}, civitai_sidecar: null });
+      if (!/\.safetensors$/i.test(file)) {
+        if (options.allowMissing === false) throw new ComfyMetadataReadError('notFound', null);
+        return answer({ embedded_metadata: {}, civitai_sidecar: null });
+      }
       const read = await comfyGet(origin, COMFY_ROUTES.viewMetadata(category, file), fetchImpl, signal);
       if (read.ok && 'json' in read) {
-        const meta = read.json && typeof read.json === 'object' && !Array.isArray(read.json) ? read.json : {};
-        return answer({ embedded_metadata: meta, civitai_sidecar: null });
+        if (!read.json || typeof read.json !== 'object' || Array.isArray(read.json)) throw new ComfyMetadataReadError('shape', read.status);
+        return answer({ embedded_metadata: read.json, civitai_sidecar: null });
       }
       if (!read.ok && read.error === 'notFound' && options.allowMissing !== false) return answer({ embedded_metadata: {}, civitai_sidecar: null });
-      throw new Error('ComfyUI metadata read failed');
+      throw new ComfyMetadataReadError(read.ok ? 'shape' : read.error, read.status);
     },
     close: async () => undefined,
   };

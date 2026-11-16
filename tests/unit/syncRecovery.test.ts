@@ -2,7 +2,8 @@ import Database from 'better-sqlite3';
 import { describe, expect, it } from 'vitest';
 import { migrate } from '../../src/main/settings/migrate';
 import { readCatalogWithSession } from '../../src/main/mcp/client';
-import { ALL_FAILED_CONNECTION, METADATA_CONNECTION_LOST, SyncService } from '../../src/main/mcp/sync';
+import { comfyMetadataSession } from '../../src/main/comfy/direct';
+import { ALL_FAILED_CONNECTION, MAX_METADATA_RECOVERY_PROBES, METADATA_CONNECTION_LOST, SyncService } from '../../src/main/mcp/sync';
 import type { McpSession, McpToolCallResult } from '../../src/shared/mcp/catalogSource';
 
 const json = (value: unknown): McpToolCallResult => ({ structuredContent: value });
@@ -10,7 +11,7 @@ const response = (value: unknown) => new Response(JSON.stringify(value));
 const origin = 'http://127.0.0.1:8188';
 
 /** Labelled fixture: reproduces the owner's paged catalog and a permanently disconnected MCP metadata reader. */
-function fixture(options: { native?: boolean; disconnected?: boolean; reportedOrigin?: string; metadataMissing?: boolean } = {}) {
+function fixture(options: { native?: boolean; disconnected?: boolean; reportedOrigin?: string; metadataMissing?: boolean; missingFiles?: string[]; batch?: number; files?: string[] } = {}) {
   const db = new Database(':memory:');
   migrate(db);
   const classes = Object.fromEntries(Array.from({ length: 3375 }, (_, i) => [`Node${i}`, {
@@ -34,7 +35,7 @@ function fixture(options: { native?: boolean; disconnected?: boolean; reportedOr
           const start = Number(args.cursor ?? 0), limit = Number(args.limit ?? 100);
           return json({ items: Object.keys(classes).slice(start, start + limit).map(class_type => ({ class_type, module: 'custom_nodes.fixture' })), next_cursor: start + limit < 3375 ? String(start + limit) : null });
         }
-        if (name === 'models') return json({ items: ['a', 'b', 'c'].map(n => ({ category: 'loras', filename: `${n}.safetensors`, root_path: '/models/loras', size_bytes: 10 })), complete: true });
+        if (name === 'models') return json({ items: (options.files ?? ['a', 'b', 'c']).map(n => ({ category: 'loras', filename: `${n}.safetensors`, root_path: '/models/loras', size_bytes: 10 })), complete: true });
         if (name === 'model_metadata') {
           if (options.disconnected) throw new Error('Not connected');
           return json({ embedded_metadata: {}, civitai_sidecar: null });
@@ -48,17 +49,25 @@ function fixture(options: { native?: boolean; disconnected?: boolean; reportedOr
     const url = String(input); urls.push(url);
     if (url === `${origin}/system_stats`) return response({ system: { comfyui_version: 'fixture' } });
     if (url === `${origin}/object_info`) return response(classes);
-    if (url.startsWith(`${origin}/view_metadata/loras`) && options.metadataMissing) return new Response('{}', { status: 404 });
+    if (url.startsWith(`${origin}/view_metadata/loras`) && (options.metadataMissing || options.missingFiles?.includes(new URL(url).searchParams.get('filename') ?? ''))) return new Response('{}', { status: 404 });
     if (url.startsWith(`${origin}/view_metadata/loras`)) return response({ ss_base_model_version: 'sdxl_base_v1-0' });
     throw new Error(`Unexpected fixture URL ${url}`);
   }) as typeof fetch;
   const sync = new SyncService({ readUrl: () => 'http://127.0.0.1:9000/mcp', readComfyOrigin: () => '', token: () => null,
     checkTokenOrigin: () => undefined, factory, fetchImpl, reconnectPauseMs: 0, batchPauseMs: 0,
-    readEnrichment: () => ({ scope: 'loaders', perRun: 100, pauseMs: 0 }), log: () => undefined });
+    readEnrichment: () => ({ scope: 'loaders', perRun: options.batch ?? 100, pauseMs: 0 }), log: () => undefined });
   return { db, classes, calls, urls, factory, fetchImpl, sync, connections: () => connections };
 }
 
 describe('owner-reported sync scan amplification and disconnected metadata reader', () => {
+  it('requires an actual supported JSON metadata response to prove recovery', async () => {
+    let requests = 0;
+    const session = comfyMetadataSession(origin, (async () => { requests++; return response([]); }) as typeof fetch, undefined, { allowMissing: false });
+    await expect(session.callTool('model_metadata', { category: 'loras', name: 'a.sft' })).rejects.toMatchObject({ failure: 'notFound' });
+    expect(requests).toBe(0);
+    await expect(session.callTool('model_metadata', { category: 'loras', name: 'a.safetensors' })).rejects.toMatchObject({ failure: 'shape' });
+    expect(requests).toBe(1);
+  });
   it('reuses full object_info for all class names, including malformed definitions, without 34 class-page calls', async () => {
     const f = fixture();
     try {
@@ -95,6 +104,29 @@ describe('owner-reported sync scan amplification and disconnected metadata reade
       expect(f.sync.status(f.db).lastError).toBe(ALL_FAILED_CONNECTION);
     } finally { f.sync.stop(); f.db.close(); }
   });
+
+  it.each([1, 100])('continues past an unavailable first native header after MCP loss, including batch size %i', async (batch) => {
+    // Native ComfyUI returns 404 both for headers above 1 MiB and headers without __metadata__.
+    const f = fixture({ disconnected: true, missingFiles: ['a.safetensors'], batch });
+    try {
+      await f.sync.runSync(f.db); await f.sync.whenEnrichmentDone();
+      const status = f.sync.status(f.db);
+      expect(status).toMatchObject({ state: 'idle', progress: null, metadata: { done: 2, total: 3 } });
+      expect(status.warnings).not.toContain(METADATA_CONNECTION_LOST);
+      expect(status.unreadable).toEqual([expect.objectContaining({ kind: 'model', name: 'a.safetensors', reason: 'unreadable' })]);
+      expect(f.db.prepare('SELECT name FROM model_catalog WHERE enriched_at IS NOT NULL ORDER BY name').all()).toEqual([{ name: 'b.safetensors' }, { name: 'c.safetensors' }]);
+      expect(f.calls.filter(c => c.name === 'model_metadata')).toHaveLength(2);
+      // A successful recovery probe is consumed once when the normal iteration reaches that file.
+      expect(f.urls.filter(url => url.includes('/view_metadata/'))).toHaveLength(3);
+      // Once only the unavailable file remains, verify the route against known metadata, not an old flag.
+      f.db.prepare("DELETE FROM sync_state WHERE key = 'enrich_failures'").run();
+      const prior = f.db.prepare('SELECT name, enriched_at FROM model_catalog ORDER BY name').all();
+      await f.sync.runSync(f.db); await f.sync.whenEnrichmentDone();
+      expect(f.sync.status(f.db).warnings).not.toContain(METADATA_CONNECTION_LOST);
+      expect(f.sync.status(f.db).unreadable).toHaveLength(1);
+      expect(f.db.prepare('SELECT name, enriched_at FROM model_catalog ORDER BY name').all()).toEqual(prior);
+    } finally { f.sync.stop(); f.db.close(); }
+  });
   it('never uses a server-reported unrelated origin for fallback', async () => {
     const f = fixture({ disconnected: true, reportedOrigin: 'http://untrusted.test:8188' });
     try {
@@ -124,11 +156,44 @@ describe('owner-reported sync scan amplification and disconnected metadata reade
   });
 
   it('does not count an unsupported native metadata route as a successful fallback', async () => {
-    const f = fixture({ disconnected: true, metadataMissing: true });
+    const f = fixture({ disconnected: true, metadataMissing: true, files: ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'] });
     try {
       await f.sync.runSync(f.db); await f.sync.whenEnrichmentDone();
-      expect(f.sync.status(f.db)).toMatchObject({ state: 'error', lastError: ALL_FAILED_CONNECTION, metadata: { done: 0, total: 3 } });
+      expect(f.sync.status(f.db)).toMatchObject({ state: 'error', lastError: ALL_FAILED_CONNECTION, metadata: { done: 0, total: 8 }, unreadable: [] });
+      expect(f.urls.filter(url => url.includes('/view_metadata/'))).toHaveLength(1 + MAX_METADATA_RECOVERY_PROBES);
     } finally { f.sync.stop(); f.db.close(); }
+  });
+
+  it('does not probe later files while native ComfyUI is offline', async () => {
+    const f = fixture({ disconnected: true });
+    let requests = 0;
+    const fetchImpl = (async (input: string | URL | Request, init?: RequestInit) => {
+      if (String(input).includes('/view_metadata/')) { requests++; throw new TypeError('fetch failed'); }
+      return f.fetchImpl(input, init);
+    }) as typeof fetch;
+    try {
+      await f.sync.runSync(f.db, fetchImpl); await f.sync.whenEnrichmentDone();
+      expect(requests).toBe(1);
+      expect(f.sync.status(f.db)).toMatchObject({ lastError: ALL_FAILED_CONNECTION, metadata: { done: 0, total: 3 }, unreadable: [] });
+    } finally { f.sync.stop(); f.db.close(); }
+  });
+
+  it('discards a recovery probe completed after cancellation', async () => {
+    const f = fixture({ disconnected: true, missingFiles: ['a.safetensors'] });
+    let release!: () => void, entered!: () => void;
+    const held = new Promise<void>(resolve => { release = resolve; });
+    const waiting = new Promise<void>(resolve => { entered = resolve; });
+    const fetchImpl = (async (input: string | URL | Request, init?: RequestInit) => {
+      if (String(input).includes('filename=b.safetensors')) { entered(); await held; }
+      return f.fetchImpl(input, init);
+    }) as typeof fetch;
+    try {
+      const pending = f.sync.runSync(f.db, fetchImpl);
+      await waiting;
+      f.sync.stop(); release(); await pending;
+      expect(f.db.prepare('SELECT count(*) AS n FROM model_catalog WHERE enriched_at IS NOT NULL').get()).toEqual({ n: 0 });
+      expect(f.sync.status(f.db).unreadable).toEqual([]);
+    } finally { release?.(); f.sync.stop(); f.db.close(); }
   });
 
 });

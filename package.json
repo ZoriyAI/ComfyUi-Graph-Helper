@@ -2,7 +2,7 @@
   "name": "nodewise-studio",
   "productName": "NodeWise Studio",
   "desktopName": "nodewise-studio.desktop",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "description": "A desktop tutor for ComfyUI graphs",
   "main": "dist/main/index.js",
   "engines": {
