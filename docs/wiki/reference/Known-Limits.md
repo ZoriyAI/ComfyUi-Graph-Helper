@@ -9,7 +9,7 @@ what to expect. Wishes go to the project's Discussions, problems to its Issues.
 ## By design
 
 - **It never runs a workflow.** It builds and explains; ComfyUI runs. [Running the result in ComfyUI](../graph/Running-In-ComfyUI.md)
-- **It never changes ComfyUI.** It does not install nodes or models, download files or queue prompts.
+- **It does not install nodes or models or queue prompts.** Explicit image uploads and supported local service controls are available.
   [ComfyUI is only read](../trust/Read-Only.md)
 - **Two languages:** English and Russian.
 
@@ -42,7 +42,7 @@ what to expect. Wishes go to the project's Discussions, problems to its Issues.
 - An older ComfyUI lists model names only, without sizes or pictures.
 - The official `comfy-mcp` of Comfy Org runs as a local command and cannot be connected yet; an MCP server whose tools
   the app does not know is not used.
-- Context is read from available Ollama, LM Studio, llama.cpp or vLLM APIs. Automatic configuration and model load/unload require Ollama's native API. OS service start/stop is not supported.
+- Context is read from available Ollama, LM Studio, llama.cpp or vLLM APIs. Automatic configuration and model load/unload require Ollama's native API. Start/stop/restart of supported local Linux systemd services is available in [Services](../interface/Settings-Services.md). Other operating systems, containers and arbitrary remote service administration are not supported.
 - Model lookup: Civitai finds a file exactly by its fingerprint; Hugging Face is searched by the file name, and the
   card says it is a guess. Computing the fingerprint of a large file takes the server minutes, so sync does not do it.
 - A node pack is described from its `pyproject.toml` and the start of its README; a pack without them shows only its
@@ -62,8 +62,7 @@ what to expect. Wishes go to the project's Discussions, problems to its Issues.
 
 ## The graph
 
-- Inside a subgraph you cannot make a new subgraph or a group, and a nested subgraph cannot be dissolved: do that on
-  the main canvas. Groups that came inside a subgraph from ComfyUI are kept on save but not shown.
+- Subgraphs can be created inside another subgraph. Inner groups and dissolving a nested instance remain unavailable: do those operations on the main canvas. Groups that came inside a subgraph from ComfyUI are kept on save but not shown.
 - A workflow saved in the older format (0.4) cannot hold a subgraph; the app says so. Open it in a current ComfyUI and
   save it again, or copy its nodes into a new project (which uses format 1). [Subgraphs](../graph/Subgraphs.md)
 - Legacy group nodes of older workflows are shown as one unknown node; they are saved back as they were.

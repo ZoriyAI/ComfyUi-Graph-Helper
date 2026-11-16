@@ -41,6 +41,7 @@ import AppearanceSection from './sections/AppearanceSection';
 import ShortcutsSection from './sections/ShortcutsSection';
 import PrivacySection from './sections/PrivacySection';
 import BrowserAccessSection from './sections/BrowserAccessSection';
+import ServicesSection from './sections/ServicesSection';
 import AboutSection from './sections/AboutSection';
 import { fieldClass, hintClass, patchSection, rowClass, SectionHead, type DraftProps } from './sections/common';
 import { SETTINGS_SECTIONS, useUiStore, type SettingsSection } from '../../state/uiState';
@@ -83,6 +84,7 @@ const FIELD_SECTION: Record<SettingsField, SettingsSection> = {
 
 /** The label and icon of each section in the left list; the order comes from SETTINGS_SECTIONS. */
 const SECTION_META: Record<SettingsSection, { labelKey: string; icon: LucideIcon }> = {
+  services: { labelKey: 'services.title', icon: Plug },
   assistant: { labelKey: 'preferences.nav.assistant', icon: Bot },
   browserAccess: { labelKey: 'browser.title', icon: Plug },
   connection: { labelKey: 'preferences.nav.connection', icon: Plug },
@@ -438,7 +440,7 @@ export default function SettingsPanel({
           <header className={cx(styles.header, 'settings-header')}>
             <DialogTitle className={cx(styles.heading, 'settings-heading')}>{t('settings.title')}</DialogTitle>
             <DialogDescription id="settings-lead" className={cx(styles.lead, 'settings-lead')}>
-              {t('settings.lead')}
+              {t(section === 'services' ? 'services.actionsNow' : 'settings.lead')}
             </DialogDescription>
           </header>
           <TabsRoot
@@ -459,6 +461,7 @@ export default function SettingsPanel({
               })}
             </TabsList>
             {panel('assistant', <AssistantSection {...draft} active={open && section === 'assistant'} onSession={(sources) => onSessionRef.current(sources)} />)}
+            {panel('services', <ServicesSection active={open && section === 'services'} />)}
             {panel('connection', <ConnectionSection {...draft} />)}
             {panel('browserAccess', <BrowserAccessSection {...draft} />)}
             {panel('sync', (

@@ -3,11 +3,13 @@
 
 # Settings: Sync
 
-"The library comes from ComfyUI directly or through optional read-only MCP tools. Auto-sync and the interval apply at once; the rest saves with Save settings." This section shows how the last sync went, runs one now, sets automatic sync, and says how model files are read.
+"The library comes from ComfyUI directly or through optional read-only MCP tools. Auto-sync, intervals and reading profiles are applied with Save settings. Sync now runs immediately." This section shows how the last sync went, runs one now, sets automatic sync, and says how model files are read.
 
 ## What it shows
 
 The state and a summary: "Up to date · Node types: 812, packs: 41, models: 331 (120 with metadata). Last sync: 14:05." Warnings of the last sync, a paused reading ("Metadata reading is paused at 120 / 331. It continues with the next sync, or press Sync now.") and the last error.
+
+Choose **Gentle** while the server is busy, **Balanced** for ordinary use, or **Faster** when it is idle. Each mode explains its load tradeoff. Existing custom settings are preserved. Batch sizes and pauses are under **Advanced reading settings**. Common intervals have named choices, with a custom minute interval available.
 
 ## Fields and buttons
 
@@ -35,7 +37,7 @@ The report has its own menu: **Sync → Sync problems and repairs**. The end-of-
 - **Skip this file** disables automatic attempts but keeps manual repair available.
 - **Retry non-excluded files** clears retry waits. **Copy report** includes reasons and exclusions.
 
-History lists headers read from this device. A large header can explain why ComfyUI's native route refused it. Another source's history is hidden when the connection changes. Pause reading or open connection settings from the dialog.
+History lists headers read from this device. A large header can explain why ComfyUI's native route refused it. Another source's history is hidden when the connection changes. Pause reading, open connection settings or go to [Services](Settings-Services.md) from the dialog.
 
 ## See also
 

@@ -41,6 +41,7 @@ export default function SyncProblemsDialog({ open, onOpenChange }: { open: boole
         {status?.progress?.phase === 'enrichment' ? <Button variant="subtle" onClick={() => void pauseEnrichment()}>{t('sync.pause')}</Button> : null}
         <Button variant="subtle" disabled={busy} onClick={() => void requestSync()}>{t('sync.now')}</Button>
         <Button variant="ghost" onClick={() => { onOpenChange(false); useUiStore.getState().openSettings('connection'); }}>{t('sync.repair.connection')}</Button>
+        <Button variant="ghost" onClick={() => { onOpenChange(false); useUiStore.getState().openSettings('services'); }}>{t('services.title')}</Button>
         <DialogClose asChild><Button variant="primary">{t('menu.close')}</Button></DialogClose>
       </footer>
     </DialogContent></DialogPortal>

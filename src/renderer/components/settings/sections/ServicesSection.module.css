@@ -1,0 +1,13 @@
+.section { display: grid; gap: 12px; min-width: 0; }
+.list { display: grid; gap: 12px; list-style: none; margin: 0; padding: 0; }
+.card { padding: 14px; border: 1px solid var(--border); border-radius: 12px; display: grid; gap: 10px; min-width: 0; }
+.card p, .card h3 { margin: 0; }
+.heading { display: flex; justify-content: space-between; align-items: start; gap: 10px; flex-wrap: wrap; }
+.heading h3 { font-size: 14px; }
+.unit { overflow-wrap: anywhere; font-size: 12px; opacity: .8; }
+.state { font-size: 12px; font-weight: 600; }
+.state[data-state="failed"] { color: var(--danger, #d74545); }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.actions button { min-height: 44px; }
+.note { min-height: 1.5em; margin: 0; }
+@media (max-width: 700px) { .card { padding: 12px; } .actions button { flex: 1 1 auto; } }

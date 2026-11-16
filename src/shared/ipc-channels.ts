@@ -102,6 +102,8 @@ export const IPC_CHANNELS = {
   /** Local OpenAI-compatible servers: named by the MCP server, or answering on this computer. */
   LLM_DISCOVER_LOCAL: 'llm:discover-local',
   LLM_OLLAMA_WINDOW: 'llm:ollama-window',
+  SERVICES_STATUS: 'services:status',
+  SERVICES_CONTROL: 'services:control',
   LLM_LOCAL_STATUS: 'llm:local-status',
   LLM_LOCAL_CONTROL: 'llm:local-control',
   /** Addresses to pick from in Settings ▸ Connection. */

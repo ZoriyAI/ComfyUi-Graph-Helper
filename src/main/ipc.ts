@@ -1,3 +1,4 @@
+import { serviceController } from './services/systemd';
 import { localModelStatus, controlLocalModel } from './llm/localModels';
 /**
  * The IPC setup of the main process: setupIPC (called once by main/index.ts after the database opens) holds the
@@ -741,6 +742,9 @@ export async function setupIPC(): Promise<void> {
     if (style !== 'model' && style !== 'focused' && style !== 'creative') return { ok: false, error: 'Local model style is not valid.' };
     return mainLLMService.makeWindowVariant({ provider: input.provider, model: input.model, baseURL: input.baseURL }, size, globalThis.fetch, style);
   });
+
+  ipcMain.handle(IPC_CHANNELS.SERVICES_STATUS, () => serviceController.status());
+  ipcMain.handle(IPC_CHANNELS.SERVICES_CONTROL, (_event, request: unknown) => serviceController.control(request));
 
   ipcMain.handle(IPC_CHANNELS.LLM_LOCAL_STATUS, async (_event, draft: unknown) => {
     const input = draft && typeof draft === 'object' ? draft as Record<string, unknown> : {};

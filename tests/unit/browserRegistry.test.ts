@@ -4,10 +4,20 @@ import { BrowserPeer } from '../../src/main/browser/server';
 import { captureBrowserHandler, invokeBrowserMethod, browserChanged, onBrowserEvent } from '../../src/main/browser/registry';
 import { IPC_CHANNELS } from '../../src/shared/ipc-channels';
 import { guardHandler, setTrustedAppUrl, UNTRUSTED_SENDER_ERROR } from '../../src/main/ipc/guard';
+import { ServiceController } from '../../src/main/services/systemd';
 
 const peer = () => new BrowserPeer({ id: 'fixture', name: 'Fixture', pairedAt: 1 }, () => true);
 
 describe('browser operation boundary', () => {
+  it('routes paired service actions through the same validator, refusing arbitrary commands and revoked peers', async () => {
+    let calls = 0;
+    const controller = new ServiceController(async () => { calls++; return { ok: true, stdout: '' }; }, 'linux', 'fixture');
+    captureBrowserHandler(IPC_CHANNELS.SERVICES_CONTROL, (_event, request) => controller.control(request));
+    expect(await invokeBrowserMethod('servicesControl', [{ command: 'reboot', action: 'stop' }], peer())).toMatchObject({ ok: false, error: 'invalid' });
+    expect(calls).toBe(0);
+    const revoked = new BrowserPeer({ id: 'revoked', name: 'Fixture', pairedAt: 1 }, () => false);
+    await expect(invokeBrowserMethod('servicesControl', [{}], revoked)).rejects.toThrow('Browser is disconnected.');
+  });
   it('captures the domain handler before wrappers while refusing the same request from a foreign desktop frame', async () => {
     const operation = (_event: unknown, project: string) => { if (project !== 'desktop') throw new Error('project'); return { project }; };
     const first = guardHandler(operation, IPC_CHANNELS.COMMAND_READ_PROJECTION);

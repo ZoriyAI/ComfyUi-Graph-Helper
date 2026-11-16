@@ -3,7 +3,7 @@
 
 # Settings
 
-Settings is a window over the app with eight sections on the left: **Assistant**, **Connection**, **Sync**, **Canvas**, **Appearance & Motion**, **Shortcuts**, **Privacy** and **About**. "Changes take effect when you press “Save settings”."
+Settings is a window over the app with sections for your assistant, connections, services and preferences: **Assistant**, **Services**, **Connection**, **Browser access**, **Sync**, **Canvas**, **Appearance & Motion**, **Shortcuts**, **Privacy** and **About**. "Changes take effect when you press “Save settings”."
 
 <!-- picture: the Settings window on the Assistant section -->
 
@@ -22,6 +22,7 @@ Settings is a window over the app with eight sections on the left: **Assistant**
 
 Some things apply at once, without Save:
 
+- service start/stop/restart and model load/unload;
 - the language (the window switches at once; Save remembers it);
 - automatic sync and its interval in the sync popover;
 - a key or token you paste: it is checked and used at once;
@@ -41,6 +42,7 @@ Some things apply at once, without Save:
 | Section | Page |
 |---|---|
 | Assistant | [Settings: Assistant](Settings-Assistant.md) |
+| Services | [Settings: Services](Settings-Services.md) |
 | Connection | [Settings: Connection](Settings-Connection.md) |
 | Sync | [Settings: Sync](Settings-Sync.md) |
 | Canvas | [Settings: Canvas](Settings-Canvas.md) |

@@ -11,6 +11,7 @@ import { accessErrorText } from './mcpAccess';
 import { ENRICH_PAUSE_MS, ENRICH_PER_RUN, MCP_CALL_TIMEOUT_MS, type Preferences } from '../../../shared/config/preferences';
 import { startSyncSubscription, useKnowledgeStore } from '../../state/knowledgeState';
 import Button from '../../ui/Button';
+import { SYNC_PROFILES, syncProfileOf } from '../../../shared/config/syncProfiles';
 import NumberField from '../../ui/NumberField';
 import SelectField from '../../ui/SelectField';
 import Switch from '../../ui/Switch';
@@ -55,6 +56,8 @@ export default function SyncSection({
   const view = syncView(status);
   const [interval, setIntervalDraft] = useState(String(status?.auto.intervalMinutes ?? SYNC_INTERVAL_DEFAULT_MINUTES));
   const [note, setNote] = useState('');
+  const [customInterval, setCustomInterval] = useState(false);
+  const profile = sync ? syncProfileOf(sync) : 'balanced';
   // The interval field changed what was typed (out of range, not a step): say so, do not swap it silently.
   const [clampNote, setClampNote] = useState('');
   const auto: AutoDraft = autoDraft ?? status?.auto ?? { enabled: false, intervalMinutes: SYNC_INTERVAL_DEFAULT_MINUTES };
@@ -108,7 +111,10 @@ export default function SyncSection({
         onCheckedChange={(enabled) => applyAuto(enabled && autoSyncAllowed(addressSet, enabled), clampInterval(interval))}
       />
       {!addressSet ? <p className={hintClass}>{t('sync.autoNeedsUrl')}</p> : null}
-      <label className={fieldClass}>
+      <SelectField label={String(t('syncProfiles.interval'))} value={customInterval || ![15, 30, 60, 240].includes(auto.intervalMinutes) ? 'custom' : String(auto.intervalMinutes)}
+        options={[{ value: '15', label: String(t('syncProfiles.quarterHour')) }, { value: '30', label: String(t('syncProfiles.halfHour')) }, { value: '60', label: String(t('syncProfiles.hourly')) }, { value: '240', label: String(t('syncProfiles.fourHours')) }, { value: 'custom', label: String(t('syncProfiles.customInterval')) }]}
+        container={container} onChange={value => { setCustomInterval(value === 'custom'); if (value !== 'custom') applyAuto(auto.enabled, Number(value)); }} />
+      {customInterval || ![15, 30, 60, 240].includes(auto.intervalMinutes) ? <label className={fieldClass}>
         {t('settings.syncInterval')}
         <input
           className={settingsStyles.shortInput}
@@ -126,7 +132,7 @@ export default function SyncSection({
             if (next !== auto.intervalMinutes) applyAuto(auto.enabled, next);
           }}
         />
-      </label>
+      </label> : null}
       {clampNote ? <p className={hintClass} role="status">{clampNote}</p> : null}
       <p className={hintClass}>{t('sync.intervalHint')}</p>
       <div className={rowClass}>
@@ -154,6 +160,12 @@ export default function SyncSection({
             container={container}
             onChange={(next) => onSyncChange({ enrichmentScope: next as 'loaders' | 'all' })}
           />
+          <SelectField label={String(t('syncProfiles.title'))} value={profile}
+            options={[...Object.keys(SYNC_PROFILES).map(value => ({ value, label: String(t(`syncProfiles.${value}`)) })), ...(profile === 'custom' ? [{ value: 'custom', label: String(t('syncProfiles.custom')) }] : [])]}
+            container={container} onChange={value => { if (value in SYNC_PROFILES) onSyncChange(SYNC_PROFILES[value as keyof typeof SYNC_PROFILES]); }} />
+          <p className={hintClass}>{t(`syncProfiles.${profile}Hint`)}</p>
+          <details className="sync-advanced">
+          <summary>{t('syncProfiles.advanced')}</summary>
           <NumberField
             label={String(t('preferences.enrichPerRun'))}
             value={sync.enrichPerRun}
@@ -177,6 +189,7 @@ export default function SyncSection({
             onChange={(next) => onSyncChange({ enrichPauseMs: next })}
           />
           <p className={hintClass}>{t('preferences.callTimeout', { seconds: MCP_CALL_TIMEOUT_MS / 1000 })}</p>
+          </details>
         </>
       ) : null}
     </>

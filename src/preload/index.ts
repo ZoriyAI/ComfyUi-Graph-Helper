@@ -7,6 +7,7 @@
  * they equal src/shared/ipc-channels.ts).
  */
 import { contextBridge, ipcRenderer, webFrame, webUtils } from 'electron';
+import type { ServicesStatus, ServiceActionRequest, ServiceActionResult } from '../shared/contracts/services';
 import type { LocalModelStatus, LocalModelAction, LocalGenerationStyle } from '../shared/contracts/localModels';
 import type { ChatRuntimeConfig, NonSecretSettings, SettingsRead } from '../shared/config/schema';
 import type { Preferences } from '../shared/config/preferences';
@@ -141,6 +142,8 @@ const IPC_CHANNELS = {
   LLM_LIST_MODELS: 'llm:list-models',
   LLM_DISCOVER_LOCAL: 'llm:discover-local',
   LLM_OLLAMA_WINDOW: 'llm:ollama-window',
+  SERVICES_STATUS: 'services:status',
+  SERVICES_CONTROL: 'services:control',
   LLM_LOCAL_STATUS: 'llm:local-status',
   LLM_LOCAL_CONTROL: 'llm:local-control',
   SETTINGS_CONNECTION_SUGGESTIONS: 'settings:connection-suggestions',
@@ -363,6 +366,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   llmProbe: (draft: { provider: string; model: string; baseURL: string }) => ipcRenderer.invoke(IPC_CHANNELS.LLM_PROBE, draft) as Promise<LlmProbeResult>,
   llmListModels: (draft: { provider: string; model?: string; baseURL: string }) => ipcRenderer.invoke(IPC_CHANNELS.LLM_LIST_MODELS, draft) as Promise<ModelListResult>,
   llmDiscoverLocal: () => ipcRenderer.invoke(IPC_CHANNELS.LLM_DISCOVER_LOCAL) as Promise<LocalDiscovery>,
+  servicesStatus: () => ipcRenderer.invoke(IPC_CHANNELS.SERVICES_STATUS) as Promise<ServicesStatus>,
+  servicesControl: (request: ServiceActionRequest) => ipcRenderer.invoke(IPC_CHANNELS.SERVICES_CONTROL, request) as Promise<ServiceActionResult>,
   llmLocalStatus: (draft: ChatRuntimeConfig) => ipcRenderer.invoke(IPC_CHANNELS.LLM_LOCAL_STATUS, draft) as Promise<LocalModelStatus>,
   llmLocalControl: (draft: ChatRuntimeConfig, model: string, action: LocalModelAction) => ipcRenderer.invoke(IPC_CHANNELS.LLM_LOCAL_CONTROL, draft, model, action) as Promise<LocalModelStatus>,
   llmOllamaWindow: (draft: { provider: string; model: string; baseURL: string }, window: number, style: LocalGenerationStyle = 'model') => ipcRenderer.invoke(IPC_CHANNELS.LLM_OLLAMA_WINDOW, draft, window, style) as Promise<{ ok: true; model: string; contextTokens: number; requestedTokens: number } | { ok: false; error: string }>,
@@ -683,6 +688,8 @@ export interface ElectronAPI {
   /** Settings ▸ Assistant ▸ Find local servers: the MCP server's Ollama targets and servers answering on this computer. */
   llmDiscoverLocal: () => Promise<LocalDiscovery>;
   /** Asks Ollama for a copy of the draft model that loads with a larger window (Settings ▸ Assistant). */
+  servicesStatus: () => Promise<ServicesStatus>;
+  servicesControl: (request: ServiceActionRequest) => Promise<ServiceActionResult>;
   llmLocalStatus: (draft: ChatRuntimeConfig) => Promise<LocalModelStatus>;
   llmLocalControl: (draft: ChatRuntimeConfig, model: string, action: LocalModelAction) => Promise<LocalModelStatus>;
   llmOllamaWindow: (draft: { provider: string; model: string; baseURL: string }, window: number, style?: LocalGenerationStyle) => Promise<{ ok: true; model: string; contextTokens: number; requestedTokens: number } | { ok: false; error: string }>;

@@ -5,6 +5,12 @@
 Releases, newest first. Each release has full notes in `docs/releases/`.
 This file is written by `node scripts/changelog.js`: change the notes, not this file.
 
+## 1.2.5
+
+**Settings → Services** discovers supported Linux systemd services on the NodeWise computer and offers start, stop, restart and live status. The same controls are available from a paired phone. **Sync** now offers explained Gentle, Balanced and Faster reading profiles instead of leading with batch sizes and millisecond pauses.
+
+Notes: [docs/releases/v1.2.5.md](docs/releases/v1.2.5.md)
+
 ## 1.2.4
 
 Sync problems now have a separate **Sync → Sync problems and repairs** window. It collects connection warnings, unread and excluded files, with retry and direct-file repair. A skipped file can be retried immediately; a successful read removes its exclusion.

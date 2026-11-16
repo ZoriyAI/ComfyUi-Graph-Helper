@@ -61,3 +61,7 @@ A call that would write is a security problem: please report it privately ([Secu
 ## A loader file selection
 
 **Choose file…** opens selection on this device, including a phone browser. The selected file, up to 64 MiB, goes to the configured ComfyUI input folder. Only a successful server response changes the node value. Cancellation or failure keeps the previous value. This is the only separate write path; the general read-only gate and the ban on queuing workflows remain.
+
+## Explicit service actions
+
+[Settings → Services](../interface/Settings-Services.md) can start/stop/restart supported local Linux services after the person chooses an action. These separate controls do not change the read-only MCP tool allowlist and are not assistant tools. System services use the OS authorization dialog.
