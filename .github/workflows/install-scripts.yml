@@ -294,7 +294,14 @@ jobs:
             exit 1
           fi
           pkill -f "$APP/Contents/MacOS/nodewise-studio" || true
-          sleep 3
+          for _ in $(seq 1 20); do
+            if ! pgrep -f "$APP/Contents/MacOS/nodewise-studio" > /dev/null; then break; fi
+            sleep 1
+          done
+          if pgrep -f "$APP/Contents/MacOS/nodewise-studio" > /dev/null; then
+            echo 'The app did not quit after its model cleanup; refusing to replace a running app.'
+            exit 1
+          fi
       - name: The installed app answers --version, opens and passes the smoke check (screenshot)
         if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         run: |

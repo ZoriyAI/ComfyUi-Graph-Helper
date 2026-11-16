@@ -98,8 +98,13 @@ async function launchOverCdp({ executable, args = [], env = process.env, userDat
     await browser.close().catch(() => undefined);
     if (!exited) {
       child.kill('SIGTERM');
-      for (let i = 0; i < 40 && !exited; i++) await sleep(250);
-      if (!exited) child.kill('SIGKILL');
+      // The app may spend up to fifteen seconds releasing its own model before it exits.
+      for (let i = 0; i < 80 && !exited; i++) await sleep(250);
+      if (!exited) {
+        child.kill('SIGKILL');
+        for (let i = 0; i < 20 && !exited; i++) await sleep(250);
+        throw new Error(`APP_DID_NOT_EXIT after SIGTERM (forced cleanup):\n${output}`);
+      }
     }
   }
 

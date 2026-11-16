@@ -157,7 +157,9 @@ app.on('before-quit', (event) => {
     if (result.phase === 'partial') log.warn('[Assistant] Model memory release was not confirmed before exit.');
   }).catch(() => log.warn('[Assistant] Model memory release failed before exit.')).finally(() => {
     memoryReleasedForExit = true;
-    app.quit();
+    // Let Electron finish cancelling the first quit before starting the next one. On macOS, re-entering
+    // app.quit() from a promise microtask can leave the process alive after its windows have closed.
+    setImmediate(() => app.quit());
   });
 });
 
