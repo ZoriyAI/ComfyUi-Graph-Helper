@@ -37,6 +37,7 @@ const KEY_PROVIDER_NAMES: Record<CloudKeyProvider, string> = { openai: 'OpenAI',
 import { tokenPlaceKey } from '../mcpAccess';
 import { cx } from '../../../ui/cx';
 import { useChatStore } from '../../../state/chatState';
+import { getChatService } from '../../../services/llm/chatService';
 import { openHelp } from '../../../services/help';
 import styles from '../SettingsPanel.module.css';
 import { errorSummary, Group, hintClass, patchSection, rowClass, SectionHead, type DraftProps } from './common';
@@ -177,14 +178,14 @@ export default function PrivacySection({ prefs, setPrefs, container }: DraftProp
   const messageCount = Math.max(storedMessages ?? 0, windowMessages);
   const clearHistory = async () => {
     try {
-      const result = await window.electronAPI.clearChatHistory(DESKTOP_PROJECT_ID);
+      const shown = useChatStore.getState().messages.length;
+      const result = await getChatService().clearHistory();
       if (!result.ok) {
         setNote(String(t('preferences.historyNotCleared')));
         return;
       }
       // Count what was on screen too: with saving off, main removed nothing but the window still had messages.
-      const shown = useChatStore.getState().messages.length;
-      useChatStore.getState().clearChat();
+
       await refreshStored();
       setNote(String(t('preferences.historyCleared', { count: Math.max(result.removed, shown) })));
     } catch {

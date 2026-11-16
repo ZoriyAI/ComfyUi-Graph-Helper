@@ -26,6 +26,7 @@ import { commandLineAnswer, writeCommandLineAnswer } from './cli';
 import { applicationMenuTemplate, usesPasswordStoreSwitch } from './platformMenu';
 import { clampWindowState, MIN_WINDOW_SIZE, readWindowState, trackWindowState, WINDOW_BACKGROUND, WINDOW_STATE_FILE } from './windowState';
 import { allowTestProvider, configureLocalContext, mainLLMService } from './llmService';
+import { assistantMemory } from './llm/memoryLifecycle';
 import { watchLoadedContext } from './llm/localContext';
 import { readPreferences, readSettings } from './settings/repository';
 import { configureModelTrace } from './trace/modelTrace';
@@ -141,8 +142,23 @@ function uiLanguage(): AppLanguage {
 
 // Set at quit: errors and dying renderers while the app shuts down are logged but not shown.
 let quitting = false;
-app.on('before-quit', () => {
+let memoryReleasedForExit = false;
+let releasingForExit = false;
+app.on('before-quit', (event) => {
   quitting = true;
+  if (memoryReleasedForExit) return;
+  let unload = true;
+  try { unload = readPreferences(getDatabase()).assistant.unloadOnExit; } catch { /* No profile yet. */ }
+  if (!unload) return;
+  event.preventDefault();
+  if (releasingForExit) return;
+  releasingForExit = true;
+  void assistantMemory.release().then(result => {
+    if (result.phase === 'partial') log.warn('[Assistant] Model memory release was not confirmed before exit.');
+  }).catch(() => log.warn('[Assistant] Model memory release failed before exit.')).finally(() => {
+    memoryReleasedForExit = true;
+    app.quit();
+  });
 });
 
 installCrashHandlers({

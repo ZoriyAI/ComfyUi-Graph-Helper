@@ -19,6 +19,8 @@ import styles from './Toolbar.module.css';
 import { openTaskWizard } from './subgraphWizardState';
 import { AddImageButton } from './imageSource';
 import { openGuidance, resumeGuidance, useGuidanceStore } from '../guidance/guidanceState';
+import { useJourneyStore } from '../../state/journeyState';
+import { useGraphStore } from '../../state/graphState';
 
 const zoomOf = (state: ReactFlowState) => state.transform[2];
 
@@ -74,6 +76,8 @@ export default function CanvasToolbar() {
   const open = openProposals(proposals).length;
   const zoom = useStore(zoomOf);
   const guidePending = useGuidanceStore((state) => Boolean(state.request?.problemId));
+  const welcomeHidden = useJourneyStore((state) => state.welcomeHidden);
+  const emptyRoot = useGraphStore((state) => state.nodes.length === 0 && state.activeSubgraphId === null);
 
   // Groups: make (add, arrange) | camera (zoom out, zoom %, zoom in, fit) | explain (descriptions, tour, history) |
   // follow the assistant. The tour's transport is its own pill under the toolbar, so the toolbar does not jump.
@@ -98,7 +102,7 @@ export default function CanvasToolbar() {
           history's player fits on the same single row (motion package). */}
       {replaying ? null : <span className={styles.group}>
         <AddImageButton />
-        <button type="button" className={styles.button} onClick={openTaskWizard} title={String(t('taskWizard.open'))} aria-label={String(t('taskWizard.open'))}><Sparkles size={16} /></button>
+        <button type="button" className={styles.button} onClick={() => openTaskWizard()} title={String(t('taskWizard.open'))} aria-label={String(t('taskWizard.open'))}><Sparkles size={16} /></button>
         <button type="button" className={`${styles.button} ${styles.primary} ${styles.wide}`} onClick={() => void runCommand('graph.addNode')} disabled={replaying} title={String(t('canvas.addNode'))} aria-label={String(t('canvas.addNode'))} data-canvas-add-node>
           <SquarePlus size={16} aria-hidden="true" />
           <span>{t('canvas.addNodeLabel')}</span>
@@ -170,6 +174,7 @@ export default function CanvasToolbar() {
       </span>
       <span className={styles.group}>
         <button type="button" className={`${styles.button} ${styles.guide}`} onClick={() => guidePending ? resumeGuidance() : openGuidance()} title={String(t(guidePending ? 'guidance.resume' : 'guidance.open'))}><LifeBuoy size={16} aria-hidden="true" /><span>{t(guidePending ? 'guidance.resume' : 'guidance.open')}</span></button>
+        {welcomeHidden && emptyRoot && !replaying ? <button type="button" className={styles.button} onClick={() => useJourneyStore.getState().setWelcomeHidden(false)} title={String(t('canvas.onboardShow'))} aria-label={String(t('canvas.onboardShow'))}><Compass size={16} aria-hidden="true" /></button> : null}
         <button type="button" className={styles.button} aria-pressed={followAgent} onClick={() => void runCommand('view.followAgent')} title={String(t('canvas.followAgent'))} aria-label={String(t('canvas.followAgent'))}>
           <Navigation size={16} aria-hidden="true" />
         </button>

@@ -1,3 +1,4 @@
+/** Checks bounded input image retrieval for graph previews without executing a workflow. */
 import { describe, expect, it, vi } from 'vitest';
 import { inputImagePreview } from '../../src/main/comfy/imagePreview';
 import { COMFY_ROUTES, comfyPathAllowed } from '../../src/main/comfy/gate';

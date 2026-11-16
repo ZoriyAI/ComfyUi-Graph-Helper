@@ -31,9 +31,11 @@ test('explain this: provenance card, stored explanation, history after restart',
   await window.getByText('TEST mode is on').first().waitFor();
   await window.getByRole('tab', { name: 'Assistant' }).click();
 
-  // Empty chat offers quick prompts and the Ask/Build mode.
+  // Empty chat starts in Assistant; an explicit Explain turn stays read-only.
   await expect(window.getByRole('button', { name: 'What can I build with my models?' })).toBeVisible();
-  await expect(window.getByRole('button', { name: 'Ask', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await expect(window.getByRole('group', { name: 'Mode' }).getByRole('button', { name: 'Assistant', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await window.getByRole('button', { name: 'Explain', exact: true }).click();
+  await expect(window.getByRole('button', { name: 'Explain', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await expect(window.getByRole('button', { name: 'Build', exact: true })).toHaveAttribute('aria-pressed', 'false');
 
   const input = window.locator('textarea[aria-label="Chat message"]');

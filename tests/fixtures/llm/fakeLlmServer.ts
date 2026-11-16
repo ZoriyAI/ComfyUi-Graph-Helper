@@ -27,7 +27,7 @@ export const FAKE_MODEL = 'fixture-model:7b';
  */
 export interface FakeLlm {
   origin: string;
-  state: { window: number; bodies: string[] };
+  state: { window: number; bodies: string[]; loaded: Set<string>; unloaded: string[] };
   close: () => Promise<void>;
 }
 
@@ -72,7 +72,7 @@ const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /** Starts the fake on a free 127.0.0.1 port; `initialWindow` is the context size it reports at first. */
 export async function startFakeLlm(initialWindow = 32768): Promise<FakeLlm> {
-  const state = { window: initialWindow, bodies: [] as string[] };
+  const state = { window: initialWindow, bodies: [] as string[], loaded: new Set([FAKE_MODEL]), unloaded: [] as string[] };
   const server = http.createServer((req, res) => {
     const send = (status: number, type: string, body: string, headers: Record<string, string> = {}) => {
       res.writeHead(status, { 'content-type': type, ...headers });
@@ -80,12 +80,24 @@ export async function startFakeLlm(initialWindow = 32768): Promise<FakeLlm> {
     };
     if (req.method === 'GET' && req.url === '/v1/models') return send(200, 'application/json', JSON.stringify({ object: 'list', data: [{ id: FAKE_MODEL, object: 'model' }] }));
     if (req.method === 'GET' && req.url === '/api/tags') return send(200, 'application/json', JSON.stringify({ models: [{ name: FAKE_MODEL, model: FAKE_MODEL, details: { parameter_size: '7B', family: 'fixture' } }] }));
-    if (req.method === 'GET' && req.url === '/api/ps') return send(200, 'application/json', JSON.stringify({ models: [{ name: FAKE_MODEL, model: FAKE_MODEL, context_length: state.window }] }));
+    if (req.method === 'GET' && req.url === '/api/ps') return send(200, 'application/json', JSON.stringify({ models: [...state.loaded].map(name => ({ name, model: name, context_length: state.window })) }));
+    if (req.method === 'POST' && req.url === '/api/generate') {
+      let request = '';
+      req.on('data', chunk => { request += String(chunk); });
+      req.on('end', () => {
+        const data = JSON.parse(request) as { model: string; keep_alive?: number };
+        if (data.keep_alive === 0) { state.loaded.delete(data.model); state.unloaded.push(data.model); }
+        else state.loaded.add(data.model);
+        send(200, 'application/json', JSON.stringify({ done: true }));
+      });
+      return;
+    }
     if (req.method !== 'POST' || req.url !== '/v1/chat/completions') return send(404, 'text/plain', 'not found');
     let raw = '';
     req.on('data', (chunk) => { raw += String(chunk); });
     req.on('end', async () => {
       state.bodies.push(raw);
+      state.loaded.add(FAKE_MODEL);
       const body = JSON.parse(raw) as { stream?: boolean; messages: Array<{ role: string; content: unknown }> };
       const text = lastUser(body.messages);
       // A rough token count of the request (about 3.3 characters a token), kept under the window so it looks real.
@@ -114,6 +126,26 @@ export async function startFakeLlm(initialWindow = 32768): Promise<FakeLlm> {
       const results = body.messages.slice(userAt).filter((message) => message.role === 'tool').map((message) => {
         try { return JSON.parse(String(message.content)) as Record<string, unknown>; } catch { return {}; }
       });
+      if (/canvas variants/.test(text)) {
+        const graphs = (results[1]?.graphs ?? []) as Array<{ definitionId: string }>;
+        const plan: Array<{ name: string; args: () => Record<string, unknown> }> = [
+          { name: 'clearCanvas', args: () => ({ why: 'Start over as requested, keeping the previous canvas in history.' }) },
+          { name: 'createGraphSet', args: () => ({ graphs: [{ name: 'Variant A' }, { name: 'Variant B' }], why: 'Two independent editable variants.' }) },
+          { name: 'addNode', args: () => ({ nodeType: 'EmptyLatentImage', inSubgraph: graphs[0]?.definitionId, parameters: { width: 512, height: 512, batch_size: 1 }, why: 'Set the size in the first graph.' }) },
+          { name: 'addNode', args: () => ({ nodeType: 'EmptyLatentImage', inSubgraph: graphs[1]?.definitionId, parameters: { width: 1024, height: 512, batch_size: 1 }, why: 'Use a different size in the second graph.' }) },
+          { name: 'configureSubgraph', args: () => ({ definitionId: graphs[0]?.definitionId, name: 'Variant A', description: 'An adjustable first variant.', widgets: [{ nodeId: String(results[2]?.nodeId), name: 'width' }], why: 'Expose width on the outer node.' }) },
+        ];
+        const step = plan[results.length];
+        if (step) { toolCall([{ name: step.name, args: step.args() }]); return; }
+        say('Created two editable size studies; they need generation and output nodes before execution.'); return;
+      }
+      const edit = /edit previous ([a-z0-9-]+) ([a-z0-9-]+)/i.exec(text);
+      if (edit) {
+        if (!results.length) toolCall([{ name: 'setParameter', args: { inSubgraph: edit[1], nodeId: edit[2], key: 'width', value: 768, why: 'Change the earlier graph as requested.' } }]);
+        else say('Updated the existing inner node.');
+        return;
+      }
+      if (/brief delayed answer/.test(text)) { await wait(1200); say('The delayed answer is complete.'); return; }
       if (/build slowly|build and fail/.test(text)) {
         const ids = results.map((result) => String(result.nodeId ?? ''));
         const fail = /build and fail/.test(text);

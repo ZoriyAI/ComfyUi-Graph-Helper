@@ -9,6 +9,7 @@ import type { SubgraphDefinition } from '../../../shared/graph/subgraphs';
 export interface SubgraphWizardRequest {
   id: string; levelId: string | null; revisionId: string; nodeIds: string[];
   nodes: GraphNode[]; edges: GraphEdge[]; definition?: SubgraphDefinition; legacy: boolean; templates?: boolean;
+  taskPreset?: { family: 'image' | 'local-ai'; query: string };
 }
 export const useSubgraphWizardStore = create<{ request: SubgraphWizardRequest | null; close: () => void }>((set) => ({ request: null, close: () => set({ request: null }) }));
 
@@ -26,4 +27,7 @@ export function openSubgraphWizard(nodeIds: string[] = [], definitionId?: string
   } });
 }
 
-export function openTaskWizard(): void { openSubgraphWizard([], undefined, true); }
+export function openTaskWizard(preset?: SubgraphWizardRequest['taskPreset']): void {
+  openSubgraphWizard([], undefined, true);
+  if (preset) useSubgraphWizardStore.setState(state => ({ request: state.request ? { ...state.request, taskPreset: preset } : null }));
+}

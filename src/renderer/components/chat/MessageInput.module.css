@@ -56,6 +56,8 @@ form.form .field textarea {
 
 .intent {
   display: inline-flex;
+  flex-wrap: wrap;
+  max-width: 100%;
   align-self: flex-start;
   padding: 2px;
   gap: 2px;

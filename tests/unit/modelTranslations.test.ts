@@ -1,3 +1,4 @@
+/** Checks optional Russian model description translation, caching and cancellation. */
 import Database from 'better-sqlite3';
 import { describe, expect, it, vi } from 'vitest';
 import { migrate } from '../../src/main/settings/migrate';

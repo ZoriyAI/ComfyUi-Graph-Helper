@@ -41,6 +41,8 @@ export type McpAuthProbe = (
    * checked, with http:// added. The form puts it into the field and says so (settings.addressCompleted).
    */
   completedUrl?: string;
+  /** Only supplied when an unchanged saved address accepted the detected mode. */
+  stored?: import('../config/schema').NonSecretSettings;
 };
 
 /** Where the MCP token lives right now, as the Connection screen shows it; never the token. */

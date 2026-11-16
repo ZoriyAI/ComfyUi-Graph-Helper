@@ -53,15 +53,13 @@ let queue: Promise<unknown> = Promise.resolve();
 
 /**
  * Saves one preferences change made outside the Settings dialog (a canvas toggle, a menu choice).
- * The stored row is read first so its other fields stay as they are; a corrupt row is never overwritten.
- * Saves run one after another. Resolves to whether the change was stored.
+ * Main merges onto the latest stored preferences atomically. Saves run one after another.
+ * Resolves to whether the change was stored.
  */
 export function savePreferencesPatch(patch: PreferencesPatch): Promise<boolean> {
   const run = queue.then(async () => {
     try {
-      const read = await window.electronAPI.getSettings();
-      if (!('values' in read) || !read.values) return false;
-      const result = await window.electronAPI.saveSettings({ ...read.values, preferences: patch });
+      const result = await window.electronAPI.savePreferencesPatch(patch);
       if (!result.ok) return false;
       if (result.preferences) usePreferencesStore.getState().setPreferences(result.preferences);
       window.dispatchEvent(new CustomEvent<NonSecretSettings>(SETTINGS_CHANGED, { detail: result.values }));

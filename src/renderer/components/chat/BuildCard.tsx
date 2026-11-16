@@ -24,6 +24,8 @@ import styles from './BuildCard.module.css';
 
 /** One icon per graph tool, so a long timeline can be scanned by kind of change. Unknown tools get a hammer. */
 const STEP_ICONS: Record<string, LucideIcon> = {
+  clearCanvas: Trash2,
+  createGraphSet: Boxes,
   addNode: Plus,
   connectNodes: Link2,
   setParameter: SlidersHorizontal,

@@ -1,3 +1,4 @@
+/** Chooses and applies local model context and generation settings through supported server APIs. */
 import { LOCAL_GENERATION_STYLES, type LocalGenerationStyle } from '../../shared/contracts/localModels';
 import { isOllamaCloudModel } from '../../shared/config/ollamaCloud';
 /**
@@ -317,7 +318,7 @@ export function suggestedContextTokens(needed = 0): number {
 }
 
 /** Apply through Ollama's supported API, then load and read back. Does not edit or restart a system service. */
-export async function createWindowVariant(base: string, model: string, window: number, fetchImpl: Fetch, timeoutMs = 90_000, needed = 0, style: LocalGenerationStyle = 'model'): Promise<WindowVariantResult> {
+export async function createWindowVariant(base: string, model: string, window: number, fetchImpl: Fetch, timeoutMs = 90_000, needed = 0, style: LocalGenerationStyle = 'model', onLoad?: (model: string) => void): Promise<WindowVariantResult> {
   const origin = ollamaOrigin(base.trim().replace(/\/+$/, ''));
   if (!origin || model.trim() === '') return { ok: false, error: WINDOW_VARIANT_NOT_OLLAMA };
   if (isOllamaCloudModel(model)) return { ok: false, error: WINDOW_VARIANT_CLOUD };
@@ -353,6 +354,7 @@ export async function createWindowVariant(base: string, model: string, window: n
       const fields = new Map(text.split('\n').map(line => { const [key, value] = line.trim().split(/\s+/); return [key, Number(value)]; }));
       if (Object.entries(parameters).some(([key, value]) => !Number.isFinite(fields.get(key)) || Math.abs(fields.get(key)! - value) > 0.000001)) return { ok: false, error: WINDOW_VARIANT_UNVERIFIED };
     }
+    onLoad?.(name);
     await post('/api/generate', { model: name, prompt: '', stream: false, keep_alive: '10m' });
     const response = await fetchImpl(`${origin}/api/ps`, { redirect: 'error', signal: controller.signal });
     const actual = response.ok ? parseOllamaPs(await response.json(), name) : null;

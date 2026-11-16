@@ -1,13 +1,15 @@
 /** Practical, source-linked guidance with real tool hand-offs and a resumable place. */
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ArrowLeft, ArrowRight, Check, ExternalLink, LifeBuoy, Search, Sparkles, X } from 'lucide-react';
-import { GUIDE_CATEGORIES, GUIDE_PROBLEMS, searchGuides, type GuideProblem } from '../../../shared/guidance/catalog';
+import { GUIDE_CATEGORIES, GUIDE_PROBLEMS, searchGuides, type GuideAction, type GuideProblem } from '../../../shared/guidance/catalog';
+import { verifyGuide, type GuideVerification } from '../../../shared/guidance/verification';
 import { DialogContent, DialogDescription, DialogOverlay, DialogPortal, DialogRoot, DialogTitle } from '../../ui/Dialog';
 import Button from '../../ui/Button';
 import IconButton from '../../ui/IconButton';
 import { showToast } from '../../ui/Toast';
 import { useUiStore } from '../../state/uiState';
+import { useJourneyStore } from '../../state/journeyState';
 import { useProviderStore } from '../../state/providerState';
 import { useGraphStore } from '../../state/graphState';
 import { useProjectionStore } from '../../services/commands/projection';
@@ -17,7 +19,7 @@ import { requestWorkspacePanel } from '../../commands/events';
 import { openSubgraphWizard, openTaskWizard } from '../graph/subgraphWizardState';
 import { useCanvasStore } from '../graph/canvasStore';
 import { levelNodes } from '../graph/lib/level';
-import { guideObjectIsCurrent, useGuidanceStore, type GuideRequest } from './guidanceState';
+import { guideObjectIsCurrent, guideResultObserved, useGuidanceStore, type GuideRequest } from './guidanceState';
 import styles from './GuidanceWizard.module.css';
 
 function flowParts(problem: GuideProblem): string[] {
@@ -50,37 +52,74 @@ function GuideSteps({ request, problem }: { request: GuideRequest; problem: Guid
   const { update, close } = useGuidanceStore();
   const provider = useProviderStore((s) => s.provider);
   const replay = useCanvasStore((s) => Boolean(s.replay));
+  const nodes = useGraphStore(s => s.nodes); const definitions = useGraphStore(s => s.subgraphs);
+  const revision = useProjectionStore(s => s.currentRevisionId);
+  const [verification, setVerification] = useState<GuideVerification | null>(null);
+  const [checking, setChecking] = useState(false); const checkTicket = useRef(0);
+  useEffect(() => { checkTicket.current += 1; setVerification(null); setChecking(false); }, [problem.id, revision]);
+  useEffect(() => () => { checkTicket.current += 1; }, []);
+  const targets = [{ id: null as string | null, nodes }, ...definitions.filter(d => !d.opaque).map(d => ({ id: d.id, nodes: d.nodes }))]
+    .flatMap(level => level.nodes.filter(node => problem.targets.some(part => String(node.data.comfyType).toLowerCase().includes(part.toLowerCase())))
+      .map(node => ({ node, level: level.id }))).slice(0, 12);
   // Re-check the target after a navigation, removal or graph replacement while this guide was tucked away.
   useGraphStore((s) => s.activeSubgraphId); useProjectionStore((s) => s.currentRevisionId);
   const stale = !guideObjectIsCurrent(request);
-  const act = () => {
+  const act = async (action: GuideAction = problem.action) => {
     if (!guideObjectIsCurrent(request) && request.objectRef) return;
     close();
     const ui = useUiStore.getState();
-    switch (problem.action) {
-      case 'check': case 'resources': void runCommand('graph.check'); break;
+    switch (action) {
+      case 'check': case 'resources': await runCommand('graph.check'); break;
       case 'nodes': ui.setRail(true, 'nodes'); break;
       case 'models': ui.setRail(true, 'models'); break;
       case 'services': ui.openSettings('services'); break;
       case 'sync': ui.setDialog('sync-problems'); break;
-      case 'templates': openTaskWizard(); break;
+      case 'templates': openTaskWizard(problem.template); break;
+      case 'connection': ui.openSettings('connection'); break;
+      case 'memory': ui.openSettings('assistant'); break;
+      case 'error': useJourneyStore.getState().open('error'); break;
+      case 'export': await runCommand('file.export'); break;
+      case 'comfy': {
+        if (!await window.electronAPI.comfyAddressKnown()) ui.openSettings('connection');
+        else await window.electronAPI.openJourneyLink('comfyui');
+        break;
+      }
       case 'constructor': {
         const selected = levelNodes().filter((node) => node.selected);
         const instance = selected.length === 1 && selected[0].data.kind === 'subgraph-instance' ? selected[0] : undefined;
         openSubgraphWizard(instance ? [] : selected.map((node) => node.id), instance ? instance.data.subgraphId ?? instance.data.comfyType : undefined);
         break;
       }
-      case 'import': void runCommand('file.import'); break;
+      case 'import': await runCommand('file.import'); break;
       case 'canvas': if (request.objectRef) ui.setFocus(request.objectRef); requestWorkspacePanel('canvas'); break;
     }
+  };
+  const perform = (action: GuideAction) => { void act(action).catch(() => showToast({ id: 'guide-action', tone: 'error', title: String(t('guidance.actionFailed')) })); };
+  const showTarget = (target: typeof targets[number]) => {
+    close(); const graph = useGraphStore.getState(); graph.exitSubgraph();
+    if (target.level) graph.enterSubgraph(target.level);
+    useUiStore.getState().setFocus({ kind: 'node', id: target.node.id, classType: target.node.data.comfyType });
+    requestWorkspacePanel('canvas'); useCanvasStore.getState().requestCenter(target.node.id);
+  };
+  const verify = async () => {
+    if (checking) return;
+    const ticket = ++checkTicket.current; setChecking(true);
+    const project = useProjectionStore.getState().projectId;
+    try {
+      const result = problem.verify.kind === 'graph'
+        ? verifyGuide(problem, { graph: await window.electronAPI.checkGraph(project), nodes: nodes.length })
+        : problem.verify.kind === 'sync' ? verifyGuide(problem, { sync: await window.electronAPI.syncStatus() })
+          : verifyGuide(problem, {});
+      if (ticket === checkTicket.current) setVerification(result);
+    } catch { if (ticket === checkTicket.current) setVerification({ state: 'unavailable' }); }
+    finally { if (ticket === checkTicket.current) setChecking(false); }
   };
   const ask = (build: boolean) => {
     if (!guideObjectIsCurrent(request) || (build && useCanvasStore.getState().replay)) return;
     close();
     if (!useProviderStore.getState().provider) { useUiStore.getState().openSettings('assistant'); return; }
     if (request.objectRef) useUiStore.getState().setFocus(request.objectRef);
-    // Ask mode exposes proposals, not direct build tools, even for the "propose a fix" action.
-    requestAsk({ context: { intent: 'ask', language, ...(request.objectRef ? { objectRef: request.objectRef } : {}), selection: request.objectRef ? [request.objectRef] : [] }, message: [t(build ? 'guidance.fix' : 'guidance.ask'), problem.title[language], problem.why[language], problem.check[language], problem.expected[language]].join('\n\n') });
+    requestAsk({ context: { intent: build ? 'chat' : 'ask', language, ...(request.objectRef ? { objectRef: request.objectRef } : {}), selection: request.objectRef ? [request.objectRef] : [] }, message: [t(build ? 'guidance.fix' : 'guidance.ask'), problem.title[language], problem.why[language], problem.prepare[language], problem.check[language], problem.expected[language]].join('\n\n') });
   };
   const mutatingAction = ['constructor', 'templates', 'import'].includes(problem.action);
   return <>
@@ -92,9 +131,15 @@ function GuideSteps({ request, problem }: { request: GuideRequest; problem: Guid
       <h2 className={styles.problemTitle}>{problem.title[language]}</h2>
       {stale ? <p role="alert" className={styles.warning}>{t('guidance.stale')}</p> : null}
       {request.step === 0 ? <><h3>{t('guidance.cause')}</h3><p>{problem.why[language]}</p><GuideFlow problem={problem} /><button type="button" className={styles.source} title={problem.source} onClick={() => void window.electronAPI.openGuideSource(problem.id).then((result) => { if (!result.ok) throw new Error('unavailable'); }).catch(() => showToast({ id: 'guide-source', tone: 'error', title: String(t('projectLinks.unavailable')) }))}>{t('guidance.source')}<ExternalLink size={14} aria-hidden="true" /></button></> : null}
-      {request.step === 1 ? <><h3>{t('guidance.check')}</h3><p className={styles.instruction}>{problem.check[language]}</p><p className={styles.note}>{t('guidance.readOnly')}</p></> : null}
-      {request.step === 2 ? <><div className={styles.expected}><Check size={20} aria-hidden="true" /><div><h3>{t('guidance.expected')}</h3><p>{problem.expected[language]}</p></div></div><p>{problem.check[language]}</p></> : null}
-      {request.step > 0 ? <div className={styles.action}><Button variant="primary" disabled={stale || (replay && mutatingAction)} icon={<ArrowRight size={16} />} onClick={act}>{t(`guidance.actions.${problem.action}`)}</Button><p className={styles.note}>{t('guidance.returnHint')}</p></div> : null}
+      {request.step === 1 ? <><ol className={styles.procedure}><li><h3>{t('guidance.prepare')}</h3><p>{problem.prepare[language]}</p><Button disabled={stale || (replay && mutatingAction)} onClick={() => perform(problem.action)}>{t(`guidance.actions.${problem.action}`)}</Button></li><li><h3>{t('guidance.check')}</h3><p>{problem.check[language]}</p><Button disabled={stale || (replay && ['constructor', 'templates', 'import', 'export'].includes(problem.followUp))} onClick={() => perform(problem.followUp)}>{t(`guidance.actions.${problem.followUp}`)}</Button></li></ol><p className={styles.note}>{t('guidance.returnHint')}</p>
+        {problem.targets.length > 0 ? <section className={styles.targets}><h3>{t('guidance.relatedNodes')}</h3>{targets.length ? targets.map(target => <Button key={`${target.level}/${target.node.id}`} onClick={() => showTarget(target)}>{target.node.data.label || target.node.data.comfyType} #{target.node.id}{target.level ? ` · ${t('guidance.innerNode')}` : ''}</Button>) : <p>{t('guidance.noRelatedNodes')}</p>}</section> : null}
+      </> : null}
+      {request.step === 2 ? <><div className={styles.expected}><Check size={20} aria-hidden="true" /><div><h3>{t('guidance.expected')}</h3><p>{problem.expected[language]}</p></div></div>
+        <Button disabled={checking || stale || replay} onClick={() => void verify()}>{t(checking ? 'guidance.checkingResult' : 'guidance.verifyResult')}</Button>
+        {verification ? <p className={styles.verification} role="status">{t(`guidance.verification.${verification.state}`, { count: verification.count ?? 0 })}</p> : null}
+        <label className={styles.confirm}><input type="checkbox" checked={guideResultObserved(request, revision)} onChange={event => update({ observed: event.target.checked })} />{t('guidance.confirmResult')}</label>
+        <Button variant="subtle" onClick={() => { update({ step: 1, observed: false }); setVerification(null); }}>{t('guidance.notYet')}</Button>
+      </> : null}
       {replay && (request.step > 0 || provider) ? <p className={styles.note}>{t('guidance.replay')}</p> : null}
       <section className={styles.agent}>
         <p className={styles.note}>{t(provider ? 'guidance.agentNote' : 'guidance.noAgent')}</p>
@@ -104,7 +149,7 @@ function GuideSteps({ request, problem }: { request: GuideRequest; problem: Guid
     <footer className={styles.footer}>
       <Button variant="subtle" onClick={close}>{t('menu.close')}</Button>
       {request.step > 0 ? <Button onClick={() => update({ step: request.step - 1 })}>{t('guidance.previous')}</Button> : null}
-      {request.step < 2 ? <Button variant="primary" quiet onClick={() => update({ step: request.step + 1 })}>{t('guidance.next')}</Button> : <Button onClick={() => { close(); useGuidanceStore.setState({ request: null }); showToast({ id: 'guidance-completed', tone: 'info', title: String(t('guidance.done')) }); }}>{t('guidance.solved')}</Button>}
+      {request.step < 2 ? <Button variant="primary" quiet onClick={() => update({ step: request.step + 1 })}>{t('guidance.next')}</Button> : <Button disabled={!guideResultObserved(request, revision)} onClick={() => { close(); useGuidanceStore.setState({ request: null }); showToast({ id: 'guidance-completed', tone: 'info', title: String(t('guidance.done')) }); }}>{t('guidance.solved')}</Button>}
     </footer>
   </>;
 }

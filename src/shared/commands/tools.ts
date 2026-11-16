@@ -8,6 +8,7 @@ import type { CatalogView } from '../catalog/types';
 import type { ProposalDraft } from '../contracts/proposals';
 import { portsForClassType } from '../graph/ports';
 import { mutationSchema, type GraphMutation } from './types';
+import { emptyWorkflow } from '../workflow/codec';
 
 /**
  * Optional lookups that let tolerant tool arguments (port indices, port names) resolve to handle ids.
@@ -97,6 +98,17 @@ function subgraphIO(value: unknown, direction: 'input' | 'output', context?: Too
 
 /** The unchecked command for one build tool call, or null when a required argument is missing. */
 function draft(name: string, input: Record<string, unknown>, context?: ToolContext): unknown {
+  if (name === 'clearCanvas') return { type: 'import-workflow', document: emptyWorkflow() };
+  if (name === 'createGraphSet') {
+    if (!Array.isArray(input.graphs) || input.graphs.length === 0 || input.graphs.length > 12) return null;
+    const graphs = input.graphs.map(record);
+    if (graphs.some((graph) => !graph || typeof graph.name !== 'string' || !graph.name.trim() || graph.name.length > 200 || (graph.description !== undefined && (typeof graph.description !== 'string' || graph.description.length > 4000)))) return null;
+    const right = Math.max(0, ...(context?.snapshot?.nodes ?? []).map(node => (Number(node.position?.x) || 0) + (Number(node.width) || 300)));
+    return { type: 'batch', label: 'subgraph', edits: graphs.flatMap((graph, index) => [
+      { type: 'create-subgraph', name: graph!.name, description: graph!.description ?? '', nodeIds: [], inputs: [], outputs: [], widgets: [], upgradeToV1: true },
+      { type: 'move-node', nodeId: `@${index * 2}`, x: right + 100 + (index % 3) * 400, y: 100 + Math.floor(index / 3) * 320 },
+    ]) };
+  }
   if (name === 'addNode' && typeof input.nodeType === 'string') {
     return {
       type: 'add-node',

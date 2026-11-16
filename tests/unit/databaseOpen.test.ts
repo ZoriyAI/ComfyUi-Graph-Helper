@@ -91,13 +91,14 @@ describe('opening the profile database', () => {
     }
   });
 
-  it('copies an older database before upgrading it and keeps one copy', () => {
+  it('copies an older database without secrets and preserves previous recovery copies', () => {
     const folder = tempFolder();
     const file = path.join(folder, 'comfyui-desktop.db');
     const old = new Database(file);
     old.pragma('journal_mode = WAL');
     migrate(old, { upTo: SCHEMA_VERSION - 1 });
     old.prepare("INSERT INTO projects (id, name, created_at, updated_at, graph_data, metadata) VALUES ('p', 'Before', 1, 1, '{}', '{}')").run();
+    old.prepare("INSERT INTO secret_records VALUES (?, ?)").run("provider-key:openai", Buffer.from("FAKE-backup-key"));
     old.close();
     fs.writeFileSync(`${file}.before-v3.bak`, 'an older copy');
     const db = openDatabase(file);
@@ -105,9 +106,11 @@ describe('opening the profile database', () => {
     db.close();
     const copy = `${file}.before-v${SCHEMA_VERSION}.bak`;
     expect(fs.existsSync(copy)).toBe(true);
-    expect(fs.existsSync(`${file}.before-v3.bak`)).toBe(false);
+    expect(fs.existsSync(`${file}.before-v3.bak`)).toBe(true);
     const kept = new Database(copy, { readonly: true });
     expect(schemaVersion(kept)).toBe(SCHEMA_VERSION - 1);
+    expect(kept.prepare("SELECT * FROM secret_records").all()).toEqual([]);
+    expect(fs.readFileSync(copy).includes(Buffer.from("FAKE-backup-key"))).toBe(false);
     expect((kept.prepare("SELECT name FROM projects WHERE id = 'p'").get() as { name: string }).name).toBe('Before');
     kept.close();
     // Opening again (already upgraded) makes no new copy.

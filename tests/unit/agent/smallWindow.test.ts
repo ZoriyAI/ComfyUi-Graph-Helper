@@ -72,7 +72,7 @@ describe('a small context window (item 4)', () => {
   });
 
   it('Ask never builds, whatever the default setting', () => {
-    expect(buildToolsAllowed({ intent: 'chat' } as never, 'build')).toBe(false);
+    expect(buildToolsAllowed({ intent: 'chat' } as never, 'build')).toBe(true);
     expect(buildToolsAllowed({ intent: 'ask' } as never, 'build')).toBe(false);
     expect(buildToolsAllowed({ intent: 'build' } as never, 'ask')).toBe(true);
   });

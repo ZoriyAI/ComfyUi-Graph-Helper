@@ -195,6 +195,8 @@ function stepValues(call: ToolCall, names: StepNames, t: Translate): Record<stri
 
 /** The catalog keys of each build tool's sentence, for a step that worked and one that failed. */
 const SENTENCE_KEYS: Record<string, { ok: string; failed: string }> = {
+  clearCanvas: { ok: 'chat.step.clearCanvas', failed: 'chat.stepFailed.clearCanvas' },
+  createGraphSet: { ok: 'chat.step.createGraphSet', failed: 'chat.stepFailed.createGraphSet' },
   addNode: { ok: 'chat.step.addNode', failed: 'chat.stepFailed.addNode' },
   connectNodes: { ok: 'chat.step.connectNodes', failed: 'chat.stepFailed.connectNodes' },
   setParameter: { ok: 'chat.step.setParameter', failed: 'chat.stepFailed.setParameter' },
@@ -317,6 +319,7 @@ export interface BuildCounts {
   named: boolean;
   /** Changes to what the person made, left as grey drafts (not applied). */
   drafts: number;
+  cleared?: boolean;
 }
 
 /** Counts what the successful steps of a build made; drafts are counted apart, as they changed nothing yet. */
@@ -330,6 +333,8 @@ export function buildCounts(calls: readonly ToolCall[]): BuildCounts {
     }
     if (call.toolName === 'annotateNode' || call.toolName === 'setComponentDocumentation') counts.notes += 1;
     else if (call.toolName === 'setProcess') counts.named = true;
+    else if (call.toolName === 'clearCanvas') counts.cleared = true;
+    else if (call.toolName === 'createGraphSet' && isRecord(call.result) && Array.isArray(call.result.graphs)) counts.subgraphs += call.result.graphs.length;
     if (call.toolName === 'addNode') counts.nodes += 1;
     else if (call.toolName === 'connectNodes') counts.links += 1;
     else if (call.toolName === 'setParameter') counts.fields += 1;
@@ -345,6 +350,7 @@ export function buildCounts(calls: readonly ToolCall[]): BuildCounts {
  */
 export function buildSummary(counts: BuildCounts, t: Translate, stopped = false): string | null {
   const parts: string[] = [];
+  if (counts.cleared) parts.push(t('chat.summaryCleared'));
   if (counts.nodes) parts.push(t('chat.summaryNodes', { count: counts.nodes }));
   if (counts.links) parts.push(t('chat.summaryLinks', { count: counts.links }));
   if (counts.subgraphs) parts.push(t('chat.summarySubgraphs', { count: counts.subgraphs }));

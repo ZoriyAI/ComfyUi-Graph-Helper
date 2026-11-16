@@ -1,0 +1,7 @@
+.panel { padding: 16px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-sunken); display: grid; gap: 10px; min-width: 0; }
+.panel h3 { display: flex; gap: 8px; align-items: center; margin: 0; font-size: var(--text-sm); color: var(--text); }
+.panel p, .panel ul { margin: 0; font-size: var(--text-xs); line-height: 1.6; color: var(--text-dim); }
+.panel ul { padding-left: 18px; overflow-wrap: anywhere; }
+.panel .status { color: var(--text); }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; }
+@media (pointer: coarse), (max-width: 600px) { .actions button { min-height: 44px; white-space: normal; } }

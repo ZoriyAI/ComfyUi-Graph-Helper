@@ -28,7 +28,7 @@ import { openGuidance } from '../guidance/guidanceState';
 const FAMILIES = ['image', 'video', 'audio', '3d', 'text', 'local-ai', 'extension'] as const;
 export default function TaskWizard({ request }: { request: SubgraphWizardRequest }) {
   const { t, i18n } = useTranslation(); const language = i18n.language.startsWith('en') ? 'en' : 'ru';
-  const [family, setFamily] = useState<(typeof FAMILIES)[number]>('image'); const [query, setQuery] = useState('');
+  const [family, setFamily] = useState<(typeof FAMILIES)[number]>(request.taskPreset?.family ?? 'image'); const [query, setQuery] = useState(request.taskPreset?.query ?? '');
   const [templateId, setTemplateId] = useState(''); const [step, setStep] = useState(0); const [goal, setGoal] = useState('');
   const [name, setName] = useState(''); const [description, setDescription] = useState(''); const [upgrade, setUpgrade] = useState(false);
   const [enter, setEnter] = useState(true); const [busy, setBusy] = useState(false); const [error, setError] = useState('');

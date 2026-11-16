@@ -1,9 +1,11 @@
+/** Checks the fifty practical guides, their targets, result checks and revision-bound confirmation. */
+import { verifyGuide } from '../../src/shared/guidance/verification';
 import { describe, expect, it, vi } from 'vitest';
 import { GUIDE_CATEGORIES, GUIDE_PROBLEMS, guideSource, searchGuides } from '../../src/shared/guidance/catalog';
 import { en, ru, catalogLeaves } from '../../src/shared/i18n';
 
 vi.stubGlobal('window', { innerWidth: 1440, innerHeight: 900, matchMedia: () => ({ matches: false }), addEventListener: () => undefined, localStorage: { getItem: () => null, setItem: () => undefined } });
-import { guideObjectIsCurrent, openGuidance, resumeGuidance, useGuidanceStore } from '../../src/renderer/components/guidance/guidanceState';
+import { guideObjectIsCurrent, guideResultObserved, openGuidance, resumeGuidance, useGuidanceStore } from '../../src/renderer/components/guidance/guidanceState';
 import { useProjectionStore } from '../../src/renderer/services/commands/projection';
 import { useGraphStore } from '../../src/renderer/state/graphState';
 
@@ -17,7 +19,7 @@ describe('practical guidance', () => {
       expect(GUIDE_CATEGORIES).toContain(p.category);
       expect(labels.has(`guidance.actions.${p.action}`)).toBe(true);
       expect(new URL(p.source).protocol).toBe('https:');
-      for (const lang of ['ru', 'en'] as const) for (const field of ['title', 'why', 'check', 'expected'] as const) expect(p[field][lang].length).toBeGreaterThan(10);
+      for (const lang of ['ru', 'en'] as const) for (const field of ['title', 'why', 'check', 'expected', 'prepare'] as const) expect(p[field][lang].length).toBeGreaterThan(10);
     }
     expect(guideSource('https://example.com')).toBeNull();
     expect(guideSource({ id: 'p01' })).toBeNull();
@@ -50,4 +52,31 @@ describe('practical guidance', () => {
     useGraphStore.setState({ activeSubgraphId: null, nodes: [] });
     expect(guideObjectIsCurrent(request)).toBe(false);
   });
+});
+
+it('requires a fresh result acknowledgement after a graph change', () => {
+  useProjectionStore.setState({ currentRevisionId: 'checked' });
+  openGuidance(undefined, 'p16'); useGuidanceStore.getState().update({ observed: true });
+  const request = useGuidanceStore.getState().request!;
+  expect(guideResultObserved(request, 'checked')).toBe(true);
+  expect(guideResultObserved(request, 'edited')).toBe(false);
+  useGuidanceStore.getState().update({ problemId: 'p17' });
+  expect(guideResultObserved(useGuidanceStore.getState().request!, 'checked')).toBe(false);
+});
+
+it('never calls an empty graph, unavailable check or partial synchronization solved', () => {
+  const graphGuide = GUIDE_PROBLEMS.find(p => p.verify.kind === 'graph')!;
+  const fields = graphGuide.verify.kind === 'graph' ? graphGuide.verify.fields : [];
+  const report: Record<string, unknown[]> = Object.fromEntries(fields.map(key => [key, []]));
+  expect(verifyGuide(graphGuide, { graph: report as any, nodes: 0 }).state).toBe('unavailable');
+  expect(verifyGuide(graphGuide, { graph: {} as any, nodes: 1 }).state).toBe('unavailable');
+  expect(verifyGuide(graphGuide, { graph: report as any, nodes: 1 }).state).toBe('clear');
+  report[fields[0]] = ['problem'];
+  expect(verifyGuide(graphGuide, { graph: report as any, nodes: 1 }).state).toBe('attention');
+  const syncGuide = GUIDE_PROBLEMS.find(p => p.verify.kind === 'sync')!;
+  const status = { state: 'idle', metadataReport: { pending: 142, failed: 0, skipped: 2 } };
+  expect(verifyGuide(syncGuide, { sync: status as any })).toEqual({ state: 'attention', count: 144 });
+  status.metadataReport = { pending: 0, failed: 0, skipped: 0 };
+  expect(verifyGuide(syncGuide, { sync: status as any }).state).toBe('clear');
+  expect(verifyGuide(GUIDE_PROBLEMS.find(p => p.verify.kind === 'observed')!, {}).state).toBe('observed');
 });

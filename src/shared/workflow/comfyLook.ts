@@ -1,3 +1,4 @@
+/** Preserves native ComfyUI node appearance and widget presentation when projecting a workflow. */
 import type { SubgraphDefinition } from '../graph/subgraphs';
 /**
  * How an imported ComfyUI node looks, read from what the file saved on it (`data.comfy`): its size, whether it is

@@ -70,6 +70,8 @@ export interface ChatRecord {
   timestamp: number;
   graphRevisionId: string | null;
   toolCalls: unknown[] | null;
+  /** A failed assistant turn stays excluded from model context after restart. */
+  failed?: boolean;
 }
 
 /** 4th argument of llm:stream-chat: the run the turn commits build tools into. */

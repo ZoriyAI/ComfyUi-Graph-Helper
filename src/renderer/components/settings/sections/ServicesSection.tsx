@@ -1,3 +1,4 @@
+/** Presents discovered host services, their resource use and verified lifecycle controls. */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { LocalService, ServiceAction, ServicesStatus } from '../../../../shared/contracts/services';

@@ -49,3 +49,7 @@ The app keeps preview pictures and clips of your models so that cards open at on
 - [Keys and where they are kept](../assistant/Keys.md)
 - [What is sent to the model](../assistant/What-Is-Sent.md)
 - [Settings](Settings.md)
+
+## Recovery copies
+
+New migration copies omit stored credentials and preserve graph/history recovery data. Forgetting credentials also clears the known older copies. Clearing chat waits for accepted writes and removes this project’s messages from the current database and known copies; graph descriptions and other projects stay. If a damaged or unreadable copy cannot be verified, the app reports incomplete cleanup and retains it for recovery. Open the data folder through Help → About to inspect that copy; do not discard recoverable graphs blindly.

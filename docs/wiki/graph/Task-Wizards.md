@@ -1,3 +1,6 @@
+[Русский](Task-Wizards.ru.md)
+[Home](../Home.md) › Graph
+
 # Task wizards, agent and custom extensions
 
 Open **Task wizards** from the canvas toolbar or **Library → Subgraphs**. Choose a result before learning every node name.

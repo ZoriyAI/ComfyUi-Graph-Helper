@@ -3,6 +3,7 @@
  * Called from ipc.ts (forgetEverySecret, secretInventory). What is removed and how is described below.
  */
 import type Database from 'better-sqlite3';
+import { copySecretInventory, eraseCopyRows, erasePrivateRows } from './databaseCopies';
 import * as fs from 'fs';
 import * as path from 'path';
 import { KEY_PROVIDERS, type KeyProvider } from '../../shared/config/keyOrigin';
@@ -56,25 +57,12 @@ export interface ForgetAllResult {
   /** False when the database could not be rebuilt; the rows are deleted all the same. */
   compacted: boolean;
   /** Store kinds that could not be cleared or verified; never paths or secret values. */
-  failed: Array<'memory' | 'keys-file' | 'token-file' | 'temporary-files' | 'database'>;
+  failed: Array<'memory' | 'keys-file' | 'token-file' | 'temporary-files' | 'database' | 'backup-databases'>;
 }
 
 /** Deletes every secret row and makes the deleted bytes unrecoverable from the database files. */
 export function eraseSecretRecords(db: Database.Database): { records: number; compacted: boolean } {
-  db.pragma('secure_delete = ON');
-  const records = db.prepare('DELETE FROM secret_records').run().changes;
-  let compacted = true;
-  try {
-    db.exec('VACUUM');
-  } catch {
-    compacted = false;
-  }
-  try {
-    db.pragma('wal_checkpoint(TRUNCATE)');
-  } catch {
-    compacted = false;
-  }
-  return { records, compacted };
+  return erasePrivateRows(db, 'secret_records');
 }
 
 /** Forgets every secret: memory, then the app-folder files, then the database rows. */
@@ -98,8 +86,13 @@ export function forgetEverySecret(deps: ForgetAllDeps): ForgetAllResult {
   const temporary = temporarySecretFiles(deps.userData);
   if (!temporary.readable) failed.add('temporary-files');
   for (const file of temporary.files) clearFile(removePrivateFile(file), 'temporary-files');
-  const { records, compacted } = eraseSecretRecords(deps.db);
+  let records = 0;
+  let compacted = false;
+  try { ({ records, compacted } = eraseSecretRecords(deps.db)); } catch { failed.add('database'); }
   if (!compacted) failed.add('database');
+  const copies = eraseCopyRows(deps.db.name, 'secret_records');
+  records += copies.records;
+  if (copies.unverified > 0) failed.add('backup-databases');
   return { records, files, compacted, failed: [...failed] };
 }
 
@@ -160,8 +153,10 @@ export function secretInventory(deps: InventoryDeps): SecretInventory {
   const signIns = new Set(names.filter((name) => name.startsWith('mcp-oauth-tokens:')).map((name) => name.slice('mcp-oauth-tokens:'.length)));
   for (const origin of deps.heldSignIns()) signIns.add(origin);
   const temporary = temporarySecretFiles(deps.userData);
-  const files = temporary.files.filter(mayHoldSecret).length
+  const copies = copySecretInventory(deps.db.name);
+  const files = copies.files + temporary.files.filter(mayHoldSecret).length
     + (Object.keys(file).length === 0 && mayHoldSecret(keyFilePath(deps.userData)) ? 1 : 0)
     + (!tokenFile && mayHoldSecret(tokenFilePath(deps.userData)) ? 1 : 0);
-  return { providers, serverTokens: tokens.size, signIns: signIns.size, ...(files > 0 ? { files } : {}), ...(!temporary.readable ? { unverified: 1 } : {}) };
+  const unverified = copies.unverified + (temporary.readable ? 0 : 1);
+  return { providers, serverTokens: tokens.size, signIns: signIns.size, ...(files > 0 ? { files } : {}), ...(unverified > 0 ? { unverified } : {}) };
 }

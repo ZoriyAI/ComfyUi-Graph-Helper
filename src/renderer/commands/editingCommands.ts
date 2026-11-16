@@ -13,6 +13,8 @@ import type { Command } from './registry';
 import { NODE_COLORS } from '../../shared/commands/types';
 import { canEditLevel, selectedEdgeIds, selectedNodes } from './actions';
 import { commitManual } from '../components/graph/commit';
+import { captureEditOrigin, commitAtOrigin } from '../components/graph/lib/editOrigin';
+import { trackCommit } from '../services/commands/pending';
 import { placeNewNode } from '../components/graph/placeNode';
 import { useCanvasStore } from '../components/graph/canvasStore';
 import { levelEdges, levelNodes } from '../components/graph/lib/level';
@@ -80,10 +82,12 @@ export async function toggleRunMode(mode: 'bypass' | 'mute'): Promise<void> {
 }
 
 /** A new Note in the middle of the view (or at `at`), selected like any added node. */
-export async function addNote(at: { x: number; y: number } | null = null): Promise<void> {
-  // 400 x 200 is the size a new Note gets, so the free spot is found for the whole note.
-  const spot = await placeNewNode(at, { classType: 'Note', size: { width: 400, height: 200 } });
-  await commitManual({ type: 'add-node', nodeType: 'Note', title: 'Note', x: Math.round(spot.x), y: Math.round(spot.y) });
+export function addNote(at: { x: number; y: number } | null = null): Promise<void> {
+  const origin = captureEditOrigin();
+  return trackCommit(async () => {
+    const spot = await placeNewNode(at, { classType: 'Note', size: { width: 400, height: 200 } });
+    await commitAtOrigin(origin, { type: 'add-node', nodeType: 'Note', title: 'Note', x: Math.round(spot.x), y: Math.round(spot.y) });
+  });
 }
 
 /** The type a link carries and the type its target input takes, for the search that fills the link. */

@@ -46,12 +46,22 @@
 .agent { margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border-subtle); }
 .agentButtons { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 .warning { color: var(--warning); }
+.procedure { padding-left: 24px; display: grid; gap: 18px; }
+.procedure li { padding-left: 4px; }
+.procedure li::marker { color: var(--accent); font-weight: 600; }
+.procedure button, .targets button { min-height: 44px; max-width: 100%; white-space: normal; text-align: left; }
+.targets { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+.targets h3, .targets p { width: 100%; }
+.confirm { display: flex; align-items: flex-start; gap: 12px; margin: 18px 0; cursor: pointer; padding: 12px; border: 1px solid var(--border); border-radius: 8px; }
+.confirm input { width: 20px; height: 20px; margin-top: 3px; flex-shrink: 0; accent-color: var(--accent); }
+.verification { padding: 14px; background: var(--surface-sunken); border-radius: 8px; }
 .footer { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 24px 18px; flex-shrink: 0; border-top: 1px solid var(--border-subtle); }
 .footer > button:first-child { margin-right: auto; }
 @keyframes reveal { from { opacity: 0; transform: translateY(var(--motion-shift)); } to { opacity: 1; transform: none; } }
 :global(html[data-motion="off"]) .flowDetail, :global(html[data-motion="reduced"]) .flowDetail { animation: none; }
 @media (prefers-reduced-motion: reduce) { .flowDetail { animation: none; } }
 @media (max-width: 700px), (max-width: 1000px) and (pointer: coarse) {
+  .dialog button { min-height: 44px; }
   .dialog.dialog { inset: 0; translate: none; width: 100%; max-width: 100%; height: 100dvh; max-height: 100dvh; border: 0; border-radius: 0; }
   .header { padding: max(14px, env(safe-area-inset-top)) 56px 10px 14px; }
   .title { font-size: 18px; }

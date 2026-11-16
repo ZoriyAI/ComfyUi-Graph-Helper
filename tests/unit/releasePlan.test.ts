@@ -112,13 +112,16 @@ it('retains release gates, permission boundaries and pinned tested source in par
   expect(workflow.on.workflow_dispatch.inputs.release_tag).toBeDefined();
   expect(workflow.on.schedule).toHaveLength(1);
   expect(workflow.permissions).toEqual({ contents: 'read' });
-  const { plan: planning, e2e, walks, package: packaging, rpm, release: publishing } = workflow.jobs;
-  expect(publishing.needs).toEqual(['plan', 'e2e', 'walks', 'package', 'rpm']);
+  const { plan: planning, checks, installers, e2e, walks, package: packaging, rpm, release: publishing } = workflow.jobs;
+  expect(publishing.needs).toEqual(['plan', 'checks', 'installers', 'e2e', 'walks', 'package', 'rpm']);
   expect(publishing.environment).toBe('release');
+  expect(checks.steps.map((s: any) => s.run)).toEqual(expect.arrayContaining(['npm run type-check', 'npm run lint', 'npm test']));
+  expect(installers.with.source_sha).toBe('${{ needs.plan.outputs.source_sha }}');
+  expect(installers.uses).toBe('./.github/workflows/install-scripts.yml');
   expect(publishing.permissions).toEqual({ contents: 'write', 'id-token': 'write', attestations: 'write' });
   expect(publishing.if).toBe("needs.plan.outputs.publish == 'true'");
   expect(publishing.concurrency).toEqual({ group: 'release-${{ needs.plan.outputs.release_tag }}', 'cancel-in-progress': false });
-  for (const job of [e2e, walks, packaging, rpm, publishing]) {
+  for (const job of [checks, e2e, walks, packaging, rpm, publishing]) {
     expect(job.steps.find((s: any) => s.uses?.startsWith('actions/checkout')).with).toEqual({ 'persist-credentials': false, ref: '${{ needs.plan.outputs.source_sha }}' });
   }
   for (const job of [e2e, walks, packaging]) expect(job.if).toBe("needs.plan.outputs.run == 'true'");
@@ -140,4 +143,13 @@ it('retains release gates, permission boundaries and pinned tested source in par
   const attested = publishing.steps.find((s: any) => s.uses?.startsWith('actions/attest-build-provenance')).with['subject-path'];
   expect(attested).toContain('release/install-windows.ps1');
   expect(attested).toContain('release/install-macos.sh');
+});
+
+it('the release installer gate checks out the exact source and does not test an older latest tag', () => {
+  const workflow = parse(readFileSync('.github/workflows/install-scripts.yml', 'utf8'));
+  expect(workflow.on.workflow_call.inputs.source_sha).toEqual({ type: 'string', required: true });
+  for (const job of Object.values(workflow.jobs) as any[]) {
+    expect(job.steps.find((s: any) => s.uses?.startsWith('actions/checkout')).with.ref).toBe('${{ inputs.source_sha || github.sha }}');
+  }
+  expect(workflow.jobs['latest-release'].if).toBe("inputs.source_sha == ''");
 });

@@ -121,7 +121,7 @@ describe('opening a file the person picked', () => {
       expect(control.readCalls).toBe(readsBefore);
       expect(fileOpenErrorCode(caught, 'Workflow JSON could not be parsed.')).toBe('The file is too large to open.');
     }
-    expect(translateKnownError(createTranslator('ru'), 'The file is too large to open.')).toBe('Этот файл слишком большой, чтобы его открыть.');
+    expect(translateKnownError(createTranslator('ru'), 'The file is too large to open.')).toBe('Файл превышает предел импорта 64 МиБ. Для большого видео откройте JSON его графа, экспортированный из ComfyUI.');
     expect(fileOpenErrorCode(new SyntaxError('Unexpected end'), 'Workflow JSON could not be parsed.')).toBe('Workflow JSON could not be parsed.');
   });
 });

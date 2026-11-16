@@ -4,7 +4,7 @@
  * or a link counted twice would tell a person a step is not done when it is, or the other way round.
  */
 import { describe, expect, it } from 'vitest';
-import { classPortsOf, lessonClasses, lessonGraphOf, nodeNameOf } from '../../src/renderer/components/lessons/lessonModel';
+import { classPortsOf, modelFilesOf, lessonClasses, lessonGraphOf, nodeNameOf } from '../../src/renderer/components/lessons/lessonModel';
 import { lessonGaps, lessonProgress } from '../../src/shared/lessons/engine';
 import { LESSONS, lessonById } from '../../src/shared/lessons/lessons';
 import type { NodeClassDetail } from '../../src/shared/contracts/knowledge';
@@ -104,4 +104,21 @@ describe('the catalog as a lesson sees it', () => {
     expect(new Set(classes).size).toBe(classes.length);
     expect(classes).toEqual(expect.arrayContaining(['WanImageToVideo', 'EmptyHunyuanLatentVideo', 'CreateVideo', 'SaveVideo', 'LoraLoaderModelOnly']));
   });
+});
+
+it('reads Wrapper LoRA trigger sources from lesson rules even without a folder annotation', () => {
+  const graph = { nodes: [{ id: 'lora', classType: 'WanVideoLoraSelect', values: { lora: 'style.safetensors' }, inputs: [], outputs: [] }], links: [] } as any;
+  expect(modelFilesOf(graph, {})).toEqual([{ directory: 'loras', name: 'style.safetensors' }]);
+});
+it('does not treat pending or failed metadata as proof that a LoRA needs no trigger words', () => {
+  const lesson = { id: 'trigger-check', steps: [{ id: 'trigger', roles: [{ role: 'prompt', classes: ['Text'] }], fields: [{ role: 'prompt', field: 'text', test: { kind: 'has-trigger', of: [{ classType: 'WanVideoLoraSelect', field: 'lora' }] } }] }] } as any;
+  const graph = { nodes: [{ id: 'lora', classType: 'WanVideoLoraSelect', values: { lora: 'style.safetensors' }, inputs: [], outputs: [] }, { id: 'text', classType: 'Text', values: { text: 'a mountain scene' }, inputs: [], outputs: [] }], links: [] } as any;
+  for (const status of ['pending', 'unavailable'] as const) {
+    expect(lessonProgress(lesson, graph, { triggers: {}, triggerStatus: { 'style.safetensors': status } }, new Set()).missing[0]).toMatchObject({ why: { kind: 'metadata' } });
+  }
+  expect(lessonProgress(lesson, graph, { triggers: { 'style.safetensors': [] }, triggerStatus: { 'style.safetensors': 'ready' } }, new Set()).current).toBe(1);
+  const facts = { triggers: { 'style.safetensors': ['neon rain'] }, triggerStatus: { 'style.safetensors': 'ready' as const } };
+  expect(lessonProgress(lesson, graph, facts, new Set()).current).toBe(0);
+  graph.nodes[1].values.text = 'a mountain scene in neon rain';
+  expect(lessonProgress(lesson, graph, facts, new Set()).current).toBe(1);
 });

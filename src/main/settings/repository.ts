@@ -1,3 +1,5 @@
+/** Stores settings and encrypted credentials with migration and explicit privacy cleanup operations. */
+import { eraseCopyRows, erasePrivateRows } from './databaseCopies';
 /**
  * The settings row (theme, language, provider, addresses), the preferences beside it, and the encrypted secret
  * records (provider keys, server tokens, sign-ins) in SQLite.
@@ -147,7 +149,7 @@ export function saveSettings(db: Database.Database, input: unknown): SettingsSav
       values.mcpUrl,
       values.mcpAuth,
       values.language,
-      Date.now(),
+      Math.max(Date.now(), settingsRevision(db) + 1),
     );
     if (patch !== undefined) {
       db.prepare('UPDATE settings SET preferences_json = ? WHERE id = 1').run(JSON.stringify(preferences));
@@ -155,6 +157,33 @@ export function saveSettings(db: Database.Database, input: unknown): SettingsSav
   });
   write.immediate();
   return { ok: true, values, preferences };
+}
+
+/** A monotonic token for asynchronous results; even A -> B -> A is a different saved configuration. */
+export function settingsRevision(db: Database.Database): number {
+  return (db.prepare('SELECT updated_at FROM settings WHERE id = 1').get() as { updated_at: number } | undefined)?.updated_at ?? 0;
+}
+
+/** Merge at the database boundary, never against a row the renderer read before an await. */
+export function savePreferencesPatch(db: Database.Database, patch: unknown): SettingsSaveResult {
+  return db.transaction(() => {
+    const current = readSettings(db);
+    if (!('values' in current) || !current.values) return { ok: false as const, error: 'Settings do not match the schema' };
+    if (!patch || typeof patch !== 'object' || Array.isArray(patch)) return { ok: false as const, error: 'Settings do not match the schema' };
+    return saveSettings(db, { ...current.values, preferences: patch });
+  }).immediate();
+}
+
+/** A late auth probe owns only this address, mode and saved revision, never the rest of Settings. */
+export function saveDetectedMcpAuth(db: Database.Database, expected: { url: string; auth: string; revision: number }, mode: unknown): NonSecretSettings | null {
+  return db.transaction(() => {
+    const current = readSettings(db);
+    if (!('values' in current) || !current.values || current.values.mcpUrl !== expected.url || current.values.mcpAuth !== expected.auth || settingsRevision(db) !== expected.revision) return null;
+    const parsed = nonSecretSettingsSchema.safeParse({ ...current.values, mcpAuth: mode });
+    if (!parsed.success) return null;
+    db.prepare('UPDATE settings SET mcp_auth = ?, updated_at = ? WHERE id = 1').run(parsed.data.mcpAuth, Math.max(Date.now(), expected.revision + 1));
+    return parsed.data;
+  }).immediate();
 }
 
 /**
@@ -222,13 +251,16 @@ export function saveSecretIfProven(
 export function migrateLegacyProviderKey(db: Database.Database, savedProvider: string): 'none' | 'moved' | 'dropped' {
   const legacy = readSecretCipher(db, LEGACY_PROVIDER_KEY_RECORD);
   if (!legacy) return 'none';
+  // This is an atomic rename, not the person's Forget action. VACUUM cannot run inside it.
+  db.pragma('secure_delete = ON');
+  const removeLegacy = db.prepare('DELETE FROM secret_records WHERE name = ?');
   const move = db.transaction(() => {
     if (!(LEGACY_KEY_PROVIDERS as readonly string[]).includes(savedProvider)) {
-      forgetSecret(db, LEGACY_PROVIDER_KEY_RECORD);
+      removeLegacy.run(LEGACY_PROVIDER_KEY_RECORD);
       return 'dropped' as const;
     }
     db.prepare('INSERT OR IGNORE INTO secret_records (name, ciphertext) VALUES (?, ?)').run(providerKeyRecord(savedProvider), legacy);
-    forgetSecret(db, LEGACY_PROVIDER_KEY_RECORD);
+    removeLegacy.run(LEGACY_PROVIDER_KEY_RECORD);
     return 'moved' as const;
   });
   return move.immediate();
@@ -264,7 +296,9 @@ export function readSecretCipher(db: Database.Database, name: string): Buffer | 
 
 /** Deletes one secret record by name. */
 export function forgetSecret(db: Database.Database, name: string): void {
-  db.prepare('DELETE FROM secret_records WHERE name = ?').run(name);
+  const result = erasePrivateRows(db, 'secret_records', 'name = ?', [name]);
+  const copies = eraseCopyRows(db.name, 'secret_records', 'name = ?', [name]);
+  if (!result.compacted || copies.unverified) throw new Error('Secret clearing is incomplete.');
 }
 
 /** The stored ciphertext of one provider's key, or null. */
@@ -278,5 +312,8 @@ export function forgetProviderKey(db: Database.Database, provider?: string): voi
     forgetSecret(db, providerKeyRecord(provider));
     return;
   }
-  db.prepare("DELETE FROM secret_records WHERE name = ? OR name LIKE 'provider-key:%'").run(LEGACY_PROVIDER_KEY_RECORD);
+  const where = "name = ? OR name LIKE 'provider-key:%'";
+  const result = erasePrivateRows(db, 'secret_records', where, [LEGACY_PROVIDER_KEY_RECORD]);
+  const copies = eraseCopyRows(db.name, 'secret_records', where, [LEGACY_PROVIDER_KEY_RECORD]);
+  if (!result.compacted || copies.unverified) throw new Error('Secret clearing is incomplete.');
 }

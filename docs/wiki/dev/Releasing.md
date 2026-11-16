@@ -5,6 +5,11 @@
 
 How a version is made public, and what is still checked only by hand.
 
+## Source checks required by publication
+
+The release job waits for type checking, lint, the complete unit suite, E2E, screen walks, Linux packages and the reusable Windows/macOS installer workflow. Every source checkout is pinned to the plan job’s `source_sha`. The reusable installer run skips its unrelated latest-release check. These dependencies prevent a tag or manual workflow invocation from publishing while another required check is pending or failed. A local/manual release must record its actual checks and untested platforms separately; a workflow definition is not evidence that its remote jobs ran.
+
+
 ## The checklist
 
 1. **Notes in both languages.** `docs/releases/vX.Y.Z.md` (English; its first line links to the Russian file) and

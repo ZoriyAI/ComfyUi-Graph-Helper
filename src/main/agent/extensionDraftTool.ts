@@ -1,3 +1,4 @@
+/** Turns a reviewed assistant extension design into a downloadable source draft without installing it. */
 import { jsonSchema } from 'ai';
 import { extensionDrafts, type ExtensionDrafts } from '../extensions/drafts';
 import { MAIN_TOOL_SPECS } from './toolSpecs';

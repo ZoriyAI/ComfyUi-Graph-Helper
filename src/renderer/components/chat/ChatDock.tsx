@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next';
 import { AnimatePresence, motion } from 'motion/react';
 import { MessageCircle, Pause, Play } from 'lucide-react';
 import EmptyState from '../../ui/EmptyState';
+import RecoveryNotice from '../../ui/RecoveryNotice';
 import type { AgentTurnContext, ObjectRef } from '../../../shared/contracts';
 import { useChatStore } from '../../state/chatState';
 import { useGraphStore } from '../../state/graphState';
@@ -51,6 +52,7 @@ export default function ChatDock({ onSendMessage, onPause }: ChatDockProps = {})
   // The scripted TEST fixture says so in the empty chat; a real helper gets no such note.
   const provider = useProviderStore((state) => state.provider);
   const messages = useChatStore((state) => state.messages);
+  const historyState = useChatStore((state) => state.historyState);
   const isStreaming = useChatStore((state) => state.isStreaming);
   const isPaused = useChatStore((state) => state.isPaused);
   const nodeCount = useGraphStore((state) => state.nodes.length);
@@ -124,7 +126,7 @@ export default function ChatDock({ onSendMessage, onPause }: ChatDockProps = {})
   };
 
   const sendComposer = (content: string, intent: ComposerIntent) => {
-    send(content, intent === 'build' ? { intent: 'build' } : undefined);
+    send(content, { intent });
   };
 
   const quickPrompts: Array<{ key: string; label: string; context: () => Partial<AgentTurnContext> }> = [
@@ -186,7 +188,10 @@ export default function ChatDock({ onSendMessage, onPause }: ChatDockProps = {})
           });
         }}
       >
-        {messages.length === 0 ? (
+        {historyState === 'loading' ? <RecoveryNotice kind="history" loading /> : null}
+        {historyState === 'error' ? <RecoveryNotice kind="history" retry={() => void getChatService().loadHistory()} /> : null}
+        {messages.some(message => message.persistence === 'failed') ? <RecoveryNotice kind="messages" saving retry={() => getChatService().retrySaving()} /> : null}
+        {messages.length === 0 && historyState !== 'error' && historyState !== 'loading' ? (
           <EmptyState
             size="compact"
             className={`chat-empty ${styles.empty}`}

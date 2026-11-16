@@ -90,6 +90,8 @@ export function parseTurnNotice(input: unknown): TurnNotice | null {
 
 /** One message of the chat, from the person, the assistant or the app. */
 export interface ChatMessage {
+  /** Local persistence state; failed messages remain visible and can be saved again by id. */
+  persistence?: 'saving' | 'failed';
   id: string;
   role: 'user' | 'assistant' | 'system';
   content: string;

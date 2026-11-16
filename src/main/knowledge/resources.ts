@@ -1,3 +1,4 @@
+/** Combines current graph and catalog facts with host memory observations for resource guidance. */
 import type Database from 'better-sqlite3';
 import { readProjection } from '../commands/commit';
 import { readCatalog } from '../catalog/repository';

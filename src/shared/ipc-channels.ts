@@ -51,6 +51,7 @@ export const IPC_CHANNELS = {
   SETTINGS_GET: 'settings:get',
   SETTINGS_SAVE: 'settings:save',
   SETTINGS_SAVE_VIEW: 'settings:save-view',
+  SETTINGS_PATCH_PREFERENCES: 'settings:patch-preferences',
   SETTINGS_SAVE_SECRET: 'settings:save-secret',
   SETTINGS_FORGET_SECRET: 'settings:forget-secret',
   /** Settings ▸ Privacy ▸ Forget all: every key and token, every address, memory, files and database. */
@@ -106,6 +107,9 @@ export const IPC_CHANNELS = {
   SERVICES_CONTROL: 'services:control',
   LLM_LOCAL_STATUS: 'llm:local-status',
   LLM_LOCAL_CONTROL: 'llm:local-control',
+  ASSISTANT_MEMORY_STATUS: 'assistant:memory-status',
+  ASSISTANT_MEMORY_RELEASE: 'assistant:memory-release',
+  ASSISTANT_MEMORY_RESUME: 'assistant:memory-resume',
   /** Addresses to pick from in Settings ▸ Connection. */
   SETTINGS_CONNECTION_SUGGESTIONS: 'settings:connection-suggestions',
   LLM_CANCEL: 'llm:cancel',

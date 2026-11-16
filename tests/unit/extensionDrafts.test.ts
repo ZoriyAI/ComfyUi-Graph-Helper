@@ -1,3 +1,4 @@
+/** Checks extension source drafts, review boundaries and generated Python package structure. */
 import { spawnSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
 import { ExtensionDrafts } from '../../src/main/extensions/drafts';

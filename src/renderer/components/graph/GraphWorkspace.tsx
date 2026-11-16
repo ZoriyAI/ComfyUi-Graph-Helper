@@ -14,7 +14,8 @@ import { useCanvasStore } from './canvasStore';
 import CanvasFlow from './CanvasFlow';
 import Onboarding from './Onboarding';
 import SubgraphBreadcrumb from './SubgraphBreadcrumb';
-import { commitManual } from './commit';
+import { captureEditOrigin, commitAtOrigin } from './lib/editOrigin';
+import { trackCommit } from '../../services/commands/pending';
 import { addedNodeId, revealNewNode } from './lib/reveal';
 import { placeNewNode } from './placeNode';
 import { dropToAddNode, MODEL_DRAG_TYPE, modelFromDrop, NODE_DRAG_TYPE } from './lib/modelLoaders';
@@ -27,6 +28,7 @@ import { fitWhole } from './lib/autoFit';
 import { setCanvasHandle } from '../../commands/canvasHandle';
 import styles from './GraphWorkspace.module.css';
 import { addImageSource } from './imageSource';
+import { useJourneyStore } from '../../state/journeyState';
 
 /**
  * One press of Zoom in / Zoom out (canvas.zoomIn, canvas.zoomOut) changes the zoom by this factor, as React Flow's
@@ -63,6 +65,7 @@ function Workspace({ onImportWorkflow }: GraphWorkspaceProps) {
   const replaying = useCanvasStore((state) => Boolean(state.replay));
   // The welcome card lies over the canvas, so it steps aside while the node search is open under the toolbar.
   const searching = useCanvasStore((state) => state.addSearch.open);
+  const welcomeHidden = useJourneyStore((state) => state.welcomeHidden);
   // Inside a subgraph the canvas wears a violet frame and glow, so it never looks like the whole graph.
   const inside = useGraphStore((state) => state.activeSubgraphId !== null);
   const [dragging, setDragging] = useState(false);
@@ -128,10 +131,11 @@ function Workspace({ onImportWorkflow }: GraphWorkspaceProps) {
     }
     const add = dropToAddNode((type) => event.dataTransfer.getData(type));
     if (!add) return;
-    void (async () => {
+    const origin = captureEditOrigin();
+    void trackCommit(async () => {
       // The drop point, moved to the nearest spot where the new node covers nothing.
       const at = await placeNewNode(point, { classType: add.nodeType, parameters: add.parameters });
-      const result = await commitManual({
+      const result = await commitAtOrigin(origin, {
         type: 'add-node',
         nodeType: add.nodeType,
         ...(add.title ? { title: add.title } : {}),
@@ -140,7 +144,7 @@ function Workspace({ onImportWorkflow }: GraphWorkspaceProps) {
         ...(Object.keys(add.parameters).length > 0 ? { parameters: add.parameters } : {}),
       });
       revealNewNode(addedNodeId(result));
-    })();
+    });
   }, [flow, replaying]);
 
   return (
@@ -158,7 +162,7 @@ function Workspace({ onImportWorkflow }: GraphWorkspaceProps) {
         if (file) { event.preventDefault(); event.stopPropagation(); void addImageSource(file); }
       }}
     >
-      <AnimatePresence>{empty && !replaying && !searching ? <Onboarding key="onboarding" onImport={onImportWorkflow} /> : null}</AnimatePresence>
+      <AnimatePresence>{empty && !replaying && !searching && !welcomeHidden ? <Onboarding key="onboarding" onImport={onImportWorkflow} /> : null}</AnimatePresence>
       <CanvasFlow />
       <SubgraphBreadcrumb />
       <ReplayBanner />

@@ -56,7 +56,7 @@ export const COMFY_ROUTES = {
   /** Version, operating system, memory and devices. */
   systemStats: (): ComfyRoute => ({ path: '/system_stats', ...SMALL }),
   /** Every node class: inputs, outputs, defaults, names, descriptions, category, python_module. Can be tens of MB. */
-  objectInfo: (): ComfyRoute => ({ path: '/object_info', maxBytes: 512 * MB, timeoutMs: 180_000, kind: 'json' }),
+  objectInfo: (): ComfyRoute => ({ path: '/object_info', maxBytes: 128 * MB, timeoutMs: 180_000, kind: 'json' }),
   /** Model folders with their paths and file extensions (newer ComfyUI). */
   modelFolders: (): ComfyRoute => ({ path: '/experiment/models', ...SMALL }),
   /** Model folder names only (every ComfyUI). */

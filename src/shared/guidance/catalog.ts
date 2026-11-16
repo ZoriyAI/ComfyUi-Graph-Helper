@@ -1,10 +1,13 @@
 /** Fifty source-linked practical guides. Original explanations; no model/network is required to read them. */
 import data from './problems.json';
-export type GuideAction = 'check' | 'nodes' | 'models' | 'services' | 'templates' | 'sync' | 'resources' | 'canvas' | 'constructor' | 'import';
+export type GuideAction = 'check' | 'nodes' | 'models' | 'services' | 'templates' | 'sync' | 'resources' | 'canvas' | 'constructor' | 'import' | 'comfy' | 'error' | 'export' | 'memory' | 'connection';
 export type GuideCategory = 'setup' | 'models' | 'performance' | 'graph' | 'create' | 'subgraphs' | 'touch';
 export interface GuideProblem {
   id: string; category: GuideCategory; action: GuideAction; keywords: string; source: string;
   title: { ru: string; en: string }; why: { ru: string; en: string }; check: { ru: string; en: string }; expected: { ru: string; en: string };
+  prepare: { ru: string; en: string }; followUp: GuideAction; targets: string[];
+  template?: { family: 'image' | 'local-ai'; query: string };
+  verify: { kind: 'graph'; fields: string[] } | { kind: 'sync' } | { kind: 'observed' };
 }
 export const GUIDE_PROBLEMS = data as GuideProblem[];
 export const GUIDE_CATEGORIES: GuideCategory[] = ['create', 'setup', 'models', 'graph', 'performance', 'subgraphs', 'touch'];

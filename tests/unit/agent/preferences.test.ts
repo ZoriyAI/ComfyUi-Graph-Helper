@@ -37,11 +37,12 @@ function openDb(): Database.Database {
 describe('prompt honours Preferences ▸ Assistant and Privacy', () => {
   const context = parseTurnContext({ intent: 'chat', selection: [] }, 'en');
 
-  it('defaults: ghosts first, the interface language, short answers, field values visible', () => {
+  it('defaults: execute requested edits, interface language, short answers and field values visible', () => {
     const input = { context, graph: summarizeGraph(SNAPSHOT), catalog: '' };
     const prompt = `${buildSystemPrompt(input)}\n\n${buildTurnData(input)}`;
-    // Ghost by default: a chat turn has no build tools and says so.
-    expect(prompt).toContain('Build tools are not available in this turn. Suggest graph changes as ghosts with propose* tools');
+    // Normal requests can edit directly; explicit Explain turns below stay read-only.
+    expect(prompt).toContain('carry out requested graph changes directly with build tools');
+    expect(prompt).not.toContain('Build tools are not available in this turn');
     expect(prompt).toContain('Answer in English.');
     expect(prompt).toContain('Length: keep answers short');
     expect(prompt).toContain('fields: text=a red fox in snow');
@@ -51,8 +52,8 @@ describe('prompt honours Preferences ▸ Assistant and Privacy', () => {
   it('build-by-default, answer language, fuller answers, no field values, no web', () => {
     const preferences = { defaultIntent: 'build' as const, answerLanguage: 'ru' as const, verbosity: 'normal' as const, allowWebSearch: false, allowFetchPage: false, sendFieldValues: false };
     const prompt = buildSystemPrompt({ context, graph: summarizeGraph(SNAPSHOT, { omitValues: true }), catalog: '', preferences });
-    expect(prompt).toContain('set "build directly" as their default');
-    expect(prompt).toContain('Build tools: the person prefers that you build directly');
+    expect(prompt).toContain('carry out requested graph changes directly with build tools');
+    expect(prompt).toContain('Build tools: available for requested changes in normal chat and Build');
     expect(prompt).toContain('Answer in Russian.');
     expect(prompt).toContain('the person asked for fuller answers');
     expect(prompt).not.toContain('a red fox in snow');
@@ -62,6 +63,7 @@ describe('prompt honours Preferences ▸ Assistant and Privacy', () => {
     // An explicit ask intent still wins over the build default.
     const ask = buildSystemPrompt({ context: parseTurnContext({ intent: 'ask', selection: [] }, 'en'), graph: null, catalog: '', preferences });
     expect(ask).toContain('Turn intent: ask');
+    expect(ask).toContain('Build tools are not available in this turn');
     // "ui" follows the turn's language.
     const ui = buildSystemPrompt({ context: parseTurnContext({ intent: 'chat', selection: [], language: 'ru' }, 'en'), graph: null, catalog: '', preferences: { answerLanguage: 'ui' } });
     expect(ui).toContain('Answer in Russian.');

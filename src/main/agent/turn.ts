@@ -90,10 +90,10 @@ const BUILD = new Set<string>(AGENT_BUILD_TOOLS);
 const RECENT_LIMIT = 30;
 
 /** Build tools exist in a build turn only. Ask and chat turns read, explain and propose grey drafts. */
-export function buildToolsAllowed(context: AgentTurnContext, _defaultIntent?: 'ask' | 'build'): boolean {
+export function buildToolsAllowed(context: AgentTurnContext, _defaultIntent?: 'ask' | 'build' | 'chat'): boolean {
   // Ask never builds, whatever the setting: it answers and offers grey drafts, so its hint stays true. The
   // "When I ask for a change" setting picks the mode the composer opens in (Build when it is "build directly").
-  return context.intent === 'build';
+  return context.intent !== 'ask';
 }
 
 /** The person's recent commands for the prompt; a read failure only drops that section. */
@@ -111,7 +111,7 @@ function readRecent(db: Database.Database, projectId: string): RecentCommand[] {
  * an ask or chat turn keeps reading, explaining and the three everyday proposals.
  */
 const COMPACT_READ = ['assessResources', 'getGraph', 'searchNodeTypes', 'describeNodeType', 'findInstalledModels', 'checkGraph'] as const;
-const COMPACT_BUILD = [...COMPACT_READ, 'addNode', 'connectNodes', 'setParameter', 'removeNode'] as const;
+const COMPACT_BUILD = [...COMPACT_READ, 'clearCanvas', 'createGraphSet', 'addNode', 'connectNodes', 'setParameter', 'removeNode', 'createSubgraph', 'configureSubgraph', 'insertSubgraph'] as const;
 const COMPACT_ASK = [...COMPACT_READ, 'describeModel', 'explain', 'proposeNode', 'proposeConnection', 'proposeParameter'] as const;
 /** Roughly what one tool's name, description and schema take in the request, in characters. */
 const TOOL_CHARS = 700;
@@ -349,6 +349,7 @@ export async function runAgentTurn(options: AgentTurnOptions): Promise<void> {
       const buildTools = createBuildTools(specs(options.toolSpecs), {
         db,
         run,
+        allowExistingEdits: true,
         onProjection: (next) => send({ type: 'projection', content: next }),
         onRevision: (next) => { revision = next; },
         onBuildStep: (step) => send({ type: 'build-step', content: step }),

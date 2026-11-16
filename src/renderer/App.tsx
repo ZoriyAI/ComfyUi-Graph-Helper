@@ -4,7 +4,7 @@
  * focus rescue, preferences, sync and proposal subscriptions, file opening) and loads the saved project, then
  * removes them on unmount so a remount in StrictMode does not install them twice.
  */
-import React, { forwardRef, useEffect, useState } from 'react';
+import React, { forwardRef, useCallback, useEffect, useRef, useState } from 'react';
 import { installFileOpening } from './commands/fileOpening';
 import JourneyHost from './components/journey/JourneyHost';
 import { Settings as SettingsIcon } from 'lucide-react';
@@ -23,6 +23,7 @@ import { ModelLogHost } from './components/log/ModelLogDialog';
 import styles from './components/shell/AppShell.module.css';
 import SettingsPanel from './components/settings/SettingsPanel';
 import Button from './ui/Button';
+import RecoveryNotice from './ui/RecoveryNotice';
 import Hint from './ui/Hint';
 import Shortcut from './ui/Shortcut';
 import { useChatStore } from './state/chatState';
@@ -60,6 +61,19 @@ const SettingsButton = forwardRef<HTMLButtonElement, React.ButtonHTMLAttributes<
 function App() {
   const { t } = useTranslation();
   const [mobilePanel, setMobilePanel] = useState('canvas');
+  const [projectLoad, setProjectLoad] = useState<'loading' | 'loaded' | 'error'>('loading');
+  const loadTicket = useRef(0);
+  const restoreProject = useCallback(async () => {
+    const ticket = ++loadTicket.current; setProjectLoad('loading');
+    try {
+      await window.electronAPI.startState().catch(() => null);
+      const projection = await window.electronAPI.readProjection(DESKTOP_PROJECT_ID);
+      if (ticket !== loadTicket.current) return;
+      if (!projection) throw new Error('Missing saved projection');
+      applyProjection(projection); setProjectLoad('loaded');
+      void openPendingFile();
+    } catch { if (ticket === loadTicket.current) setProjectLoad('error'); }
+  }, []);
   const railOpen = useUiStore((state) => state.railOpen);
   const dockCollapsed = useDockStore((state) => state.collapsed);
   useEffect(() => {
@@ -90,16 +104,10 @@ function App() {
     const offDraw = installDrawWatch();
     // Files dropped on the window and named on the command line (commands/fileOpening.ts).
     const offFiles = installFileOpening();
-    // The projection is read after the start state settles, even when it fails, so a broken start still shows a graph.
-    window.electronAPI.startState().catch(() => null).then(() => window.electronAPI.readProjection(DESKTOP_PROJECT_ID)).then((projection) => {
-      applyProjection(projection);
-      // A file named on the command line opens once the graph it may replace is known.
-      void openPendingFile();
-    }).catch((error) => {
-      console.error('[App] Projection load failed:', error);
-    });
+    void restoreProject();
     void refreshKeySources().catch(() => undefined);
     return () => {
+      loadTicket.current += 1;
       offShared();
       offFiles();
       offDraw();
@@ -109,7 +117,7 @@ function App() {
       offFocusRescue();
       offCommands();
     };
-  }, []);
+  }, [restoreProject]);
 
   const handleSendMessage = (content: string) => {
     getChatService().sendMessage(content);
@@ -146,7 +154,8 @@ function App() {
       <div className={cx(styles.body, 'app-body')}>
         <Rail />
         <main className={cx(styles.canvas, 'graph-pane')}>
-          <GraphWorkspace onImportWorkflow={() => void importWorkflowFile()} />
+          {projectLoad === 'loaded' ? <GraphWorkspace onImportWorkflow={() => void importWorkflowFile()} />
+            : <RecoveryNotice kind="project" loading={projectLoad === 'loading'} retry={() => void restoreProject()} />}
         </main>
         <Dock onSendMessage={handleSendMessage} onPause={handlePause} />
       </div>

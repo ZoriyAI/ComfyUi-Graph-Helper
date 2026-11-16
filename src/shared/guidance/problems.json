@@ -20,7 +20,20 @@
     },
     "action": "check",
     "keywords": "missing node unknown class красные",
-    "source": "https://docs.comfy.org/basic-concepts/dependencies"
+    "source": "https://docs.comfy.org/basic-concepts/dependencies",
+    "prepare": {
+      "ru": "Сохраните копию workflow. Красная нода означает недостающую операцию, а не потерянную картинку. Выпишите имя пакета из проверки; устанавливайте его через ComfyUI Manager из указанного автором источника.",
+      "en": "Save a workflow copy. A red node means a missing operation, not a lost image. Find its package in the check; install it through ComfyUI Manager from the workflow author’s source."
+    },
+    "followUp": "comfy",
+    "targets": [],
+    "verify": {
+      "kind": "graph",
+      "fields": [
+        "missingNodes",
+        "unknownNodeTypes"
+      ]
+    }
   },
   {
     "id": "p02",
@@ -41,9 +54,18 @@
       "ru": "У пакета успешный импорт; нода находится по точному имени класса.",
       "en": "The pack imports successfully and its exact class name can be found."
     },
-    "action": "nodes",
+    "action": "error",
     "keywords": "import failed module not found",
-    "source": "https://docs.comfy.org/troubleshooting/custom-node-issues"
+    "source": "https://docs.comfy.org/troubleshooting/custom-node-issues",
+    "prepare": {
+      "ru": "Откройте ComfyUI и скопируйте первую ошибку запуска пакета. Вставьте её в разбор ошибки: последнее сообщение обычно скрывает исходную причину.",
+      "en": "Open ComfyUI and copy the first package startup error. Paste it into the error explainer; the last message often hides the original cause."
+    },
+    "followUp": "nodes",
+    "targets": [],
+    "verify": {
+      "kind": "observed"
+    }
   },
   {
     "id": "p03",
@@ -64,9 +86,18 @@
       "ru": "Оба нужных сценария запускаются в своих проверенных окружениях.",
       "en": "Both workflows work in their own verified environments."
     },
-    "action": "services",
+    "action": "comfy",
     "keywords": "dependency conflict requirements pip",
-    "source": "https://docs.comfy.org/basic-concepts/dependencies"
+    "source": "https://docs.comfy.org/basic-concepts/dependencies",
+    "prepare": {
+      "ru": "Сохраните рабочий граф и запишите последнее установленное дополнение. Откройте Manager в ComfyUI и временно отключите только это дополнение, затем перезапустите ComfyUI.",
+      "en": "Save the working graph and note the last extension installed. Open ComfyUI Manager, temporarily disable just that extension, then restart ComfyUI."
+    },
+    "followUp": "error",
+    "targets": [],
+    "verify": {
+      "kind": "observed"
+    }
   },
   {
     "id": "p04",
@@ -87,9 +118,18 @@
       "ru": "Интерфейс открывается; найдено конкретное расширение, влияющее на сбой.",
       "en": "The interface opens and the extension involved is identified."
     },
-    "action": "services",
+    "action": "comfy",
     "keywords": "blank black screen extension",
-    "source": "https://docs.comfy.org/interface/settings/extension"
+    "source": "https://docs.comfy.org/interface/settings/extension",
+    "prepare": {
+      "ru": "В ComfyUI откройте Settings → Extensions. Выключите последнее добавленное расширение интерфейса и перезагрузите страницу. Остальные переключатели пока не меняйте.",
+      "en": "In ComfyUI open Settings → Extensions. Disable the last added frontend extension and reload the page. Leave other switches as they are for this comparison."
+    },
+    "followUp": "error",
+    "targets": [],
+    "verify": {
+      "kind": "observed"
+    }
   },
   {
     "id": "p05",
@@ -110,9 +150,18 @@
       "ru": "Нужная функция видна в совместимой версии, исходный workflow сохранён.",
       "en": "The feature is available in a compatible version and the original workflow is saved."
     },
-    "action": "services",
+    "action": "comfy",
     "keywords": "update version frontend templates",
-    "source": "https://docs.comfy.org/installation/update_comfyui"
+    "source": "https://docs.comfy.org/installation/update_comfyui",
+    "prepare": {
+      "ru": "Сохраните копию графа. Откройте источник этой инструкции и проверьте, для какого вида установки описано обновление: Desktop, portable или manual. Примените подходящий способ.",
+      "en": "Save a graph copy. Open this guide’s source and choose the update instructions for your installation: Desktop, portable or manual. Follow that matching method."
+    },
+    "followUp": "sync",
+    "targets": [],
+    "verify": {
+      "kind": "observed"
+    }
   },
   {
     "id": "p06",
@@ -135,7 +184,25 @@
     },
     "action": "models",
     "keywords": "value not in list missing checkpoint",
-    "source": "https://docs.comfy.org/basic-concepts/models"
+    "source": "https://docs.comfy.org/basic-concepts/models",
+    "prepare": {
+      "ru": "Запомните точное имя файла. Checkpoint, LoRA и VAE — разные детали: файл должен находиться в папке своего типа на компьютере ComfyUI.",
+      "en": "Note the exact filename. Checkpoints, LoRAs and VAEs are different parts: the file must be in its type’s folder on the ComfyUI computer."
+    },
+    "followUp": "sync",
+    "targets": [
+      "CheckpointLoader",
+      "LoraLoader",
+      "VAELoader",
+      "UNETLoader"
+    ],
+    "verify": {
+      "kind": "graph",
+      "fields": [
+        "missingModels",
+        "valuesNotInList"
+      ]
+    }
   },
   {
     "id": "p07",
@@ -156,9 +223,18 @@
       "ru": "После применения путей и синхронизации видны модели нужной папки.",
       "en": "After applying paths and syncing, models from the expected folder appear."
     },
-    "action": "models",
+    "action": "comfy",
     "keywords": "extra_model_paths path disk",
-    "source": "https://docs.comfy.org/basic-concepts/models#adding-extra-model-paths"
+    "source": "https://docs.comfy.org/basic-concepts/models#adding-extra-model-paths",
+    "prepare": {
+      "ru": "Общая папка должна быть доступна компьютеру ComfyUI, а не только телефону. Откройте официальный пример путей по кнопке источника; сохраните прежнюю конфигурацию перед изменением.",
+      "en": "The shared folder must be accessible to the ComfyUI computer, not just your phone. Open the official paths example using Source; keep the previous configuration before editing it."
+    },
+    "followUp": "sync",
+    "targets": [],
+    "verify": {
+      "kind": "observed"
+    }
   },
   {
     "id": "p08",
@@ -179,9 +255,27 @@
       "ru": "В одной цепочке совместимые компоненты; проверка не сообщает известное смешение семейств.",
       "en": "The chain uses compatible components and the check reports no known family conflict."
     },
-    "action": "check",
+    "action": "error",
     "keywords": "mat1 mat2 shapes channels tensor",
-    "source": "https://docs.comfy.org/troubleshooting/model-issues"
+    "source": "https://docs.comfy.org/troubleshooting/model-issues",
+    "prepare": {
+      "ru": "Не меняйте размеры наугад. Откройте разбор ошибки, найдите указанную ноду и сравните семейство её модели с энкодером и VAE.",
+      "en": "Do not change dimensions at random. Open the error explainer, find the named node, and compare its model family with the text encoder and VAE."
+    },
+    "followUp": "check",
+    "targets": [
+      "CheckpointLoader",
+      "UNETLoader",
+      "CLIPLoader",
+      "VAELoader"
+    ],
+    "verify": {
+      "kind": "graph",
+      "fields": [
+        "baseModelMismatches",
+        "typeMismatches"
+      ]
+    }
   },
   {
     "id": "p09",
@@ -202,9 +296,26 @@
       "ru": "LATENT и VAE согласованы; контрольный запуск декодирует изображение.",
       "en": "LATENT and VAE match and a small trial decodes an image."
     },
-    "action": "check",
+    "action": "canvas",
     "keywords": "vae decode expected input channels",
-    "source": "https://docs.comfy.org/troubleshooting/model-issues"
+    "source": "https://docs.comfy.org/troubleshooting/model-issues",
+    "prepare": {
+      "ru": "VAE превращает скрытые данные генерации в картинку. Выберите VAE Decode ниже и проследите два провода: samples и vae должны принадлежать одному совместимому сценарию.",
+      "en": "VAE turns generated latent data into an image. Select VAE Decode below and trace samples and vae: both must belong to one compatible workflow."
+    },
+    "followUp": "check",
+    "targets": [
+      "VAEDecode",
+      "VAELoader"
+    ],
+    "verify": {
+      "kind": "graph",
+      "fields": [
+        "baseModelMismatches",
+        "typeMismatches",
+        "unconnectedRequiredInputs"
+      ]
+    }
   },
   {
     "id": "p10",
@@ -227,7 +338,23 @@
     },
     "action": "templates",
     "keywords": "clip t5 encoder conditioning",
-    "source": "https://docs.comfy.org/troubleshooting/model-issues"
+    "source": "https://docs.comfy.org/troubleshooting/model-issues",
+    "prepare": {
+      "ru": "Текстовый энкодер переводит слова в данные для модели. Откройте шаблон нужного семейства и сравните имена энкодеров с ним, прежде чем менять поля.",
+      "en": "The text encoder turns words into model input. Open a template for the model family and compare its encoder names before changing fields."
+    },
+    "followUp": "check",
+    "targets": [
+      "CLIPLoader",
+      "CLIPTextEncode"
+    ],
+    "verify": {
+      "kind": "observed"
+    },
+    "template": {
+      "family": "image",
+      "query": "text to image"
+    }
   },
   {
     "id": "p11",
@@ -248,9 +375,23 @@
       "ru": "Совместимая пара принимает нужный сигнал управления.",
       "en": "A compatible pair accepts the intended control signal."
     },
-    "action": "check",
+    "action": "canvas",
     "keywords": "controlnet pose depth canny",
-    "source": "https://docs.comfy.org/troubleshooting/model-issues"
+    "source": "https://docs.comfy.org/troubleshooting/model-issues",
+    "prepare": {
+      "ru": "Контуры, поза и глубина — разные сигналы. Выберите один нужный вид контроля; модель ControlNet должна поддерживать и его, и семейство основной модели.",
+      "en": "Edges, pose and depth are different signals. Choose one control type; the ControlNet model must support that signal and the main model family."
+    },
+    "followUp": "check",
+    "targets": [
+      "ControlNet"
+    ],
+    "verify": {
+      "kind": "graph",
+      "fields": [
+        "baseModelMismatches"
+      ]
+    }
   },
   {
     "id": "p12",
@@ -273,7 +414,19 @@
     },
     "action": "models",
     "keywords": "lora strength trigger words",
-    "source": "https://docs.comfy.org/tutorials/basic/lora"
+    "source": "https://docs.comfy.org/tutorials/basic/lora",
+    "prepare": {
+      "ru": "Для сравнения оставьте одну LoRA. Откройте её описание и найдите базовую модель, рекомендуемую силу и слова активации. Сохраните исходный результат с тем же seed.",
+      "en": "Keep one LoRA for comparison. Open its description for the base model, suggested strength and trigger words. Keep the original result with the same seed."
+    },
+    "followUp": "canvas",
+    "targets": [
+      "LoraLoader",
+      "KSampler"
+    ],
+    "verify": {
+      "kind": "observed"
+    }
   },
   {
     "id": "p13",
@@ -294,9 +447,21 @@
       "ru": "Понятно, какая LoRA и какой вес изменяют результат.",
       "en": "You can identify which LoRA and strength change the result."
     },
-    "action": "templates",
+    "action": "canvas",
     "keywords": "multiple loras chain strength",
-    "source": "https://docs.comfy.org/tutorials/basic/multiple-loras"
+    "source": "https://docs.comfy.org/tutorials/basic/multiple-loras",
+    "prepare": {
+      "ru": "Сохраните исходный граф. У остальных LoRA временно поставьте обе силы в 0; затем возвращайте по одной, сохраняя одинаковый seed и текст.",
+      "en": "Save the original graph. Temporarily set both strengths of the other LoRAs to 0; restore them one at a time while keeping seed and text fixed."
+    },
+    "followUp": "models",
+    "targets": [
+      "LoraLoader",
+      "KSampler"
+    ],
+    "verify": {
+      "kind": "observed"
+    }
   },
   {
     "id": "p14",
@@ -319,7 +484,16 @@
     },
     "action": "sync",
     "keywords": "deserializing header safetensors",
-    "source": "https://docs.comfy.org/troubleshooting/model-issues"
+    "source": "https://docs.comfy.org/troubleshooting/model-issues",
+    "prepare": {
+      "ru": "Не удаляйте файл из-за одного сообщения. В отчёте найдите его точное имя, повторите чтение; при проблеме связи выберите этот файл на устройстве для чтения заголовка.",
+      "en": "Do not delete a file because of one message. Find its exact name in the report and retry; for a connection problem, select that file on the device to read its header directly."
+    },
+    "followUp": "models",
+    "targets": [],
+    "verify": {
+      "kind": "sync"
+    }
   },
   {
     "id": "p15",
@@ -340,9 +514,18 @@
       "ru": "Доступные описания показаны с источником; отсутствие текста не названо поломкой модели.",
       "en": "Available descriptions show their source; absent text is not called model damage."
     },
-    "action": "sync",
+    "action": "models",
     "keywords": "metadata description lora описание",
-    "source": "https://github.com/huggingface/safetensors#format"
+    "source": "https://github.com/huggingface/safetensors#format",
+    "prepare": {
+      "ru": "У файла может не быть встроенного описания. В карточке различаются заголовок файла, описание автора рядом с моделью и сведения из интернета. Включите русский язык для перевода доступного текста.",
+      "en": "A file may have no embedded description. The card separates the file header, author sidecar and online information. Choose Russian to translate available prose."
+    },
+    "followUp": "sync",
+    "targets": [],
+    "verify": {
+      "kind": "observed"
+    }
   },
   {
     "id": "p16",
@@ -365,7 +548,16 @@
     },
     "action": "sync",
     "keywords": "mcp not connected синхронизация",
-    "source": "https://github.com/Comfy-Org/ComfyUI/blob/master/server.py"
+    "source": "https://github.com/Comfy-Org/ComfyUI/blob/master/server.py",
+    "prepare": {
+      "ru": "Откройте отчёт: ожидающие файлы ещё не прочитаны, исключённые пропущены вами. Снимите исключение, если хотите вернуть файл в чтение, затем повторите оставшиеся.",
+      "en": "Open the report: pending files have not been read; excluded files were skipped by choice. Remove an exclusion to read that file again, then retry the remaining files."
+    },
+    "followUp": "connection",
+    "targets": [],
+    "verify": {
+      "kind": "sync"
+    }
   },
   {
     "id": "p17",
@@ -386,9 +578,22 @@
       "ru": "Небольшой контрольный запуск завершается; оценка памяти остаётся приблизительной.",
       "en": "A small trial finishes; memory estimates remain approximate."
     },
-    "action": "resources",
+    "action": "memory",
     "keywords": "cuda out of memory oom vram",
-    "source": "https://docs.comfy.org/troubleshooting/overview"
+    "source": "https://docs.comfy.org/troubleshooting/overview",
+    "prepare": {
+      "ru": "Память видеокарты делят все запущенные модели. Сначала освободите память помощника кнопкой ниже, затем начните с одной картинки небольшого размера.",
+      "en": "Running models share GPU memory. First use the memory-release button below, then start with one small image."
+    },
+    "followUp": "resources",
+    "targets": [
+      "EmptyLatentImage",
+      "KSampler",
+      "Upscale"
+    ],
+    "verify": {
+      "kind": "observed"
+    }
   },
   {
     "id": "p18",
@@ -409,9 +614,20 @@
       "ru": "Известно, на какой стадии тратится время и что изменило скорость.",
       "en": "You know which stage takes time and which change affected speed."
     },
-    "action": "services",
+    "action": "comfy",
     "keywords": "slow cpu gpu offload",
-    "source": "https://docs.comfy.org/troubleshooting/overview"
+    "source": "https://docs.comfy.org/troubleshooting/overview",
+    "prepare": {
+      "ru": "Сравните первый и повторный запуск: загрузка модели с диска занимает время. В ComfyUI посмотрите, какая нода работает дольше; запишите размер, число шагов и время.",
+      "en": "Compare first and repeated runs: loading weights from disk takes time. In ComfyUI note the slow node, image size, step count and elapsed time."
+    },
+    "followUp": "services",
+    "targets": [
+      "KSampler"
+    ],
+    "verify": {
+      "kind": "observed"
+    }
   },
   {
     "id": "p19",
@@ -432,9 +648,24 @@
       "ru": "Малый опыт проходит; размер увеличивается постепенно, а не сразу до максимума.",
       "en": "A small test works and size increases gradually."
     },
-    "action": "resources",
+    "action": "templates",
     "keywords": "upscale memory large image",
-    "source": "https://docs.comfy.org/tutorials/basic/upscale"
+    "source": "https://docs.comfy.org/tutorials/basic/upscale",
+    "prepare": {
+      "ru": "Увеличение в 4 раза по ширине и высоте даёт в 16 раз больше пикселей. Возьмите небольшой фрагмент, выберите апскейл и сначала проверьте его отдельно.",
+      "en": "A 4× increase in width and height means 16× more pixels. Start with a small crop, choose the upscaler and test it separately."
+    },
+    "followUp": "resources",
+    "targets": [
+      "Upscale"
+    ],
+    "verify": {
+      "kind": "observed"
+    },
+    "template": {
+      "family": "image",
+      "query": "upscale"
+    }
   },
   {
     "id": "p20",
@@ -457,7 +688,19 @@
     },
     "action": "resources",
     "keywords": "multiple models memory hardware",
-    "source": "https://docs.comfy.org/installation/system_requirements"
+    "source": "https://docs.comfy.org/installation/system_requirements",
+    "prepare": {
+      "ru": "Разделите задачу на результаты: например фото → описание → новая картинка. Оцените каждую стадию отдельно и выгружайте помощника перед тяжёлой генерацией.",
+      "en": "Split the task by outputs, for example photo → description → new image. Assess each stage separately and unload the assistant before heavy generation."
+    },
+    "followUp": "memory",
+    "targets": [
+      "Loader",
+      "Ollama"
+    ],
+    "verify": {
+      "kind": "observed"
+    }
   },
   {
     "id": "p21",
@@ -480,7 +723,20 @@
     },
     "action": "check",
     "keywords": "required input missing",
-    "source": "https://docs.comfy.org/basic-concepts/properties"
+    "source": "https://docs.comfy.org/basic-concepts/properties",
+    "prepare": {
+      "ru": "Вход — разъём слева у ноды. Проверка покажет обязательный пустой вход; нажмите находку, затем соедините его с выходом того же типа.",
+      "en": "An input is a socket on a node’s left side. The check lists required empty inputs; select a finding, then connect an output of the same type."
+    },
+    "followUp": "canvas",
+    "targets": [],
+    "verify": {
+      "kind": "graph",
+      "fields": [
+        "unconnectedRequiredInputs",
+        "unsetWidgets"
+      ]
+    }
   },
   {
     "id": "p22",
@@ -503,7 +759,20 @@
     },
     "action": "check",
     "keywords": "type mismatch incompatible port wire",
-    "source": "https://docs.comfy.org/basic-concepts/links"
+    "source": "https://docs.comfy.org/basic-concepts/links",
+    "prepare": {
+      "ru": "Цвет и имя помогают ориентироваться, но решает тип данных. IMAGE — картинка, LATENT — данные генерации, MASK — область редактирования. Преобразование требует отдельной ноды.",
+      "en": "Colour and names help navigation, but data type decides compatibility. IMAGE is pixels, LATENT is generation data, MASK is an editing area. Conversion needs its own node."
+    },
+    "followUp": "nodes",
+    "targets": [],
+    "verify": {
+      "kind": "graph",
+      "fields": [
+        "typeMismatches",
+        "brokenEdges"
+      ]
+    }
   },
   {
     "id": "p23",
@@ -526,7 +795,19 @@
     },
     "action": "canvas",
     "keywords": "widget input value linked",
-    "source": "https://docs.comfy.org/basic-concepts/properties"
+    "source": "https://docs.comfy.org/basic-concepts/properties",
+    "prepare": {
+      "ru": "Если к полю подключён провод, значение приходит с другой ноды. Выберите нужную ноду ниже или на холсте, проследите провод влево и меняйте число у его источника.",
+      "en": "A connected field receives its value from another node. Select the node below or on the canvas, trace the wire left, and change the number at its source."
+    },
+    "followUp": "check",
+    "targets": [
+      "Primitive",
+      "KSampler"
+    ],
+    "verify": {
+      "kind": "observed"
+    }
   },
   {
     "id": "p24",
@@ -549,7 +830,19 @@
     },
     "action": "check",
     "keywords": "cycle cyclic recursion",
-    "source": "https://docs.comfy.org/basic-concepts/workflow"
+    "source": "https://docs.comfy.org/basic-concepts/workflow",
+    "prepare": {
+      "ru": "Цикл — путь, который возвращается к своему началу. Откройте проверку; перед удалением связи убедитесь, что она именно замыкает отмеченную цепочку.",
+      "en": "A cycle is a path back to its starting point. Open the check; before removing a wire, confirm it is the one that closes the highlighted chain."
+    },
+    "followUp": "canvas",
+    "targets": [],
+    "verify": {
+      "kind": "graph",
+      "fields": [
+        "cycles"
+      ]
+    }
   },
   {
     "id": "p25",
@@ -572,7 +865,23 @@
     },
     "action": "check",
     "keywords": "no output save preview",
-    "source": "https://docs.comfy.org/get_started/first_generation"
+    "source": "https://docs.comfy.org/get_started/first_generation",
+    "prepare": {
+      "ru": "Превью показывает результат, а Save Image сохраняет файл. Найдите конечную ноду нужной ветви; добавьте сохранение или просмотр, если такого выхода нет.",
+      "en": "Preview displays a result; Save Image writes a file. Find your branch’s final node and add a save or preview output if one is missing."
+    },
+    "followUp": "nodes",
+    "targets": [
+      "SaveImage",
+      "PreviewImage",
+      "SaveVideo"
+    ],
+    "verify": {
+      "kind": "graph",
+      "fields": [
+        "noOutputNode"
+      ]
+    }
   },
   {
     "id": "p26",
@@ -595,7 +904,20 @@
     },
     "action": "templates",
     "keywords": "beginner first image start",
-    "source": "https://docs.comfy.org/tutorials/basic/text-to-image"
+    "source": "https://docs.comfy.org/tutorials/basic/text-to-image",
+    "prepare": {
+      "ru": "Начните с одного результата: фото, видео, звук или текст. Мастер покажет готовые варианты, необходимые модели и поля; добавляйте один пример и меняйте одно поле за раз.",
+      "en": "Start with one result: image, video, audio or text. The wizard shows ready examples, required models and controls. Add one example and change one field at a time."
+    },
+    "followUp": "check",
+    "targets": [],
+    "verify": {
+      "kind": "observed"
+    },
+    "template": {
+      "family": "image",
+      "query": "text to image"
+    }
   },
   {
     "id": "p27",
@@ -618,7 +940,18 @@
     },
     "action": "canvas",
     "keywords": "seed random reproducible",
-    "source": "https://docs.comfy.org/tutorials/basic/text-to-image"
+    "source": "https://docs.comfy.org/tutorials/basic/text-to-image",
+    "prepare": {
+      "ru": "Seed — номер исходного случайного шума. В KSampler запишите seed и выберите fixed в control after generate. Для сравнения сохраняйте также модель, текст и размеры.",
+      "en": "Seed is the starting noise number. In KSampler note the seed and choose fixed in control after generate. Also keep model, prompt and size unchanged for comparison."
+    },
+    "followUp": "export",
+    "targets": [
+      "KSampler"
+    ],
+    "verify": {
+      "kind": "observed"
+    }
   },
   {
     "id": "p28",
@@ -639,9 +972,26 @@
       "ru": "Исходная композиция сохраняется настолько, насколько нужно для задачи.",
       "en": "The original composition is preserved to the degree your task needs."
     },
-    "action": "templates",
+    "action": "canvas",
     "keywords": "denoise img2img preserve",
-    "source": "https://docs.comfy.org/tutorials/basic/image-to-image"
+    "source": "https://docs.comfy.org/tutorials/basic/image-to-image",
+    "prepare": {
+      "ru": "Denoise задаёт силу перерисовки: ближе к 0 — бережнее, ближе к 1 — свободнее. Сохраните исходный граф и сравните два близких значения при одном seed.",
+      "en": "Denoise controls repaint strength: near 0 preserves more, near 1 changes more. Save the original graph and compare two nearby values with the same seed."
+    },
+    "followUp": "templates",
+    "targets": [
+      "LoadImage",
+      "VAEEncode",
+      "KSampler"
+    ],
+    "verify": {
+      "kind": "observed"
+    },
+    "template": {
+      "family": "image",
+      "query": "image edit"
+    }
   },
   {
     "id": "p29",
@@ -662,9 +1012,26 @@
       "ru": "Изменение denoise заметно влияет на сравнимый результат.",
       "en": "Changing denoise visibly affects a comparable result."
     },
-    "action": "templates",
+    "action": "canvas",
     "keywords": "img2img unchanged denoise",
-    "source": "https://docs.comfy.org/tutorials/basic/image-to-image"
+    "source": "https://docs.comfy.org/tutorials/basic/image-to-image",
+    "prepare": {
+      "ru": "Проверьте, что в sampler идёт закодированное фото, а не пустое изображение. Затем увеличьте denoise немного и сравните с прежним результатом.",
+      "en": "Check that the sampler receives the encoded photo rather than an empty latent. Then raise denoise slightly and compare with the previous result."
+    },
+    "followUp": "check",
+    "targets": [
+      "LoadImage",
+      "VAEEncode",
+      "KSampler"
+    ],
+    "verify": {
+      "kind": "graph",
+      "fields": [
+        "unconnectedRequiredInputs",
+        "typeMismatches"
+      ]
+    }
   },
   {
     "id": "p30",
@@ -687,7 +1054,24 @@
     },
     "action": "canvas",
     "keywords": "image latent vae encode decode",
-    "source": "https://docs.comfy.org/tutorials/basic/image-to-image"
+    "source": "https://docs.comfy.org/tutorials/basic/image-to-image",
+    "prepare": {
+      "ru": "Между фото и sampler нужен VAE Encode; после sampler — VAE Decode. Обе ноды используют совместимый VAE. Откройте связанные ноды ниже.",
+      "en": "Put VAE Encode between the photo and sampler, then VAE Decode after the sampler. Both use a compatible VAE. Open the relevant nodes below."
+    },
+    "followUp": "nodes",
+    "targets": [
+      "VAEEncode",
+      "VAEDecode",
+      "KSampler"
+    ],
+    "verify": {
+      "kind": "graph",
+      "fields": [
+        "typeMismatches",
+        "unconnectedRequiredInputs"
+      ]
+    }
   },
   {
     "id": "p31",
@@ -710,7 +1094,24 @@
     },
     "action": "templates",
     "keywords": "mask inverted wrong region",
-    "source": "https://docs.comfy.org/tutorials/basic/inpaint"
+    "source": "https://docs.comfy.org/tutorials/basic/inpaint",
+    "prepare": {
+      "ru": "Маска — чёрно-белая картинка, задающая область правки. Сначала покажите саму маску: у разных операций белая область может означать разное.",
+      "en": "A mask is a black-and-white image defining an edit area. Preview the mask first: different operations may interpret the white area differently."
+    },
+    "followUp": "canvas",
+    "targets": [
+      "Mask",
+      "Inpaint",
+      "LoadImage"
+    ],
+    "verify": {
+      "kind": "observed"
+    },
+    "template": {
+      "family": "image",
+      "query": "inpaint"
+    }
   },
   {
     "id": "p32",
@@ -733,7 +1134,27 @@
     },
     "action": "templates",
     "keywords": "inpaint mask no effect",
-    "source": "https://docs.comfy.org/tutorials/basic/inpaint"
+    "source": "https://docs.comfy.org/tutorials/basic/inpaint",
+    "prepare": {
+      "ru": "Выберите шаблон inpaint, загрузите фото и непустую маску. Проверьте превью маски и её провод до ноды кодирования, прежде чем менять силу генерации.",
+      "en": "Choose an inpaint template, load the photo and a non-empty mask. Check the mask preview and its wire to the encoder before changing generation strength."
+    },
+    "followUp": "check",
+    "targets": [
+      "Inpaint",
+      "Mask",
+      "VAEEncode"
+    ],
+    "verify": {
+      "kind": "graph",
+      "fields": [
+        "unconnectedRequiredInputs"
+      ]
+    },
+    "template": {
+      "family": "image",
+      "query": "inpaint"
+    }
   },
   {
     "id": "p33",
@@ -756,7 +1177,24 @@
     },
     "action": "templates",
     "keywords": "outpaint extend borders padding",
-    "source": "https://docs.comfy.org/tutorials/basic/outpaint"
+    "source": "https://docs.comfy.org/tutorials/basic/outpaint",
+    "prepare": {
+      "ru": "Outpaint дорисовывает новые края. Выберите шаблон, укажите одну сторону и небольшой отступ; маска должна закрывать добавленный край, а не весь исходник.",
+      "en": "Outpaint adds new edges. Choose a template, one side and a small extension; the mask should cover the new edge rather than the whole original."
+    },
+    "followUp": "canvas",
+    "targets": [
+      "Pad",
+      "Outpaint",
+      "Mask"
+    ],
+    "verify": {
+      "kind": "observed"
+    },
+    "template": {
+      "family": "image",
+      "query": "outpaint"
+    }
   },
   {
     "id": "p34",
@@ -779,7 +1217,23 @@
     },
     "action": "templates",
     "keywords": "resize upscale detail",
-    "source": "https://docs.comfy.org/tutorials/basic/upscale"
+    "source": "https://docs.comfy.org/tutorials/basic/upscale",
+    "prepare": {
+      "ru": "Resize меняет число пикселей, модельный upscale пытается восстановить детали. Выберите пример увеличения и сравните небольшой участок при одинаковом масштабе просмотра.",
+      "en": "Resize changes pixel count; model upscaling attempts to recover detail. Choose an upscale example and compare a small area at the same display zoom."
+    },
+    "followUp": "resources",
+    "targets": [
+      "Upscale",
+      "ImageScale"
+    ],
+    "verify": {
+      "kind": "observed"
+    },
+    "template": {
+      "family": "image",
+      "query": "upscale"
+    }
   },
   {
     "id": "p35",
@@ -802,7 +1256,20 @@
     },
     "action": "canvas",
     "keywords": "missing image video input file",
-    "source": "https://docs.comfy.org/basic-concepts/dependencies"
+    "source": "https://docs.comfy.org/basic-concepts/dependencies",
+    "prepare": {
+      "ru": "Файл из чужого графа не переносится вместе с его именем. Откройте загрузчик ниже и выберите фото или видео на текущем устройстве; дождитесь превью.",
+      "en": "A workflow’s filename does not include the original media. Open the loader below, choose a photo or video from this device and wait for its preview."
+    },
+    "followUp": "check",
+    "targets": [
+      "LoadImage",
+      "LoadVideo",
+      "VHS_Load"
+    ],
+    "verify": {
+      "kind": "observed"
+    }
   },
   {
     "id": "p36",
@@ -823,9 +1290,26 @@
       "ru": "Настройки и связи сохранены; несовместимые виджеты обозначены явно.",
       "en": "Settings and links survive, and unsupported widgets are identified."
     },
-    "action": "check",
+    "action": "import",
     "keywords": "widgets_values import export json",
-    "source": "https://github.com/Comfy-Org/workflows#04--repo-layout"
+    "source": "https://github.com/Comfy-Org/workflows#04--repo-layout",
+    "prepare": {
+      "ru": "Откройте исходный JSON, затем выберите sampler и загрузчики. Сравните видимые seed, steps, модель и размеры; экспортируйте копию и откройте её в ComfyUI.",
+      "en": "Open the original JSON, then select the sampler and loaders. Compare visible seed, steps, model and dimensions; export a copy and open it in ComfyUI."
+    },
+    "followUp": "export",
+    "targets": [
+      "KSampler",
+      "Loader",
+      "EmptyLatentImage"
+    ],
+    "verify": {
+      "kind": "graph",
+      "fields": [
+        "unsetWidgets",
+        "invalidParameters"
+      ]
+    }
   },
   {
     "id": "p37",
@@ -848,7 +1332,16 @@
     },
     "action": "import",
     "keywords": "png workflow metadata",
-    "source": "https://docs.comfy.org/basic-concepts/workflow"
+    "source": "https://docs.comfy.org/basic-concepts/workflow",
+    "prepare": {
+      "ru": "Нужен исходный PNG/WebP с данными workflow или JSON. Картинка после мессенджера может потерять эти данные. Импорт покажет, есть ли граф внутри файла.",
+      "en": "Use the original PNG/WebP with workflow data or a JSON file. A messenger copy may have lost that data. Import will tell you whether the file contains a graph."
+    },
+    "followUp": "comfy",
+    "targets": [],
+    "verify": {
+      "kind": "observed"
+    }
   },
   {
     "id": "p38",
@@ -871,7 +1364,20 @@
     },
     "action": "canvas",
     "keywords": "partial execution branch",
-    "source": "https://docs.comfy.org/interface/features/partial-execution"
+    "source": "https://docs.comfy.org/interface/features/partial-execution",
+    "prepare": {
+      "ru": "Выберите конечный результат нужной ветви. После экспорта откройте ComfyUI и используйте запуск выбранного выхода, если эта возможность есть в вашей версии.",
+      "en": "Select the final output of the branch you need. After export, open ComfyUI and use execution of that selected output if supported by your version."
+    },
+    "followUp": "comfy",
+    "targets": [
+      "SaveImage",
+      "PreviewImage",
+      "SaveVideo"
+    ],
+    "verify": {
+      "kind": "observed"
+    }
   },
   {
     "id": "p39",
@@ -894,7 +1400,16 @@
     },
     "action": "canvas",
     "keywords": "mute bypass ignored",
-    "source": "https://docs.comfy.org/basic-concepts/nodes"
+    "source": "https://docs.comfy.org/basic-concepts/nodes",
+    "prepare": {
+      "ru": "Mute выключает ноду, bypass пропускает данные мимо неё. Откройте меню нужной ноды, проверьте её режим и провод до конечного результата.",
+      "en": "Mute disables a node; bypass passes data around it. Open its menu, check the mode, and trace its wire to a final output."
+    },
+    "followUp": "check",
+    "targets": [],
+    "verify": {
+      "kind": "observed"
+    }
   },
   {
     "id": "p40",
@@ -917,7 +1432,16 @@
     },
     "action": "canvas",
     "keywords": "what next node explain",
-    "source": "https://docs.comfy.org/interface/features/node-docs"
+    "source": "https://docs.comfy.org/interface/features/node-docs",
+    "prepare": {
+      "ru": "Нода — один шаг обработки. Выберите её, откройте меню и нажмите объяснение или типичные связи. Помощник получает выбранную ноду вместе с её окружением.",
+      "en": "A node is one processing step. Select it, open its menu and choose an explanation or common connections. The assistant receives the node and its context."
+    },
+    "followUp": "nodes",
+    "targets": [],
+    "verify": {
+      "kind": "observed"
+    }
   },
   {
     "id": "p41",
@@ -940,7 +1464,16 @@
     },
     "action": "constructor",
     "keywords": "subgraph reusable custom node",
-    "source": "https://docs.comfy.org/interface/features/subgraph"
+    "source": "https://docs.comfy.org/interface/features/subgraph",
+    "prepare": {
+      "ru": "Субграф — несколько шагов внутри одной ноды. Выделите связанные ноды и откройте конструктор: входы принимают данные снаружи, выходы отдают результат.",
+      "en": "A subgraph is several steps inside one node. Select connected nodes and open the constructor: inputs accept outside data and outputs return results."
+    },
+    "followUp": "canvas",
+    "targets": [],
+    "verify": {
+      "kind": "observed"
+    }
   },
   {
     "id": "p42",
@@ -963,7 +1496,16 @@
     },
     "action": "constructor",
     "keywords": "promote expose widget",
-    "source": "https://docs.comfy.org/interface/features/subgraph"
+    "source": "https://docs.comfy.org/interface/features/subgraph",
+    "prepare": {
+      "ru": "Выберите внешнюю ноду субграфа перед открытием конструктора. В разделе полей добавьте нужное внутреннее поле; дайте ему понятное имя для будущего пользователя.",
+      "en": "Select the subgraph instance before opening the constructor. In its controls section expose the inner field you need and give it a clear user-facing name."
+    },
+    "followUp": "canvas",
+    "targets": [],
+    "verify": {
+      "kind": "observed"
+    }
   },
   {
     "id": "p43",
@@ -984,9 +1526,18 @@
       "ru": "Оба значения сохранены либо обнаружена конкретная несовместимость версии.",
       "en": "Both values survive or a specific version incompatibility is identified."
     },
-    "action": "check",
+    "action": "canvas",
     "keywords": "nested instance widgets_values reset",
-    "source": "https://github.com/Comfy-Org/ComfyUI_frontend/issues/23102"
+    "source": "https://github.com/Comfy-Org/ComfyUI_frontend/issues/23102",
+    "prepare": {
+      "ru": "Сохраните отдельную копию проекта. У двух экземпляров одной ноды задайте разные видимые значения, затем повторно откройте файл и сравните оба экземпляра.",
+      "en": "Save a separate project copy. Give two instances of the same subgraph different visible values, then reopen the file and compare both instances."
+    },
+    "followUp": "export",
+    "targets": [],
+    "verify": {
+      "kind": "observed"
+    }
   },
   {
     "id": "p44",
@@ -1009,7 +1560,16 @@
     },
     "action": "canvas",
     "keywords": "subgraph back exit navigation",
-    "source": "https://docs.comfy.org/interface/features/subgraph"
+    "source": "https://docs.comfy.org/interface/features/subgraph",
+    "prepare": {
+      "ru": "Над холстом показан путь по уровням. Нажмите предыдущее имя, чтобы подняться на один уровень, или начало пути, чтобы вернуться на общий холст.",
+      "en": "The path above the canvas shows nesting levels. Select the previous name to go up one level, or the start of the path to return to the root canvas."
+    },
+    "followUp": "constructor",
+    "targets": [],
+    "verify": {
+      "kind": "observed"
+    }
   },
   {
     "id": "p45",
@@ -1032,7 +1592,16 @@
     },
     "action": "canvas",
     "keywords": "autogrow dynamic combo list",
-    "source": "https://docs.comfy.org/interface/features/autogrow-inputs"
+    "source": "https://docs.comfy.org/interface/features/autogrow-inputs",
+    "prepare": {
+      "ru": "Повторяемые входы собирают список значений. Откройте описание ноды, добавьте один совместимый провод и проверьте появившийся следующий слот.",
+      "en": "Repeated inputs collect a list of values. Open the node description, add one compatible wire, and inspect the next slot that appears."
+    },
+    "followUp": "nodes",
+    "targets": [],
+    "verify": {
+      "kind": "observed"
+    }
   },
   {
     "id": "p46",
@@ -1055,7 +1624,16 @@
     },
     "action": "canvas",
     "keywords": "touch right click delete phone",
-    "source": "https://github.com/Comfy-Org/ComfyUI_frontend/issues/2889"
+    "source": "https://github.com/Comfy-Org/ComfyUI_frontend/issues/2889",
+    "prepare": {
+      "ru": "Выделите ноду касанием и нажмите её кнопку меню. Удаление применяется к выбранной ноде; кнопка отмены возвращает её вместе со связями.",
+      "en": "Tap a node and press its menu button. Delete affects the selected node; Undo restores it together with its wires."
+    },
+    "followUp": "check",
+    "targets": [],
+    "verify": {
+      "kind": "observed"
+    }
   },
   {
     "id": "p47",
@@ -1078,7 +1656,16 @@
     },
     "action": "canvas",
     "keywords": "mobile panels close phone",
-    "source": "https://github.com/Comfy-Org/ComfyUI_frontend/issues/2891"
+    "source": "https://github.com/Comfy-Org/ComfyUI_frontend/issues/2891",
+    "prepare": {
+      "ru": "Закройте мастер кнопкой «На холст». Библиотеку и помощника открывайте по очереди; после выбора ноды снова возвращайтесь на холст.",
+      "en": "Use Show canvas to leave this guide. Open the library and assistant one at a time; return to the canvas after choosing a node."
+    },
+    "followUp": "nodes",
+    "targets": [],
+    "verify": {
+      "kind": "observed"
+    }
   },
   {
     "id": "p48",
@@ -1101,7 +1688,18 @@
     },
     "action": "canvas",
     "keywords": "upload image picker subgraph",
-    "source": "https://github.com/Comfy-Org/ComfyUI_frontend/issues/15332"
+    "source": "https://github.com/Comfy-Org/ComfyUI_frontend/issues/15332",
+    "prepare": {
+      "ru": "Откройте субграф и выберите внутренний Load Image. Кнопка загрузки берёт файл с телефона или компьютера, где открыт браузер, и отправляет его в ComfyUI.",
+      "en": "Open the subgraph and its inner Load Image. Upload selects a file from the phone or computer running the browser and sends it to ComfyUI."
+    },
+    "followUp": "connection",
+    "targets": [
+      "LoadImage"
+    ],
+    "verify": {
+      "kind": "observed"
+    }
   },
   {
     "id": "p49",
@@ -1124,7 +1722,23 @@
     },
     "action": "templates",
     "keywords": "ollama vision image prompt",
-    "source": "https://docs.ollama.com/capabilities/vision"
+    "source": "https://docs.ollama.com/capabilities/vision",
+    "prepare": {
+      "ru": "Модель должна поддерживать зрение. Откройте раздел локального ИИ: там готовый пакет Image to Prompt. После установки и синхронизации соедините Load Image с его входом image.",
+      "en": "The model must support vision. Open Local AI for the Image to Prompt starter pack. After installation and sync, connect Load Image to its image input."
+    },
+    "followUp": "check",
+    "targets": [
+      "NodeWiseOllamaVisionPrompt",
+      "LoadImage"
+    ],
+    "verify": {
+      "kind": "observed"
+    },
+    "template": {
+      "family": "local-ai",
+      "query": ""
+    }
   },
   {
     "id": "p50",
@@ -1147,6 +1761,22 @@
     },
     "action": "templates",
     "keywords": "ollama embedding vector rag",
-    "source": "https://docs.ollama.com/capabilities/embeddings"
+    "source": "https://docs.ollama.com/capabilities/embeddings",
+    "prepare": {
+      "ru": "Векторы нужны для сравнения, а не для чтения. Откройте Local AI: две ноды Embeddings с одной моделью подключаются к Embedding Cosine; большее значение означает большее сходство.",
+      "en": "Vectors are for comparison, not reading. Open Local AI: connect two Embeddings nodes using the same model to Embedding Cosine; a higher value means greater similarity."
+    },
+    "followUp": "check",
+    "targets": [
+      "NodeWiseOllamaEmbeddings",
+      "NodeWiseEmbeddingCosine"
+    ],
+    "verify": {
+      "kind": "observed"
+    },
+    "template": {
+      "family": "local-ai",
+      "query": ""
+    }
   }
 ]

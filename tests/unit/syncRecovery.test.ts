@@ -1,3 +1,4 @@
+/** Exercises synchronization failures, incomplete counts and resumable file enrichment. */
 import Database from 'better-sqlite3';
 import { describe, expect, it } from 'vitest';
 import { migrate } from '../../src/main/settings/migrate';

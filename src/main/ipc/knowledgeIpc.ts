@@ -9,6 +9,7 @@ import { translateWithAssistant } from '../knowledge/translateWithAssistant';
 import { readSettings } from '../settings/repository';
 import { languageOf } from '../../shared/i18n';
 import { mainLLMService } from '../llmService';
+import { assistantMemory } from '../llm/memoryLifecycle';
 import { publishBrowserEvent } from '../browser/registry';
 import * as path from 'node:path';
 import { app, BrowserWindow, type IpcMain } from 'electron';
@@ -67,6 +68,7 @@ export function registerKnowledgeIpc(ipcMain: IpcMain): void {
   appWebClient().keepPreview = (url, got) => previews.keepWeb(url, got);
   const lookups = new ModelLookupService({ db: getDatabase, client: appWebClient, open: openSavedMcpSession });
   const translations = new ModelTranslations({ db: getDatabase, language: () => languageOf(readSettings(getDatabase())), ready: () => Boolean(mainLLMService.currentProvider()) && !mainLLMService.sendBlock(), translate: translateWithAssistant });
+  assistantMemory.onStop(() => { translations.pause(); return translations.idle(); });
   const translationTimer = setInterval(() => translations.kick(), 30_000); translationTimer.unref?.();
   const handlers = knowledgeHandlers({
     db: getDatabase,

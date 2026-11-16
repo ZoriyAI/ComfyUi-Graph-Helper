@@ -248,6 +248,8 @@ export interface Lesson {
 export interface LessonFacts {
   /** Trigger words by file name, as the model's own description gives them. */
   triggers?: Record<string, string[]>;
+  /** Unknown metadata must not count as confirmed absence of trigger words. */
+  triggerStatus?: Record<string, 'ready' | 'pending' | 'unavailable'>;
   /** The family of a file by its name, when the catalog read it from the file's metadata or its description. */
   families?: Record<string, BaseModelFamily>;
   /** What a read-check looks at: the catalog, the model lists, where the open workflow came from (steps.ts). */
@@ -288,11 +290,14 @@ export type Missing =
     why?: FieldMiss;
     /** The id of the sentence that says why the step asks for this value (FieldSpec.why). */
     reason?: string;
+    /** Other rules for the same field constrain automatic replacement. */
+    fileWant?: FileWant;
   };
 
 /** What exactly is wrong with a value, for the sentence that says so. */
 export type FieldMiss =
   | { kind: 'file'; miss: FileMiss }
+  | { kind: 'metadata' }
   | { kind: 'frames' }
   | { kind: 'size'; family: BaseModelFamily }
   | { kind: 'family'; family: BaseModelFamily; other: BaseModelFamily }
@@ -458,7 +463,10 @@ function fieldVerdict(byId: Map<string, LessonNode>, spec: FieldSpec, roles: Rol
         const holders = 'role' in source ? [byId.get(roles[source.role])] : [...byId.values()].filter((item) => item.classType === source.classType);
         for (const holder of holders) {
           const file = holder?.values[source.field];
-          if (typeof file === 'string') words.push(...(facts.triggers?.[file] ?? []));
+          if (typeof file === 'string' && file) {
+            if (facts.triggerStatus?.[file] && facts.triggerStatus[file] !== 'ready') return { holds: false, why: { kind: 'metadata' } };
+            words.push(...(facts.triggers?.[file] ?? []));
+          }
         }
       }
       const known = words.map((word) => word.trim().toLowerCase()).filter(Boolean);
@@ -559,7 +567,7 @@ function matches(graph: LessonGraph, needs: Requirements, facts: LessonFacts, mo
 }
 
 /** What a step lacks under an assignment of roles (roles may be missing from it). */
-function missingOf(graph: LessonGraph, step: LessonStep, roles: Roles, facts: LessonFacts): Missing[] {
+function missingOf(graph: LessonGraph, step: LessonStep, roles: Roles, facts: LessonFacts, allFields: FieldSpec[] = step.fields ?? []): Missing[] {
   const byId = new Map(graph.nodes.map((node) => [node.id, node]));
   const out: Missing[] = [];
   for (const spec of step.roles ?? []) {
@@ -592,6 +600,7 @@ function missingOf(graph: LessonGraph, step: LessonStep, roles: Roles, facts: Le
     if (verdict.holds) continue;
     const known = Object.prototype.hasOwnProperty.call(node.values, spec.field) || inputFor(node, spec.field) !== null;
     const test = spec.test;
+    const fileRule = allFields.find(item => item.role === spec.role && item.field === spec.field && item.test.kind === 'file')?.test;
     const compared = test.kind === 'differs' || test.kind === 'same' || test.kind === 'less' || test.kind === 'aspect' || test.kind === 'sameFamily' ? byId.get(roles[test.role]) : undefined;
     out.push({
       kind: 'field',
@@ -607,6 +616,7 @@ function missingOf(graph: LessonGraph, step: LessonStep, roles: Roles, facts: Le
       ...(verdict.untouched ? { untouched: true } : {}),
       ...(verdict.why ? { why: verdict.why } : {}),
       ...(spec.why ? { reason: spec.why } : {}),
+      ...(fileRule?.kind === 'file' ? { fileWant: fileRule.want } : {}),
     });
   }
   return out;
@@ -667,7 +677,7 @@ function hardProgress(lesson: Lesson, graph: LessonGraph, facts: LessonFacts, re
       // stays open and the step asks for a node of its own.
       const ways = [...fillings(graph, step.roles ?? [], start, NOTHING), ...(busy.size > 0 ? fillings(graph, step.roles ?? [], start, busy) : [])];
       for (const filled of ways) {
-        const missing = missingOf(graph, step, filled, facts);
+        const missing = missingOf(graph, step, filled, facts, lesson.steps.flatMap(item => item.fields ?? []));
         // A node that works for another part of the graph is not taken apart: a way that moves a link of such a
         // node to give it a new role is no way. With an input still empty it is simply a node being wired.
         const tearsApart = missing.some((item) => item.kind === 'link' && item.fedBy !== null && item.fedBy !== item.from.nodeId
@@ -846,12 +856,14 @@ export function fixFor(
   }
   if (missing.test.kind === 'file' && choices) {
     const want = missing.test.want;
-    const value = choices(missing.nodeId, missing.field).find((option): option is string => typeof option === 'string' && fileMiss(option, want, facts?.families?.[option]) === null);
+    const value = choices(missing.nodeId, missing.field).find((option): option is string => typeof option === 'string' && fileMiss(option, want, facts?.families?.[option]) === null && (!want.families || familyOfFile(option, facts?.families?.[option]) !== 'unknown'));
     return value ? { kind: 'set-field', nodeId: missing.nodeId, field: missing.field, value } : null;
   }
   if (missing.test.kind === 'differs' && choices) {
     const taken = missing.other?.value;
-    const value = choices(missing.nodeId, missing.field).find((option) => option !== taken && (typeof option === 'string' || typeof option === 'number'));
+    const value = choices(missing.nodeId, missing.field).find((option) => option !== taken && (typeof option === 'string' || typeof option === 'number')
+      && (!missing.fileWant || (typeof option === 'string' && fileMiss(option, missing.fileWant, facts?.families?.[option]) === null
+        && (!missing.fileWant.families || familyOfFile(option, facts?.families?.[option]) !== 'unknown'))));
     return typeof value === 'string' || typeof value === 'number' ? { kind: 'set-field', nodeId: missing.nodeId, field: missing.field, value } : null;
   }
   if (missing.test.kind === 'aspect' && missing.other) {

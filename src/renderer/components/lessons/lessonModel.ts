@@ -39,7 +39,8 @@ import { useKnowledgeStore } from '../../state/knowledgeState';
 import { useUiStore } from '../../state/uiState';
 import { fieldValue } from '../fields/fieldModel';
 import { useCanvasStore } from '../graph/canvasStore';
-import { commitManual } from '../graph/commit';
+import { captureEditOrigin, commitAtOrigin, requireEditOrigin } from '../graph/lib/editOrigin';
+import { trackCommit } from '../../services/commands/pending';
 import type { PositionedNode } from '../graph/lib/geometry';
 import { layoutRect, newNodeSize, sizeHintsOf } from '../graph/lib/nodeSizes';
 import { useNodeInfoStore } from '../graph/nodeInfo';
@@ -144,9 +145,18 @@ export function useLessonGraph(details: Details): LessonGraph {
 
 /** The core LoRA loaders: their lora_name list is LoRA files even when the catalog names no folder. */
 const LORA_CLASSES = new Set(['LoraLoaderModelOnly', 'LoraLoader']);
+/** Trigger sources come from the lesson rules, including Wrapper and future built-in lessons. */
+const triggerFields = new Set(LESSONS.flatMap(lesson => lesson.steps.flatMap(step => (step.fields ?? []).flatMap(spec => {
+  if (spec.test.kind !== 'has-trigger') return [];
+  return spec.test.of.flatMap(source => {
+    const classes = 'classType' in source ? [source.classType] : lesson.steps.flatMap(item => item.roles ?? []).find(role => role.role === source.role)?.classes ?? [];
+    return classes.map(name => `${name}/${source.field}`);
+  });
+}))));
 /** What a model file's own description says: its trigger words and its base model family. */
 interface FileFacts {
   triggers: string[];
+  status: 'ready' | 'unavailable';
   family: BaseModelFamily;
 }
 /**
@@ -175,7 +185,7 @@ export function modelFilesOf(graph: LessonGraph, details: Details): Array<{ dire
     const inputs = details[node.classType]?.inputs ?? [];
     for (const [field, value] of Object.entries(node.values)) {
       if (typeof value !== 'string' || value === '') continue;
-      const directory = LORA_CLASSES.has(node.classType) && field === 'lora_name' ? 'loras' : inputs.find((input) => input.name === field)?.spec?.modelDirectory;
+      const directory = ((LORA_CLASSES.has(node.classType) && field === 'lora_name') || triggerFields.has(`${node.classType}/${field}`)) ? 'loras' : inputs.find((input) => input.name === field)?.spec?.modelDirectory;
       if (directory) out.set(`${directory}/${value}`, { directory, name: value });
     }
   }
@@ -205,7 +215,7 @@ export function useLessonFacts(graph: LessonGraph, details: Details = {}): Lesso
         // An answer asked under an older stamp may be stale: the read under the new stamp fills the entry.
         if (fileCacheStamp !== stamp) return;
         // A family guessed only from the file name is not trusted: the lesson would judge the file by its name.
-        fileCache.set(id, { triggers: detail?.triggerWords ?? [], family: detail && detail.baseModelEvidence !== 'filename' ? detail.baseModel : 'unknown' });
+        fileCache.set(id, { triggers: detail?.triggerWords ?? [], status: detail && (detail.enrichedAt != null || detail.triggerWords.length > 0 || detail.description.trim()) ? 'ready' : 'unavailable', family: detail && detail.baseModelEvidence !== 'filename' ? detail.baseModel : 'unknown' });
         if (live) setVersion((value) => value + 1);
       });
     }
@@ -218,12 +228,13 @@ export function useLessonFacts(graph: LessonGraph, details: Details = {}): Lesso
   return useMemo(() => {
     const triggers: Record<string, string[]> = {};
     const families: Record<string, BaseModelFamily> = {};
+    const triggerStatus: NonNullable<LessonFacts['triggerStatus']> = {};
     for (const file of files) {
       const known = fileCache.get(`${file.directory}/${file.name}`);
-      if (file.directory === 'loras') triggers[file.name] = known?.triggers ?? [];
+      if (file.directory === 'loras') { triggers[file.name] = known?.triggers ?? []; triggerStatus[file.name] = known?.status ?? 'pending'; }
       if (known && known.family !== 'unknown') families[file.name] = known.family;
     }
-    return { triggers, families };
+    return { triggers, families, triggerStatus };
   }, [files, version]); // eslint-disable-line react-hooks/exhaustive-deps
 }
 
@@ -307,6 +318,8 @@ export async function doFix(fix: StepFix, place?: FixPlace): Promise<void> {
     showToast({ id: 'lesson-in-subgraph', tone: 'info', title: String(i18n.t('lessons.inSubgraph')), duration: 5000 });
     return;
   }
+  const origin = captureEditOrigin();
+  await trackCommit(async () => {
   let payload: GraphMutation;
   const before = new Set(useGraphStore.getState().nodes.map((node) => node.id));
   if (fix.kind === 'add-node') {
@@ -320,10 +333,12 @@ export async function doFix(fix: StepFix, place?: FixPlace): Promise<void> {
     payload = { type: 'set-parameter', nodeId: fix.nodeId, key: fix.field, value: fix.value };
   }
   // The change goes to the root level, where lessons live (the guard above already stops it inside a subgraph).
-  await commitManual(payload, 'lesson', { level: 'root' });
+  if (!requireEditOrigin(origin)) return;
+  await commitAtOrigin(origin, payload, 'lesson');
   // The person sees what was done: the canvas goes to the node the change is on, a new node included.
   const shown = fix.kind === 'connect' ? fix.to : fix.kind === 'set-field' ? fix.nodeId : useGraphStore.getState().nodes.find((node) => !before.has(node.id))?.id;
-  if (shown) useCanvasStore.getState().requestCenter(shown);
+  if (shown && requireEditOrigin(origin)) useCanvasStore.getState().requestCenter(shown);
+  });
 }
 
 /** The name a person reads for a node on the canvas: its title, else its class as the library shows it. */

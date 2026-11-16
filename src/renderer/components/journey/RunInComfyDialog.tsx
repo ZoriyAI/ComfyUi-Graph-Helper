@@ -18,6 +18,7 @@ import { readFlag, SEEN_KEYS, useJourneyStore, writeFlag } from '../../state/jou
 import { useUiStore } from '../../state/uiState';
 import { exportedFileName } from '../../commands/actions';
 import styles from './Journey.module.css';
+import MemoryPanel from '../assistant/MemoryPanel';
 
 /** The card; JourneyHost.tsx mounts it, journeyState's dialog 'run' opens it. */
 export default function RunInComfyDialog() {
@@ -49,6 +50,7 @@ export default function RunInComfyDialog() {
             <DialogDescription id="journey-run-lead" className={styles.lead}>{t('journey.run.lead')}</DialogDescription>
           </header>
           <div className={styles.body}>
+            {open ? <MemoryPanel /> : null}
             <ol className={styles.steps}>
               <li className={styles.step} data-run-step="open">
                 <span className={styles.number} aria-hidden="true">1</span>

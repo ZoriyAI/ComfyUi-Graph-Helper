@@ -1,5 +1,7 @@
+/** Registers the desktop IPC operations used by the renderer and the paired browser bridge. */
 import { serviceController } from './services/systemd';
 import { localModelStatus, controlLocalModel } from './llm/localModels';
+import { assistantMemory } from './llm/memoryLifecycle';
 /**
  * The IPC setup of the main process: setupIPC (called once by main/index.ts after the database opens) holds the
  * saved keys and tokens again, applies the network settings, registers every area's handlers (ipc/*.ts) and
@@ -22,7 +24,7 @@ import { getDatabase } from './database';
 import { reseedCoreKnowledge } from './knowledge/seedCore';
 import { KEYED, mainLLMService, type KeySource } from './llmService';
 import { applyNetworkSettings } from './llm/network';
-import { attemptSaveSecret, forgetProviderKey, forgetSecret, migrateLegacyProviderKey, readProviderKeyCipher, readSecretCipher, readSettings, saveNamedSecretIfProven, saveSecretIfProven, saveSettings, saveViewPreferences } from './settings/repository';
+import { attemptSaveSecret, forgetProviderKey, forgetSecret, migrateLegacyProviderKey, readProviderKeyCipher, readSecretCipher, readSettings, saveNamedSecretIfProven, saveSecretIfProven, saveSettings, saveViewPreferences, savePreferencesPatch, saveDetectedMcpAuth, settingsRevision } from './settings/repository';
 import { secretStatus } from './settings/secretDecision';
 import { isUnprotectedCipher } from '../shared/config/secretPolicy';
 import { checkComfy } from './comfy/direct';
@@ -422,6 +424,12 @@ export async function setupIPC(): Promise<void> {
 
   ipcMain.handle(IPC_CHANNELS.SETTINGS_SAVE_VIEW, (_event, patch: unknown) => saveViewPreferences(getDatabase(), patch));
 
+  ipcMain.handle(IPC_CHANNELS.SETTINGS_PATCH_PREFERENCES, async (_event, patch: unknown) => {
+    const result = savePreferencesPatch(getDatabase(), patch);
+    if (result.ok) { await applyBrowserAccess(); void applyNetworkSettings(getDatabase()); }
+    return result;
+  });
+
   ipcMain.handle(IPC_CHANNELS.SETTINGS_SAVE, async (_event, input: unknown) => {
     const before = savedEndpoints();
     const result = saveSettings(getDatabase(), input);
@@ -565,11 +573,15 @@ export async function setupIPC(): Promise<void> {
   });
 
   // Settings ▸ Connection "Check": what this server wants from a connection, found out by trying, never by assuming.
-  ipcMain.handle(IPC_CHANNELS.MCP_DETECT_AUTH, async (_event, forUrl?: unknown) => {
+  ipcMain.handle(IPC_CHANNELS.MCP_DETECT_AUTH, async (_event, forUrl?: unknown, expectedAuth?: unknown) => {
     const url = typeof forUrl === 'string' && forUrl.length > 0 && forUrl.length <= 2000 ? forUrl : savedEndpoints().mcpUrl;
     if (!url) return { ok: false as const, error: 'MCP server URL is empty.' };
     // A held token is tried against a 401, so "Check" also says whether the pasted token is accepted.
-    return detectMcpAuth(url, { token: mcpTokenFor(url) });
+    const revision = settingsRevision(getDatabase());
+    const result = await detectMcpAuth(url, { token: mcpTokenFor(url) });
+    const stored = result.ok && typeof expectedAuth === 'string'
+      ? saveDetectedMcpAuth(getDatabase(), { url, auth: expectedAuth, revision }, result.mode) : null;
+    return stored ? { ...result, stored } : result;
   });
 
   ipcMain.handle(IPC_CHANNELS.MCP_SET_TOKEN, (_event, value: unknown, forUrl?: unknown) => {
@@ -721,6 +733,7 @@ export async function setupIPC(): Promise<void> {
 
   // Settings ▸ Assistant ▸ Test connection: one tiny request with the draft runtime and the held key.
   ipcMain.handle(IPC_CHANNELS.LLM_PROBE, async (_event, draft: unknown) => {
+    if (assistantMemory.resume().paused) return { ok: false, error: 'Memory release is still running. Please wait.' };
     const input = draft && typeof draft === 'object' ? draft as Record<string, unknown> : {};
     const base = draftBaseUrl(input.baseURL);
     const result = await mainLLMService.probe({ provider: input.provider, model: input.model, baseURL: base.url });
@@ -737,6 +750,7 @@ export async function setupIPC(): Promise<void> {
 
   // Settings ▸ Assistant: an Ollama copy of the model with a larger context window, made only on the person's click.
   ipcMain.handle(IPC_CHANNELS.LLM_OLLAMA_WINDOW, async (_event, draft: unknown, window: unknown, style: unknown = 'model') => {
+    if (assistantMemory.resume().paused) return { ok: false, error: 'Memory release is still running. Please wait.' };
     const input = (draft && typeof draft === 'object' ? draft : {}) as { provider?: unknown; model?: unknown; baseURL?: unknown };
     const size = typeof window === 'number' && Number.isFinite(window) ? window : 0;
     if (style !== 'model' && style !== 'focused' && style !== 'creative') return { ok: false, error: 'Local model style is not valid.' };
@@ -754,7 +768,20 @@ export async function setupIPC(): Promise<void> {
   ipcMain.handle(IPC_CHANNELS.LLM_LOCAL_CONTROL, async (_event, draft: unknown, model: unknown, action: unknown) => {
     const input = draft && typeof draft === 'object' ? draft as Record<string, unknown> : {};
     if (input.provider !== 'local' || typeof input.baseURL !== 'string' || typeof model !== 'string' || (action !== 'load' && action !== 'unload')) return { ok: false, error: 'Ollama model management is unavailable at this address.' };
-    return controlLocalModel(String(draftBaseUrl(input.baseURL).url), model, action, globalThis.fetch);
+    const baseURL = String(draftBaseUrl(input.baseURL).url);
+    if (action === 'load') {
+      if (assistantMemory.resume().paused) return { ok: false, error: 'Memory release is still running. Please wait.' };
+      assistantMemory.track({ provider: 'local', baseURL, model });
+    }
+    return controlLocalModel(baseURL, model, action, action === 'load' ? assistantMemory.fetch() : globalThis.fetch);
+  });
+
+  ipcMain.handle(IPC_CHANNELS.ASSISTANT_MEMORY_STATUS, () => assistantMemory.status());
+  ipcMain.handle(IPC_CHANNELS.ASSISTANT_MEMORY_RELEASE, async () => {
+    const result = await assistantMemory.release(); browserChanged(); return result;
+  });
+  ipcMain.handle(IPC_CHANNELS.ASSISTANT_MEMORY_RESUME, () => {
+    const result = assistantMemory.resume(); browserChanged(); return result;
   });
 
   // Settings ▸ Assistant ▸ Find local servers: the MCP server's Ollama targets (read-only tools) and loopback probes.

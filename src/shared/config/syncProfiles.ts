@@ -1,3 +1,4 @@
+/** Maps named synchronization speed and interval choices to the existing bounded preferences. */
 import { ENRICH_PAUSE_MS, ENRICH_PER_RUN, type Preferences } from './preferences';
 
 /** Preferences remain the source of truth: old/custom numeric values are never replaced on read. */

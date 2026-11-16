@@ -11,6 +11,8 @@ interface ChatState {
   messages: ChatMessage[];
   isStreaming: boolean;
   isPaused: boolean;
+  historyState: 'idle' | 'loading' | 'loaded' | 'error';
+  clearEpoch: number;
 
   // Actions
   addMessage: (message: ChatMessage) => void;
@@ -25,6 +27,8 @@ export const useChatStore = create<ChatState>((set) => ({
   messages: [],
   isStreaming: false,
   isPaused: false,
+  historyState: 'idle',
+  clearEpoch: 0,
 
   addMessage: (message) =>
     set((state) => ({ messages: [...state.messages, message] })),
@@ -40,5 +44,5 @@ export const useChatStore = create<ChatState>((set) => ({
 
   setPaused: (paused) => set({ isPaused: paused }),
 
-  clearChat: () => set({ messages: [], isStreaming: false, isPaused: false }),
+  clearChat: () => set(state => ({ messages: [], isStreaming: false, isPaused: false, historyState: 'loaded', clearEpoch: state.clearEpoch + 1 })),
 }));

@@ -48,10 +48,12 @@ export interface MyLessonsShared {
 export function useMyLessons(): MyLesson[] {
   const lessons = useMyLessonsStore((state) => state.lessons);
   const loaded = useMyLessonsStore((state) => state.loaded);
+  const loading = useMyLessonsStore((state) => state.loading);
+  const error = useMyLessonsStore((state) => state.error);
   const refresh = useMyLessonsStore((state) => state.refresh);
   useEffect(() => {
-    if (!loaded) void refresh();
-  }, [loaded, refresh]);
+    if (!loaded && !loading && !error) void refresh();
+  }, [loaded, loading, error, refresh]);
   return lessons;
 }
 

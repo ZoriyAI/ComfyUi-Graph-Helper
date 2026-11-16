@@ -20,6 +20,8 @@ import { isMyLessonId } from '../../shared/lessons/share/mine';
 type Stored = Preferences['lessons'];
 
 interface LessonState extends Stored {
+  persistence: 'saved' | 'saving' | 'failed';
+  retrySave: () => void;
   /** The helper panel shows lessons instead of the conversation. */
   learning: boolean;
   setLearning: (learning: boolean) => void;
@@ -54,13 +56,20 @@ interface LessonState extends Stored {
 }
 
 /** Saves the stored part; `reached` and `learning` are for this session only. */
+let saveTicket = 0;
 function save(state: Stored): void {
-  void savePreferencesPatch({ lessons: { active: state.active, read: state.read, done: state.done, answers: state.answers, outcomes: state.outcomes } });
+  const ticket = ++saveTicket;
+  useLessonStore.setState({ persistence: 'saving' });
+  void savePreferencesPatch({ lessons: { active: state.active, read: state.read, done: state.done, answers: state.answers, outcomes: state.outcomes } }).then(ok => {
+    if (ticket === saveTicket) useLessonStore.setState({ persistence: ok ? 'saved' : 'failed' });
+  }).catch(() => { if (ticket === saveTicket) useLessonStore.setState({ persistence: 'failed' }); });
 }
 
 /** The open lesson, what was read and finished, and whether the panel is in Learn mode. */
 export const useLessonStore = create<LessonState>((set, get) => ({
   learning: false,
+  persistence: 'saved',
+  retrySave: () => save(get()),
   active: '',
   read: {},
   done: [],
@@ -138,6 +147,7 @@ export const useLessonStore = create<LessonState>((set, get) => ({
     save(get());
   },
   hydrate: (stored) => {
+    if (get().persistence !== 'saved') return;
     // A profile saved before version 1.1 has no answers or outcomes yet.
     set({ active: stored.active, read: stored.read, done: stored.done, answers: stored.answers ?? {}, outcomes: stored.outcomes ?? {} });
     // A lesson that was open when the app closed is on screen again at once, at the step the canvas is at; a lesson

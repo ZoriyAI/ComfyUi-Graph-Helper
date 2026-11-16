@@ -241,6 +241,11 @@ export async function exportWorkflowNow(secrets?: 'omit' | 'keep'): Promise<void
   // The bridge to ComfyUI: how to open and run the file there, unless the person turned the card off.
   lastExportName = result.fileName ?? '';
   if (!readFlag(SEEN_KEYS.runCard)) useJourneyStore.getState().open('run');
+  else {
+    // A loaded assistant can compete with ComfyUI even when the introductory card was hidden earlier.
+    const memory = await window.electronAPI.assistantMemoryStatus().catch(() => null);
+    if (memory && !memory.paused && memory.models.length > 0) useJourneyStore.getState().open('run');
+  }
 }
 
 /** File ▸ Open project: asks first when the graph on screen is not in a project file as it stands. */

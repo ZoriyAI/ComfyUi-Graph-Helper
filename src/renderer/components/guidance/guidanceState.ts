@@ -4,24 +4,27 @@ import type { ObjectRef } from '../../../shared/contracts/objects';
 import type { GuideCategory } from '../../../shared/guidance/catalog';
 import { captureEditOrigin, originIsCurrent, type EditOrigin } from '../graph/lib/editOrigin';
 import { useGraphStore } from '../../state/graphState';
+import { useProjectionStore } from '../../services/commands/projection';
 
 export interface GuideRequest {
   problemId: string;
   step: number;
   query: string;
   category: GuideCategory | '';
+  observed?: boolean;
+  observedRevision?: string;
   objectRef?: ObjectRef;
   origin: EditOrigin;
 }
 interface GuidanceState {
   open: boolean;
   request: GuideRequest | null;
-  update: (patch: Partial<Pick<GuideRequest, 'problemId' | 'step' | 'query' | 'category'>>) => void;
+  update: (patch: Partial<Pick<GuideRequest, 'problemId' | 'step' | 'query' | 'category' | 'observed'>>) => void;
   close: () => void;
 }
 export const useGuidanceStore = create<GuidanceState>((set) => ({
   open: false, request: null,
-  update: (patch) => set((state) => ({ request: state.request ? { ...state.request, ...patch } : null })),
+  update: (patch) => set((state) => ({ request: state.request ? { ...state.request, ...(patch.problemId !== undefined && patch.problemId !== state.request.problemId ? { observed: false } : {}), ...patch, ...(patch.observed ? { observedRevision: useProjectionStore.getState().currentRevisionId } : {}) } : null })),
   close: () => set({ open: false }),
 }));
 
@@ -41,4 +44,9 @@ export function guideObjectIsCurrent(request: GuideRequest): boolean {
   const graph = useGraphStore.getState();
   const nodes = request.origin.definitionId ? graph.subgraphs.find((d) => d.id === request.origin.definitionId)?.nodes ?? [] : graph.nodes;
   return nodes.some((node) => node.id === ref.id && (!ref.classType || node.data.comfyType === ref.classType));
+}
+
+/** An acknowledgement belongs to the graph the person actually inspected. */
+export function guideResultObserved(request: GuideRequest, revision: string): boolean {
+  return request.observed === true && request.observedRevision === revision;
 }

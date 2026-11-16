@@ -1,3 +1,4 @@
+/** Validates service discovery and lifecycle requests shared by desktop and browser clients. */
 import { z } from 'zod';
 
 export type ServiceScope = 'user' | 'system';

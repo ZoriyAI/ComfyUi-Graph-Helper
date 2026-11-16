@@ -8,6 +8,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import type Database from 'better-sqlite3';
+import { sanitizeNewCopy } from './databaseCopies';
 import type { Translator } from '../../shared/i18n';
 
 /** `declined`: the file is damaged and the person chose to quit; nothing more needs to be said. */
@@ -92,7 +93,7 @@ function stamp(now: Date): string {
 
 /**
  * Before the schema of an existing database is upgraded: a copy of it next to it, `<file>.before-v<to>.bak`
- * (copies made for earlier upgrades are removed, so there is one). Returns the copy's path, or null when no copy
+ * (older copies are retained). Credentials are removed before publication. Returns the copy's path, or null when no copy
  * was made (a new or in-memory database, too little free space, a read-only folder). Never throws: a missing copy
  * does not stop the upgrade, which itself runs in transactions.
  */
@@ -108,16 +109,16 @@ export function backupBeforeUpgrade(db: Database.Database, file: string, from: n
     const target = `${file}.before-v${to}.bak`;
     // Copied under a temporary name and renamed, so a crash mid-copy never leaves a half copy named as a backup.
     const partial = `${target}.part`;
-    fs.copyFileSync(file, partial);
+    // Never follow or overwrite an existing recovery copy, including one from a failed upgrade.
+    if (fs.existsSync(target)) return null;
+    fs.copyFileSync(file, partial, fs.constants.COPYFILE_EXCL);
+    fs.chmodSync(partial, 0o600);
+    sanitizeNewCopy(partial);
     fs.renameSync(partial, target);
     try {
       fs.chmodSync(target, 0o600);
     } catch {
       // The copy is already in the owner-only profile folder.
-    }
-    for (const name of fs.readdirSync(path.dirname(file))) {
-      const other = path.join(path.dirname(file), name);
-      if (other !== target && name.startsWith(`${path.basename(file)}.before-v`) && name.endsWith('.bak')) fs.rmSync(other, { force: true });
     }
     return target;
   } catch {

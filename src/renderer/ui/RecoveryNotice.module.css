@@ -1,0 +1,3 @@
+.notice { margin: 12px; padding: 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-panel); color: var(--text); font-size: var(--text-sm); overflow-wrap: anywhere; }
+.notice p { margin: 0 0 8px; }
+.notice button { min-height: 44px; }

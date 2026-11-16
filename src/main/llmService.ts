@@ -1,4 +1,6 @@
+/** Builds configured model clients and scopes their requests to the assistant memory lifecycle. */
 import type { LocalGenerationStyle } from '../shared/contracts/localModels';
+import { assistantMemory } from './llm/memoryLifecycle';
 /**
  * The main-process LLM service: holds the chat runtime (provider, model, address) and one key per provider, builds
  * the AI SDK model for a send, and streams a turn with tools to the caller. Keys live in this process only: pasted
@@ -314,12 +316,14 @@ class MainLLMService {
    * is not loaded yet, and remembers the number. Null for a cloud model or a server that does not say.
    */
   async ensureLocalWindow(fetchImpl: typeof fetch = (...args) => globalThis.fetch(...args)): Promise<number | null> {
+    if (assistantMemory.isPaused()) return null;
     const known = this.localContextTokens();
     if (known !== null) return known;
     const config = this.config;
     const key = this.windowKey(config);
     if (!config || !key || !config.baseURL || !localContextWatcher) return null;
-    const window = await loadAndReadContext(config.baseURL, config.model.trim(), fetchImpl);
+    assistantMemory.track(config);
+    const window = await loadAndReadContext(config.baseURL, config.model.trim(), assistantMemory.fetch(fetchImpl));
     if (window !== null) this.loadedWindows.set(key, window);
     return window;
   }
@@ -329,14 +333,19 @@ class MainLLMService {
    * `window` tokens. Only a local Ollama address; the person asks for it with the button.
    */
   async makeWindowVariant(draft: ProbeDraft, window: number, fetchImpl: typeof fetch = (...args) => globalThis.fetch(...args), style: LocalGenerationStyle = 'model'): Promise<WindowVariantResult> {
+    if (assistantMemory.isPaused()) return { ok: false, error: 'Assistant is paused.' };
     const base = typeof draft.baseURL === 'string' ? draft.baseURL.trim() : '';
     const model = typeof draft.model === 'string' ? draft.model.trim() : '';
     if (knownProvider(draft.provider) !== 'local' || !httpEndpoint(base) || model === '') return { ok: false, error: 'Local model has no endpoint.' };
     // The copy's window stays in a sane range: 4k to 256k tokens.
     const size = Number.isFinite(window) && window > 0 ? Math.max(4096, Math.min(262_144, Math.round(window))) : 0;
     const key = `${originOf(base)}|${model}`;
-    const result = await createWindowVariant(base, model, size, fetchImpl, 90_000, this.contextNeeds.get(key) ?? 0, style);
-    if (result.ok) this.loadedWindows.set(`${originOf(base)}|${result.model}`, result.contextTokens);
+    const result = await createWindowVariant(base, model, size, assistantMemory.fetch(fetchImpl), 90_000, this.contextNeeds.get(key) ?? 0, style,
+      name => assistantMemory.track({ provider: 'local', baseURL: base, model: name }));
+    if (result.ok) {
+      assistantMemory.track({ provider: 'local', baseURL: base, model: result.model });
+      this.loadedWindows.set(`${originOf(base)}|${result.model}`, result.contextTokens);
+    }
     return result;
   }
 
@@ -492,6 +501,7 @@ class MainLLMService {
 
   /** Why the next send would not leave this process, or null when it may. Checked before any client exists. */
   sendBlock(): string | null {
+    if (assistantMemory.isPaused()) return 'Assistant paused to free model memory for ComfyUI.';
     return this.blockFor(this.config);
   }
 
@@ -636,6 +646,8 @@ class MainLLMService {
 
   /** The AI SDK model for a runtime, with the key that belongs to its address; null when it cannot be built. */
   private modelFor(config: LLMConfig, fetchImpl?: typeof fetch): LanguageModel | null {
+    if (assistantMemory.isPaused()) return null;
+    assistantMemory.track(config);
     const { provider, model } = config;
 
     if (provider === 'test') {
@@ -649,7 +661,7 @@ class MainLLMService {
       if (!baseURL) return null;
       // Only the key held for this provider and this address; another provider's key is never a fallback.
       const apiKey = this.keyFor(provider, config.baseURL) ?? '';
-      const wire = { fetch: fetchImpl ?? transport };
+      const wire = { fetch: assistantMemory.fetch(fetchImpl ?? transport) };
       // OpenAI's own service reads the Responses interface; every compatible service (a gateway, a regional
       // provider) reads chat completions, the interface they all share.
       if (provider === 'compatible') return createOpenAI({ apiKey, baseURL, name: 'compatible', ...wire }).chat(model);
@@ -667,7 +679,7 @@ class MainLLMService {
         apiKey: this.keyFor('local', config.baseURL) ?? LOCAL_PLACEHOLDER,
         baseURL: config.baseURL,
         name: 'local',
-        ...(fetchImpl ? { fetch: fetchImpl } : {}),
+        fetch: assistantMemory.fetch(fetchImpl),
       });
       // Local OpenAI-compatible servers (Ollama at http://localhost:11434/v1, LM Studio, vLLM)
       // expose chat completions, not the Responses API.

@@ -7,14 +7,16 @@ import { Layers } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { SubgraphDefinition } from '../../../shared/contracts';
 import { useGraphStore } from '../../state/graphState';
-import { submitManual } from '../../services/commands/projection';
+import { captureEditOrigin, commitAtOrigin } from '../graph/lib/editOrigin';
+import { trackCommit } from '../../services/commands/pending';
+import type { CommandResponse } from '../../../shared/commands/types';
 import Button from '../../ui/Button';
 import EmptyState from '../../ui/EmptyState';
 import SearchField from '../../ui/SearchField';
 import { showToast } from '../../ui/toastStore';
 import { insertableSubgraphs } from './libraryModel';
 import { placeNewNode } from '../graph/placeNode';
-import { hasRefusalReason, reportRefusal, scopedToLevel } from '../graph/commit';
+import { hasRefusalReason, reportRefusal } from '../graph/commit';
 import { subgraphCardSize } from '../graph/lib/nodeSizes';
 import { subgraphSummary } from '../graph/SubgraphSummary';
 import { replayIsOpen } from '../../commands/replayGate';
@@ -40,28 +42,31 @@ export default function SubgraphLibrary() {
 
   const insert = async (definition: SubgraphDefinition) => {
     if (replayIsOpen(true)) return;
-    // The centre of the view, moved to the nearest spot where the new node covers nothing.
-    const position = await placeNewNode(null, { size: subgraphCardSize(definition) });
+    const origin = captureEditOrigin();
+    await trackCommit(async () => {
     try {
+      const position = await placeNewNode(null, { size: subgraphCardSize(definition) });
       // Into the level on screen; inside a subgraph the engine refuses one that would hold itself, and says so.
-      const result = await submitManual(`library-insert-${crypto.randomUUID()}`, scopedToLevel({
+      const result = await commitAtOrigin(origin, {
         type: 'insert-subgraph',
         definitionId: definition.id,
         x: position.x,
         y: position.y,
-      }));
+      }) as CommandResponse | null;
+      if (!result) return;
       if (result.status === 'applied') { requestWorkspacePanel('canvas'); showToast({ id: 'library-add', tone: 'success', title: String(t('library.inserted', { name: definition.name })), duration: 4000 }); }
       else if (hasRefusalReason(result)) reportRefusal(result);
       else showToast({ id: 'library-add', tone: 'error', title: String(t('library.insertFailed')) });
     } catch {
       showToast({ id: 'library-add', tone: 'error', title: String(t('library.insertFailed')) });
     }
+    });
   };
 
   if (subgraphs.length === 0) {
     return (
       <div className={styles.pane}>
-        <div className={styles.controls}><Button onClick={openTaskWizard}>{t('taskWizard.open')}</Button><Button onClick={() => openSubgraphWizard()}>{t('subgraphWizard.menu')}</Button></div>
+        <div className={styles.controls}><Button onClick={() => openTaskWizard()}>{t('taskWizard.open')}</Button><Button onClick={() => openSubgraphWizard()}>{t('subgraphWizard.menu')}</Button></div>
         <EmptyState icon={<Layers size={20} />} title={String(t('library.emptySubgraphsTitle'))}>
           {t('library.emptySubgraphsBody')}
         </EmptyState>
@@ -72,7 +77,7 @@ export default function SubgraphLibrary() {
   return (
     <div className={styles.pane}>
       <div className={styles.controls}>
-        <Button onClick={openTaskWizard}>{t('taskWizard.open')}</Button>
+        <Button onClick={() => openTaskWizard()}>{t('taskWizard.open')}</Button>
         <Button onClick={() => openSubgraphWizard()}>{t('subgraphWizard.menu')}</Button>
         <SearchField
           value={query}

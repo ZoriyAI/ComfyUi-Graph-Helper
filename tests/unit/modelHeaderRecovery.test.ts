@@ -1,3 +1,4 @@
+/** Exercises model header reading through recovered MCP sessions and direct fallback paths. */
 import { describe, expect, it } from 'vitest';
 import { readOnlySession, readSessionModelHeader } from '../../src/main/mcp/readOnly';
 import type { McpSession } from '../../src/shared/mcp/catalogSource';

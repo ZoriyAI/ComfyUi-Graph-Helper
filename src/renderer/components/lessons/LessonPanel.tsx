@@ -38,6 +38,7 @@ import PersonStep from './PersonStep';
 import { AboutLesson, OutcomeMarks, PlaceLine, ViewBar, storedOutcomes, storedStates, type LessonView } from './LessonViews';
 import { lackLines, lackText } from './lackText';
 import styles from './LessonPanel.module.css';
+import RecoveryNotice from '../../ui/RecoveryNotice';
 // The person's own lessons: their group, export buttons, the drop target for lesson files, the lesson editor.
 import { DropMark, GroupExportButton, LessonExportButton, MyLessonNotice, MyLessonsGroup, useLessonDrop, useMyLessons } from './MyLessons';
 import LessonEditor from './LessonEditor';
@@ -432,6 +433,10 @@ function LessonRun({ lesson, shared, onAsk }: { lesson: Lesson; shared: Shared; 
                 </div>
               ) : null}
               <div className={styles.actions}>
+                {first?.kind === 'field' && first.why?.kind === 'metadata' ? <>
+                  <Button size="sm" onClick={() => useUiStore.getState().bumpCatalog()}>{t('recovery.retryLoad')}</Button>
+                  <Button size="sm" onClick={() => useUiStore.getState().setDialog('sync-problems')}>{t('guidance.actions.sync')}</Button>
+                </> : null}
                 {first ? (
                   <Button
                     variant="primary" quiet size="sm" icon={<Crosshair size={14} />} disabled={inSubgraph}
@@ -514,6 +519,9 @@ function LessonRun({ lesson, shared, onAsk }: { lesson: Lesson; shared: Shared; 
 
 /** The Learn panel: the editor, an open lesson or the list. `onAsk` sends a question about a step to the chat. */
 export default function LessonPanel({ onAsk }: { onAsk: (question: string) => void }) {
+  const persistence = useLessonStore(state => state.persistence);
+  const loadError = useMyLessonsStore(state => state.error);
+  const loading = useMyLessonsStore(state => state.loading);
   const active = useLessonStore((state) => state.active);
   const adultOn = usePreferencesStore((state) => adultContentOn(state.preferences));
   const catalog = useLessonCatalog();
@@ -528,6 +536,8 @@ export default function LessonPanel({ onAsk }: { onAsk: (question: string) => vo
   const shared: Shared = { details: catalog.details, ports: catalog.ports, catalogRead: catalog.read, graph, facts, readFacts };
   return (
     <div className={`lesson-panel ${styles.panel}`} data-lesson={editing ? 'editor' : lesson?.id ?? 'list'}>
+      {persistence === 'failed' ? <RecoveryNotice kind="progress" saving retry={() => useLessonStore.getState().retrySave()} /> : null}
+      {loadError ? <RecoveryNotice kind="lessons" retry={() => void useMyLessonsStore.getState().refresh()} /> : loading ? <RecoveryNotice kind="lessons" loading /> : null}
       {editing ? <LessonEditor editing={editing} /> : lesson ? <LessonRun lesson={lesson} shared={shared} onAsk={onAsk} /> : <LessonList shared={shared} adultOn={adultOn} />}
     </div>
   );

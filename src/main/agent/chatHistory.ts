@@ -5,6 +5,7 @@
  * because the database is a plain file in the profile folder.
  */
 import type Database from 'better-sqlite3';
+import { eraseCopyRows, erasePrivateRows } from '../settings/databaseCopies';
 import { z } from 'zod';
 import { redactSecrets } from '../../shared/agent/redact';
 import { mainLLMService } from '../llmService';
@@ -27,6 +28,7 @@ const chatRecordSchema = z.object({
   timestamp: z.number().int().nonnegative(),
   graphRevisionId: z.string().max(200).nullable(),
   toolCalls: z.array(z.unknown()).nullable(),
+  failed: z.boolean().optional(),
 });
 
 export type { ChatSaveResult } from '../../shared/contracts';
@@ -71,8 +73,8 @@ export function saveChatMessage(
   }
   try {
     db.prepare(`
-      INSERT OR REPLACE INTO chat_messages (id, project_id, role, content, timestamp, graph_revision_id, tool_calls)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      INSERT OR REPLACE INTO chat_messages (id, project_id, role, content, timestamp, graph_revision_id, tool_calls, failed)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       record.id,
       record.projectId,
@@ -81,6 +83,7 @@ export function saveChatMessage(
       record.timestamp,
       record.graphRevisionId,
       toolCalls,
+      record.failed === true ? 1 : 0,
     );
   } catch {
     return { ok: false, error: 'Chat message could not be stored.' };
@@ -126,12 +129,12 @@ export function loadChatHistory(db: Database.Database, projectId: unknown, page?
   const rows = (limit === null && !anchor
     ? db.prepare(`
     SELECT * FROM (
-      SELECT id, project_id, role, content, timestamp, graph_revision_id, tool_calls, rowid AS seq
+      SELECT id, project_id, role, content, timestamp, graph_revision_id, tool_calls, failed, rowid AS seq
       FROM chat_messages WHERE project_id = ?
     ) ORDER BY timestamp ASC, seq ASC
   `).all(projectId)
     : db.prepare(`
-    SELECT id, project_id, role, content, timestamp, graph_revision_id, tool_calls, rowid AS seq
+    SELECT id, project_id, role, content, timestamp, graph_revision_id, tool_calls, failed, rowid AS seq
     FROM chat_messages
     WHERE project_id = ? AND (? IS NULL OR timestamp < ? OR (timestamp = ? AND rowid < ?))
     ORDER BY timestamp DESC, seq DESC LIMIT ?
@@ -147,6 +150,7 @@ export function loadChatHistory(db: Database.Database, projectId: unknown, page?
       timestamp: Number(row.timestamp),
       graphRevisionId: typeof row.graph_revision_id === 'string' ? row.graph_revision_id : null,
       toolCalls: parseToolCalls(row.tool_calls),
+      ...(row.failed === 1 ? { failed: true } : {}),
     }];
   });
 }
@@ -155,8 +159,10 @@ export function loadChatHistory(db: Database.Database, projectId: unknown, page?
 export function clearChatHistory(db: Database.Database, projectId: unknown): { ok: true; removed: number } | { ok: false; error: string } {
   if (typeof projectId !== 'string' || projectId === '' || projectId.length > 200) return { ok: false, error: 'Chat history could not be cleared.' };
   try {
-    const result = db.prepare('DELETE FROM chat_messages WHERE project_id = ?').run(projectId);
-    return { ok: true, removed: result.changes };
+    const result = erasePrivateRows(db, 'chat_messages', 'project_id = ?', [projectId]);
+    const copies = eraseCopyRows(db.name, 'chat_messages', 'project_id = ?', [projectId]);
+    if (!result.compacted || copies.unverified) return { ok: false, error: 'Chat history could not be cleared.' };
+    return { ok: true, removed: result.records };
   } catch {
     return { ok: false, error: 'Chat history could not be cleared.' };
   }

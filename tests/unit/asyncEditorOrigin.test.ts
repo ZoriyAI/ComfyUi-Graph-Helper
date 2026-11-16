@@ -6,6 +6,7 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import Database from 'better-sqlite3';
+import { addNote } from '../../src/renderer/commands/editingCommands';
 import { addCheckedNode, addTypedNode } from '../../src/renderer/components/graph/AddNodeSearch';
 import { addNodeFromLibrary } from '../../src/renderer/components/library/NodeLibrary';
 import { addModelLoader, putModelIntoNode, selectedLoaderFor } from '../../src/renderer/components/library/placeModel';
@@ -57,6 +58,17 @@ beforeEach(() => {
 });
 
 describe('async editor origin', () => {
+  it('keeps a pending note on its original level and tracks it from the gesture', async () => {
+    const placement = deferred<{ x: number; y: number }>();
+    vi.mocked(placeNewNode).mockReturnValueOnce(placement.promise);
+    const adding = addNote();
+    expect(pendingCommits()).toBeGreaterThan(0);
+    useGraphStore.setState({ activeSubgraphId: 'B' });
+    placement.resolve({ x: 100, y: 100 }); await adding;
+    expect(command).not.toHaveBeenCalled();
+    expect(pendingCommits()).toBe(0);
+  });
+
   it('captures the typed-search gesture before its first await', async () => {
     const search = deferred<any[]>();
     api.searchNodeTypes.mockReturnValueOnce(search.promise);

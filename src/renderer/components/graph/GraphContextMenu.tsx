@@ -26,6 +26,8 @@ import { useCanvasStore } from './canvasStore';
 import { commitManual } from './commit';
 import { boundsOf, nodeRect, ghostNodePosition, GHOST_SIZE } from './lib/geometry';
 import { subgraphCardSize } from './lib/nodeSizes';
+import { captureEditOrigin, commitAtOrigin } from './lib/editOrigin';
+import { trackCommit } from '../../services/commands/pending';
 import { placeNewNode } from './placeNode';
 import { edgeRef, nodeRef, portRef } from './lib/selection';
 import { selectOnLevel } from './lib/level';
@@ -45,8 +47,11 @@ import { openGuidance } from '../guidance/guidanceState';
  * where it covers no node.
  */
 async function insertSubgraphAt(definition: { id: string; name: string; inputs: unknown[]; outputs: unknown[] }, at: { x: number; y: number }): Promise<void> {
-  const spot = await placeNewNode(at, { size: subgraphCardSize(definition) });
-  await commitManual({ type: 'insert-subgraph', definitionId: definition.id, x: spot.x, y: spot.y });
+  const origin = captureEditOrigin();
+  await trackCommit(async () => {
+    const spot = await placeNewNode(at, { size: subgraphCardSize(definition) });
+    await commitAtOrigin(origin, { type: 'insert-subgraph', definitionId: definition.id, x: spot.x, y: spot.y });
+  });
 }
 
 /** What the person right-clicked (or pressed Shift+F10 on). */

@@ -184,27 +184,57 @@ export class ChatService {
   private currentBaseRevisionId: string | null = null;
   private currentRunId: string | null = null;
   private historyLoaded = false;
+  private loadingHistory: Promise<void> | null = null;
+  private pendingRuns = new Set<Promise<unknown>>();
+  private writes = new Map<string, number>();
+  private pendingWrites = new Set<Promise<void>>();
+  private clearingHistory = false;
   /** Increments per turn and on cancel, so a finished or cancelled turn cannot flip the state of a newer one. */
   private turnToken = 0;
   /** A run reopened by resume(): the next turn continues it instead of starting a new run. */
   private resumed: { runId: string; expectedRevisionId: string } | null = null;
 
-  /** Loads saved messages once per project when the chat is still empty. Safe to call more than once. */
+  /** A failed read is retryable. Merge by id so a new turn never hides earlier saved messages. */
   async loadHistory(projectId: string = DESKTOP_PROJECT_ID): Promise<void> {
     if (this.historyLoaded) return;
-    this.historyLoaded = true;
+    if (this.loadingHistory) return this.loadingHistory;
     const load = window.electronAPI?.loadChatHistory;
     if (typeof load !== 'function') return;
-    try {
-      // The newest page only; older messages come when the person scrolls up (loadEarlier).
-      const records = await load(projectId, { limit: CHAT_PAGE_SIZE });
-      const state = useChatStore.getState();
-      if (!Array.isArray(records) || records.length === 0 || state.messages.length > 0 || state.isStreaming) return;
-      this.olderLeft = records.length >= CHAT_PAGE_SIZE;
-      useChatStore.setState({ messages: records.map(messageFromChatRecord) });
-    } catch (error) {
-      console.warn('[ChatService] Chat history could not be loaded:', errorText(error));
-    }
+    const epoch = useChatStore.getState().clearEpoch;
+    useChatStore.setState({ historyState: 'loading' });
+    this.loadingHistory = (async () => {
+      try {
+        const records = await load(projectId, { limit: CHAT_PAGE_SIZE });
+        if (!Array.isArray(records)) throw new Error('Invalid chat history');
+        this.historyLoaded = true;
+        if (epoch !== useChatStore.getState().clearEpoch) return;
+        this.olderLeft = records.length >= CHAT_PAGE_SIZE;
+        useChatStore.setState(state => {
+          const messages = new Map(records.map(record => [record.id, messageFromChatRecord(record)]));
+          for (const message of state.messages) messages.set(message.id, message);
+          return { messages: [...messages.values()].sort((a, b) => a.timestamp - b.timestamp), historyState: 'loaded' };
+        });
+      } catch (error) {
+        if (epoch === useChatStore.getState().clearEpoch) useChatStore.setState({ historyState: 'error' });
+        console.warn('[ChatService] Chat history could not be loaded:', errorText(error));
+      }
+    })().finally(() => { this.loadingHistory = null; });
+    return this.loadingHistory;
+  }
+
+  /** Cancellation owns a startup even before main has returned its run id. */
+  private async acquireRun(token: number, resume = false) {
+    const pending = (async () => {
+      const started = await (resume ? window.electronAPI.resumeRun(DESKTOP_PROJECT_ID) : window.electronAPI.startRun(DESKTOP_PROJECT_ID));
+      if (token !== this.turnToken) {
+        const result = await window.electronAPI.cancelRun(DESKTOP_PROJECT_ID, started.runId);
+        if (!this.isStreaming && result?.projection) applyProjection(result.projection);
+        return null;
+      }
+      return started;
+    })();
+    this.pendingRuns.add(pending);
+    try { return await pending; } finally { this.pendingRuns.delete(pending); }
   }
 
   /** True while older stored messages may exist beyond those shown. */
@@ -237,18 +267,35 @@ export class ChatService {
     }
   }
 
-  /** Saves one message to main's chat store; a refusal is logged, never shown. */
+  /** A refused write stays visible. Retrying the same id never duplicates a stored message. */
   private persist(message: ChatMessage | undefined): void {
     const save = window.electronAPI?.saveChatMessage;
-    if (!message || typeof save !== 'function') return;
+    if (!message || this.clearingHistory || typeof save !== 'function') return;
     const revision = useRevisionStore.getState().currentRevisionId;
     const record = chatRecordFromMessage(message, DESKTOP_PROJECT_ID, revision || null);
-    void Promise.resolve()
-      .then(() => save(record))
-      .then((result) => {
-        if (result && result.ok === false) console.warn('[ChatService] Message not stored:', (result as { error?: string }).error ?? 'refused');
-      })
-      .catch((error: unknown) => console.warn('[ChatService] Message not stored:', errorText(error)));
+    const ticket = (this.writes.get(message.id) ?? 0) + 1;
+    this.writes.set(message.id, ticket);
+    useChatStore.getState().updateMessage(message.id, { persistence: 'saving' });
+    const finish = (failed: boolean) => {
+      if (this.writes.get(message.id) === ticket) useChatStore.getState().updateMessage(message.id, { persistence: failed ? 'failed' : undefined });
+    };
+    const work = Promise.resolve().then(() => save(record)).then(result => finish(!result || result.ok !== true)).catch(() => finish(true));
+    this.pendingWrites.add(work);
+    void work.finally(() => this.pendingWrites.delete(work));
+  }
+  /** Drain already accepted writes before deletion; a late answer cannot recreate the cleared history. */
+  async clearHistory(): Promise<{ ok: true; removed: number } | { ok: false; error: string }> {
+    this.clearingHistory = true;
+    try {
+      await this.cancelAndWait();
+      await Promise.allSettled([...this.pendingWrites]);
+      const result = await window.electronAPI.clearChatHistory(DESKTOP_PROJECT_ID);
+      if (result.ok) { useChatStore.getState().clearChat(); this.olderLeft = false; }
+      return result;
+    } finally { this.clearingHistory = false; }
+  }
+  retrySaving(): void {
+    for (const message of useChatStore.getState().messages) if (message.persistence === 'failed') this.persist(message);
   }
 
   /**
@@ -256,15 +303,16 @@ export class ChatService {
    * a partial context is completed from those defaults.
    */
   async sendMessage(content: string, context?: Partial<AgentTurnContext>): Promise<void> {
-    if (this.isStreaming) {
+    if (this.isStreaming || this.clearingHistory) {
       console.warn('[ChatService] Already streaming');
       return;
     }
     const turn = completeContext(context);
     // A build changes the real graph; History replay shows an old version read-only. The replay closes first, so
     // the person sees what the helper builds and nothing changes behind the replay.
-    if (turn.intent === 'build') closeReplayForBuild();
+    if (turn.intent !== 'ask') closeReplayForBuild();
     const token = ++this.turnToken;
+    if (!this.resumed) this.currentRunId = null;
     const current = () => token === this.turnToken;
 
     this.isStreaming = true;
@@ -309,6 +357,7 @@ export class ChatService {
       // No provider means nothing can be sent. Say so in the chat instead of failing a stream.
       const getConfig = window.electronAPI?.llmGetConfig;
       const config = typeof getConfig === 'function' ? await getConfig().catch(() => null) : null;
+      if (!current()) return;
       provider = config?.provider ?? '';
       if (config && !config.provider) {
         addMessage({ id: newId(), role: 'assistant', content: translate('chat.noProvider'), timestamp: Date.now() });
@@ -321,7 +370,9 @@ export class ChatService {
         run = this.resumed;
         this.resumed = null;
       } else {
-        const started = await window.electronAPI.startRun(DESKTOP_PROJECT_ID);
+        const started = await this.acquireRun(token);
+        if (!started) return;
+        if (!current()) { await window.electronAPI.cancelRun(DESKTOP_PROJECT_ID, started.runId); return; }
         applyProjection(started.projection);
         this.currentBaseRevisionId = started.baseRevisionId;
         run = { runId: started.runId, expectedRevisionId: started.expectedRevisionId };
@@ -532,7 +583,7 @@ export class ChatService {
     const llmCancel = window.electronAPI?.llmCancel;
     const cancelRun = window.electronAPI?.cancelRun;
     void Promise.resolve()
-      .then(() => (typeof llmCancel === 'function' ? llmCancel(runId ?? undefined) : undefined))
+      .then(() => (runId && typeof llmCancel === 'function' ? llmCancel(runId) : undefined))
       .catch((error: unknown) => console.warn('[ChatService] Stream cancel failed:', errorText(error)))
       .then(() => (runId && typeof cancelRun === 'function' ? cancelRun(DESKTOP_PROJECT_ID, runId) : undefined))
       .then((result) => { if (result?.projection) applyProjection(result.projection); })
@@ -544,13 +595,14 @@ export class ChatService {
    * before another graph takes the canvas).
    */
   async cancelAndWait(): Promise<void> {
+    const pending = [...this.pendingRuns];
     const runId = this.currentRunId ?? useProjectionStore.getState().activeRun?.runId ?? null;
     this.turnToken += 1;
     this.isStreaming = false;
     this.resumed = null;
     useChatStore.setState({ isStreaming: false, isPaused: false });
     try {
-      await window.electronAPI?.llmCancel?.(runId ?? undefined);
+      if (runId) await window.electronAPI?.llmCancel?.(runId);
     } catch (error) {
       console.warn('[ChatService] Stream cancel failed:', errorText(error));
     }
@@ -560,6 +612,7 @@ export class ChatService {
     } catch (error) {
       console.warn('[ChatService] Cancel failed:', errorText(error));
     }
+    await Promise.allSettled(pending);
   }
 
   /** Pauses the open run in main; the chat shows the paused state at once. */
@@ -573,7 +626,10 @@ export class ChatService {
 
   /** Reopens the paused run (same run id); the next turn continues it instead of starting a new run. */
   async resume(): Promise<void> {
-    const started = await window.electronAPI.resumeRun(DESKTOP_PROJECT_ID);
+    const token = this.turnToken;
+    const started = await this.acquireRun(token, true);
+    if (!started) return;
+    if (token !== this.turnToken) { await window.electronAPI.cancelRun(DESKTOP_PROJECT_ID, started.runId); return; }
     this.currentRunId = started.runId;
     this.currentBaseRevisionId = started.baseRevisionId;
     // Mid-turn (the person paused a build and pressed Continue) the turn still running carries on with this run;

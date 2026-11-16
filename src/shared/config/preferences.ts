@@ -123,8 +123,10 @@ export const preferencesSchema = z.object({
     port: z.number().int().min(1024).max(65535).default(8787),
   }).prefault({}),
   assistant: z.object({
-    /** ask: suggestions appear as ghosts first; build: the helper builds directly unless asked to suggest. */
-    defaultIntent: z.enum(['ask', 'build']).default('ask'),
+    /** chat: act on requests; ask: explain/propose only; build: construct step by step. */
+    defaultIntent: z.enum(['chat', 'ask', 'build']).default('chat'),
+    interactionVersion: z.literal(2).default(2),
+    unloadOnExit: z.boolean().default(true),
     maxStepsPerTurn: int(STEP_LIMIT),
     /** Tokens of the model's context window the history budget is taken from; 0 = auto. */
     contextTokens: int(CONTEXT_TOKENS),
@@ -295,6 +297,12 @@ export function parsePreferences(input: unknown): Preferences {
     } catch {
       return clone(preferencesDefaults);
     }
+  }
+  // Before 1.2.8 "ask" was the default ordinary composer, which could never carry out a request.
+  // Migrate that legacy default once; a subsequently chosen explanation-only mode remains intact.
+  if (isRecord(input) && isRecord(input.assistant) && input.assistant.interactionVersion !== 2) {
+    input = { ...input, assistant: { ...input.assistant, interactionVersion: 2,
+      defaultIntent: input.assistant.defaultIntent === 'build' ? 'build' : 'chat' } };
   }
   const whole = preferencesSchema.safeParse(input ?? {});
   if (whole.success && !preferencesCarrySecret(whole.data)) return whole.data;

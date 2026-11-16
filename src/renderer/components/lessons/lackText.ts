@@ -194,6 +194,7 @@ export function lackText(t: TFunction, missing: Missing, lesson: Lesson, context
       return String(t('lessons.lackWeighted', { field, node, min, max }));
     }
     case 'has-trigger': {
+      if (missing.why?.kind === 'metadata') return String(t('lessons.triggerUnread'));
       const words = new Set<string>();
       for (const source of missing.test.of) {
         const classes = 'role' in source

@@ -23,12 +23,17 @@ on:
       - 'package.json'
       - '.github/workflows/install-scripts.yml'
   workflow_dispatch:
+  workflow_call:
+    inputs:
+      source_sha:
+        type: string
+        required: true
   schedule:
     # Mondays 04:41 UTC: catches a runner image or a download that changed under the scripts.
     - cron: '41 4 * * 1'
 
 concurrency:
-  group: install-scripts-${{ github.ref }}
+  group: install-scripts-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -43,6 +48,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          ref: ${{ inputs.source_sha || github.sha }}
       - name: shellcheck
         run: shellcheck -s bash scripts/install/install-macos.sh
       - name: PSScriptAnalyzer (errors fail, warnings are listed)
@@ -101,6 +107,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          ref: ${{ inputs.source_sha || github.sha }}
       # Only for the npm cache folder the scripts' npm ci shares; the first install uses its own private Node.js.
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
@@ -220,6 +227,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          ref: ${{ inputs.source_sha || github.sha }}
       # Only for the npm cache folder the scripts' npm ci shares; the first install uses its own private Node.js.
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
@@ -330,6 +338,7 @@ jobs:
   # The default way, with no -Source: the latest release tag from GitHub. A release made before the scripts existed
   # cannot be built by them (exit code 13); that is a notice, not a failure.
   latest-release:
+    if: inputs.source_sha == ''
     name: Latest release, default download (${{ matrix.os }})
     needs: lint
     runs-on: ${{ matrix.os }}
@@ -345,6 +354,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          ref: ${{ inputs.source_sha || github.sha }}
       - name: Install the latest release (Windows)
         if: runner.os == 'Windows'
         shell: pwsh

@@ -1,3 +1,4 @@
+/** Checks nested group and subgraph edits while retaining native settings, links and history. */
 import Database from 'better-sqlite3';
 import { describe, expect, it } from 'vitest';
 import { commitCommand, ensureWorkspace, readProjection } from '../../src/main/commands/commit';

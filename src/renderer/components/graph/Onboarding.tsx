@@ -157,6 +157,7 @@ export default function Onboarding({ onImport }: { onImport?: () => void }) {
       <div className={styles.card}>
         <LanguageSwitch />
         <h2 id="canvas-onboard-title" className={styles.title}>{t('canvas.onboardTitle')}</h2>
+        <Button className={styles.dismiss} variant="subtle" onClick={() => useJourneyStore.getState().setWelcomeHidden(true)}>{t('canvas.onboardDismiss')}</Button>
         {/* Once ComfyUI is read and an assistant is chosen, the lead stops promising what is already done. */}
         <p className={styles.lead}>{t('graph.empty')} {t(ready ? 'canvas.onboardLeadReady' : 'canvas.onboardLead')}</p>
         <ol className={styles.steps} data-ready={ready ? 'true' : undefined} aria-label={String(t('journey.welcome.ways'))}>

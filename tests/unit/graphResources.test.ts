@@ -1,3 +1,4 @@
+/** Checks graph resource estimates and honest limits when catalog or hardware facts are missing. */
 import { describe, expect, it } from 'vitest';
 import { assessGraphResources } from '../../src/shared/resources/assess';
 import { hardwareOf } from '../../src/main/comfy/hardware';

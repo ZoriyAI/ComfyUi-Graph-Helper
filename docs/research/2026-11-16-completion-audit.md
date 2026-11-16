@@ -46,3 +46,27 @@ References: [systemctl](https://www.freedesktop.org/software/systemd/man/latest/
 - Initial checks caught and corrected a project parser that discarded the new optional group projection and an allocator that counted nodes in unrelated definitions. Unknown control mappings are refused atomically. Final packaged/public delivery is recorded in the versioned release evidence.
 
 Graph design checked against [ComfyUI subgraphs](https://docs.comfy.org/interface/features/subgraph) and the [developer guide](https://docs.comfy.org/custom-nodes/js/subgraphs): node IDs are local to their immediate graph; the visible layer must be distinguished from the root. These sources document nesting, unpacking and widget promotion; runtime compatibility with every third-party widget is not claimed.
+
+## Reconciliation for 1.2.8
+
+The 1.2.4 baseline table above is historical. Services and named sync profiles shipped in1.2.5; nested groups, dissolution and promoted controls shipped in1.2.6; the fifty-situation guide shipped in1.2.7. The1.2.8 work closes the following confirmed remaining code/doc gaps:
+
+| Earlier tail | Current implementation | Evidence seam |
+| --- | --- | --- |
+| Normal chat asks the person to switch modes | Direct requested tools in chat; Explain stays proposal-only; contradictory prompt instructions removed | agentRuntime, prompt, canvasControl and completion-tails |
+| Agent cannot clear/create multiple graphs/edit earlier inner graphs | Clear with history, named independent graph containers, inner edits and configuration across turns | canvasControl, graphTools, undoRedo and completion-tails |
+| Model consumes memory after export or exit | Tracked local-model lifecycle, pause/cancel, verified Ollama expiry, bounded quit, export/settings controls | assistantMemory and completion-tails |
+| Generic problem routes without a result check | Bespoke preparation/action/follow-up for all50; matching template presets; live graph/sync checks and revision-bound practical confirmation | guidance and fifty-user-problems matrix |
+| LoRA facts and model alternatives are misleading | Declared source fields including Wrapper, pending/unavailable status, catalog invalidation and lesson-constrained alternatives | lessonModel and lessonFit |
+| Settings/autodetect overwrite newer values | Atomic narrow preferences and expected-revision connection updates | settingsConcurrency |
+| Delayed editor actions land on a new graph | Captured original project/level and pending operation tracking at all five audited entry points | asyncEditorOrigin |
+| Cancel before run ID leaves work alive | Track pending starts; cancel the returned run; drain on shutdown | rendererRecovery |
+| Silent canvas/chat/lesson recovery or saving failures | Visible retry, retained unsaved answers, merged chat reads and guarded clearing | rendererRecovery, lessonStateHydrate |
+| Failed turns become context after reopening | Schema20 persists failure; historical schema upgrades guarded | chatHistory, chatContext, databaseOpen |
+| Keys/chat remain in recovery databases | New copies omit credentials, scoped cleanup in known older copies, unreadable-copy incomplete status, graphs retained | databaseCopies, forgetAll, providerKeys |
+| Reply completion steals focus | Explicit submit focus only; no completion autofocus | completion-tails |
+| object_info/video import mismatched limits | Direct catalog cap128MiB; honest64MiB import message with JSON alternative | atomicWrite and direct reader checks |
+| Release publish did not await every gate | Exact-source checks and reusable installers are dependencies of publication | releasePlan and installScripts |
+| Old docs still claim main-only/own-nodes-only agent | Canonical bilingual assistant, settings, privacy, release and wiki index corrected | wiki, locale, screenText, notice |
+
+These rows describe implemented work, not a blanket acceptance claim. The current release record supplies actual test/UI/package/publication results. The owner profile, live graphs and services were preserved during development. Physical phone/Safari behavior, real model inference, every third-party widget and universal GPU fit require their actual environment; no automatic PASS is inferred from static checks.

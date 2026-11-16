@@ -7,6 +7,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import LocalModelsPanel from './LocalModelsPanel';
+import MemoryPanel from '../../assistant/MemoryPanel';
 import { useChatStore } from '../../../state/chatState';
 import type { LocalGenerationStyle } from '../../../../shared/contracts/localModels';
 import { COMPACT_WINDOW, MIN_WORKING_WINDOW, RECOMMENDED_WINDOW } from '../../../../shared/agent/contextWindow';
@@ -467,13 +468,17 @@ export default function AssistantSection({ values, setValues, prefs, setPrefs, c
           label={String(t('preferences.defaultIntent'))}
           value={assistant.defaultIntent}
           options={[
+            { value: 'chat', label: String(t('preferences.intentAuto')) },
             { value: 'ask', label: String(t('preferences.intentAsk')) },
             { value: 'build', label: String(t('preferences.intentBuild')) },
           ]}
           container={container}
-          onChange={(next) => patchSection(setPrefs, 'assistant', { defaultIntent: next as 'ask' | 'build' })}
+          onChange={(next) => patchSection(setPrefs, 'assistant', { defaultIntent: next as 'chat' | 'ask' | 'build' })}
         />
         <p className={hintClass}>{t('preferences.defaultIntentHint')}</p>
+        <Switch label={t('assistantMemory.unloadOnExit')} checked={assistant.unloadOnExit} onCheckedChange={next => patchSection(setPrefs, 'assistant', { unloadOnExit: next })} />
+        <p className={hintClass}>{t('assistantMemory.exitHint')}</p>
+        {provider !== '' ? <MemoryPanel active={active} /> : null}
         <NumberField
           label={String(t('preferences.maxSteps'))}
           value={assistant.maxStepsPerTurn}

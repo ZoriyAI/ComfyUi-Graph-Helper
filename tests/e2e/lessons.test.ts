@@ -297,7 +297,7 @@ test('lessons: a lesson that does not fit says what is missing, and before Comfy
     await expect(panel(page).locator('[data-lesson-card="prompt"]')).toHaveAttribute('data-lesson-state', 'new');
     await expectSoundLayout(page, 'lessons, some that do not fit');
     // The menu opens the same panel.
-    await page.getByRole('group', { name: 'Mode' }).getByRole('button', { name: 'Ask', exact: true }).click();
+    await page.getByRole('group', { name: 'Mode' }).getByRole('button', { name: 'Explain', exact: true }).click();
     await expect(panel(page)).toHaveCount(0);
     await page.getByRole('menuitem', { name: 'Assistant' }).click();
     await page.getByRole('menuitem', { name: /Lessons: build it yourself/ }).click();

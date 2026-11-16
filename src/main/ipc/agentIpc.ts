@@ -14,6 +14,7 @@ import { runAgentTurn } from '../agent/turn';
 import { clearChatHistory, loadChatHistory, saveChatMessage } from '../agent/chatHistory';
 import type { RunContext } from '../agent/buildTools';
 import { mainLLMService } from '../llmService';
+import { assistantMemory } from '../llm/memoryLifecycle';
 import { log } from '../log';
 import { browserChanged, registerBrowserOperation } from '../browser/registry';
 import type { BrowserPeer } from '../browser/server';
@@ -63,7 +64,15 @@ function abortWithSender(sender: Pick<WebContents, 'on' | 'removeListener'> | Br
 
 /** The assistant: llm:stream-chat, llm:cancel and chat history. */
 export function registerAgentIpc(ipcMain: IpcMain): void {
+  assistantMemory.onStop(async () => {
+    for (const turn of live) turn.controller.abort();
+    const deadline = Date.now() + 5000;
+    while (live.size && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 20));
+    if (live.size) throw new Error('Assistant requests did not stop in time.');
+  });
   const runTurn = async (sender: WebContents | BrowserPeer, messages: unknown, toolSpecs: unknown, responseChannel: string, runContext: RunContext, context?: unknown) => {
+      if (assistantMemory.status().phase === 'releasing') throw new Error('Memory release is still running. Please wait.');
+      assistantMemory.resume();
       const send = (channel: string, payload: unknown) => {
         if (!sender.isDestroyed()) sender.send(channel, payload);
         // Agent commits bypass IPC; all devices still receive a settled-state notification.

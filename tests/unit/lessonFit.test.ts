@@ -61,16 +61,16 @@ describe('which lessons fit', () => {
 });
 
 describe('"Do this for me" for a second loader', () => {
-  it('chooses the other file when the catalog has one', () => {
+  it('chooses a compatible low-noise file and refuses an unrelated or unknown alternative', () => {
     const lesson = lessonById('video-text')!;
     const node = (id: string, unet: string) => ({ id, classType: 'UNETLoader', title: 'Load Diffusion Model', inputs: [], outputs: [{ id: 'out-0', name: 'MODEL', type: 'MODEL' }], values: { unet_name: unet } });
-    const graph: LessonGraph = { nodes: [node('1', 'a.safetensors'), node('2', 'a.safetensors')], links: [] } as unknown as LessonGraph;
+    const graph: LessonGraph = { nodes: [node('1', 'wan2.2_t2v_high_noise.safetensors'), node('2', 'wan2.2_t2v_high_noise.safetensors')], links: [] } as unknown as LessonGraph;
     const progress = lessonProgress(lesson, graph, {}, new Set(['intro']));
     const missing = progress.missing.find((item) => item.kind === 'field' && item.test.kind === 'differs');
     expect(missing).toBeTruthy();
-    const options = ['a.safetensors', 'b.safetensors'];
-    expect(fixFor(missing!, graph, () => true, () => options)).toMatchObject({ kind: 'set-field', field: 'unet_name', value: 'b.safetensors' });
-    expect(fixFor(missing!, graph, () => true, () => ['a.safetensors'])).toBeNull();
+    const options = ['wan2.2_t2v_high_noise.safetensors', 'flux_dev.safetensors', 'wan2.2_t2v_low_noise.safetensors'];
+    expect(fixFor(missing!, graph, () => true, () => options)).toMatchObject({ kind: 'set-field', field: 'unet_name', value: 'wan2.2_t2v_low_noise.safetensors' });
+    expect(fixFor(missing!, graph, () => true, () => ['wan2.2_t2v_high_noise.safetensors', 'flux_dev.safetensors', 'unknown.safetensors'])).toBeNull();
     expect(fixFor(missing!, graph, () => true)).toBeNull();
   });
 });

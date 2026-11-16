@@ -33,7 +33,7 @@ Written for this project and first published here:
   the explanation comes from);
 - the graph check and its findings in plain words;
 - the way the assistant proposes changes: grey drafts that wait for the person, who accepts or rejects them, and a
-  Build mode that changes only what the assistant placed itself;
+  stepwise building with requested edits to existing and new graph objects;
 - the design of the interface and of its motion;
 - the documentation (the wiki in two languages, the release notes, this file), the screenshots and the app icon.
 
@@ -132,6 +132,15 @@ The releases. "Published" is the time GitHub's servers recorded on the release p
 | 0.9.0 | `v0.9.0` | `35b5ca9d92f2` | 2026-11-15 01:57:53 | the first release after the project was published ([notes](docs/releases/v0.9.0.md)) |
 | 1.0.0 | `v1.0.0` | `44a9b9547e6d` | 2026-11-15 12:11:01 | [notes](docs/releases/v1.0.0.md) |
 | 1.1.0 | `v1.1.0` | `666760feca77` | 2026-11-15 14:52:33 | [notes](docs/releases/v1.1.0.md) |
+| 1.2.0 | `v1.2.0` | `8bdd5f6d4d9f` | 2026-11-15 20:46:05 | [notes](docs/releases/v1.2.0.md) |
+| 1.2.1 | `v1.2.1` | `5a4b41f2fc8c` | 2026-11-15 21:46:50 | [notes](docs/releases/v1.2.1.md) |
+| 1.2.2 | `v1.2.2` | `57446912e74d` | 2026-11-15 23:45:48 | [notes](docs/releases/v1.2.2.md) |
+| 1.2.3 | `v1.2.3` | `3e938489da26` | 2026-11-16 01:00:55 | [notes](docs/releases/v1.2.3.md) |
+| 1.2.4 | `v1.2.4` | `b18112c7f347` | 2026-11-16 02:28:57 | [notes](docs/releases/v1.2.4.md) |
+| 1.2.5 | `v1.2.5` | `2f715679397c` | 2026-11-16 04:37:10 | [notes](docs/releases/v1.2.5.md) |
+| 1.2.6 | `v1.2.6` | `465350ec3fdd` | 2026-11-16 05:02:06 | [notes](docs/releases/v1.2.6.md) |
+| 1.2.7 | `v1.2.7` | `1e63b7997637` | 2026-11-16 15:40:00 | [notes](docs/releases/v1.2.7.md) |
+| 1.2.8 | `v1.2.8` | release tag | see release page | [notes](docs/releases/v1.2.8.md) |
 
 A release cannot hold its own publication time, so each row is filled in by the first commit after that release.
 

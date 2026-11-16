@@ -40,7 +40,7 @@ const commit = (db: Database.Database, actionId: string, payload: Rec) => commit
 });
 
 describe('engine: restore-revision', () => {
-  it('copies an earlier revision into a new one: the snapshot round-trips and history only grows', () => {
+  it('copies an earlier revision into a new one: the graph round-trips, identifiers stay monotonic and history only grows', () => {
     const db = openDb();
     commit(db, 'a', { type: 'add-node', nodeType: 'CheckpointLoaderSimple' });
     commit(db, 'b', { type: 'add-node', nodeType: 'KSampler' });
@@ -54,7 +54,10 @@ describe('engine: restore-revision', () => {
     expect(restored.result).toEqual({ revisionId: before.currentRevisionId, restoredRevSeq: before.revSeq });
     // Two edits after `before`, then the restore itself: three new revisions.
     expect(restored.projection!.revSeq).toBe(before.revSeq + 3);
-    expect(restored.projection!.snapshot).toEqual(before.snapshot);
+    const expected = structuredClone(before.snapshot);
+    ((expected.document as Rec).raw.state as Rec).lastGroupId = 1;
+    expect(restored.projection!.snapshot).toEqual(expected);
+    expect(before.snapshot.groups).toEqual([]);
     const list = listRevisions(db, P);
     expect(list.at(-1)).toMatchObject({ description: 'restore-revision', source: 'user', actor: 'manual', restoredRevisionId: before.currentRevisionId });
     const recent = listRecentCommands(db, P);

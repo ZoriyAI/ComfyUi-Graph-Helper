@@ -14,7 +14,7 @@ import Kbd from '../../ui/Kbd';
 import styles from './MessageInput.module.css';
 
 /** Composer mode. Ask sends a chat turn (answers and ghost suggestions); Build sends intent build. */
-export type ComposerIntent = 'ask' | 'build';
+export type ComposerIntent = 'chat' | 'ask' | 'build';
 
 interface MessageInputProps {
   onSend: (content: string, intent: ComposerIntent) => void;
@@ -28,7 +28,7 @@ interface MessageInputProps {
 }
 
 /** The two composer modes, in the order of their buttons. Learn is a third button, shown only with onLearning. */
-const INTENTS: readonly ComposerIntent[] = ['ask', 'build'];
+const INTENTS: readonly ComposerIntent[] = ['chat', 'ask', 'build'];
 
 /**
  * Chat composer: the Ask/Build mode with one line on what it does, then the message field with a round primary Send
@@ -42,19 +42,16 @@ export default function MessageInput({ onSend, isStreaming, disabled = false, le
   const recalled = useRef<number | null>(null);
   // "When I ask for a change" in Settings picks the mode the composer opens in; Ask itself never builds.
   const [intent, setIntent] = useState<ComposerIntent>(() => usePreferencesStore.getState().preferences.assistant.defaultIntent);
+  const defaultIntent = usePreferencesStore(state => state.preferences.assistant.defaultIntent);
+  useEffect(() => setIntent(defaultIntent), [defaultIntent]);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-
-  // When an answer ends, focus returns to the field; offsetParent is null while the field is hidden (Learn mode).
-  useEffect(() => {
-    const field = inputRef.current;
-    if (!isStreaming && field && field.offsetParent !== null) field.focus();
-  }, [isStreaming]);
 
   const canSend = Boolean(input.trim()) && !disabled && !isStreaming;
 
   const submit = () => {
     const trimmed = input.trim();
     if (trimmed && !disabled && !isStreaming) {
+      inputRef.current?.focus();
       onSend(trimmed, intent);
       recalled.current = null;
       setInput('');
@@ -83,7 +80,7 @@ export default function MessageInput({ onSend, isStreaming, disabled = false, le
                 onLearning?.(false);
               }}
             >
-              {item === 'ask' ? t('chat.intentAsk') : t('chat.intentBuild')}
+              {item === 'chat' ? t('chat.intentAuto') : item === 'ask' ? t('chat.intentAsk') : t('chat.intentBuild')}
             </button>
           ))}
           {onLearning ? (
@@ -94,7 +91,7 @@ export default function MessageInput({ onSend, isStreaming, disabled = false, le
         </div>
         {/* Each mode says what it is, Learn included (there is no field under it, so the strip stays short). */}
         <span className={styles.intentHint}>
-          {learning ? t('lessons.modeHint') : intent === 'ask' ? t('chat.intentAskHint') : t('chat.intentBuildHint')}
+          {learning ? t('lessons.modeHint') : intent === 'chat' ? t('chat.intentAutoHint') : intent === 'ask' ? t('chat.intentAskHint') : t('chat.intentBuildHint')}
         </span>
       </div>
       <div className={`composer-field ${styles.field}`} hidden={learning}>

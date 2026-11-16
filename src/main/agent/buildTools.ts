@@ -2,7 +2,8 @@
  * The build tools of a turn (addNode, connectNodes, setParameter, ...): each call becomes one graph command
  * committed as the assistant's own action, so it shows on the canvas at once and the person can undo it.
  * agent/turn.ts creates them from the specs the renderer sends; ipc/agentIpc.ts uses only the RunContext type.
- * Changes to the person's own work become drafts instead (ownership.ts), and a paused run holds its next step.
+ * Explicit assistant turns can edit existing work; proposal-only callers retain ownership.ts restrictions.
+ * A paused run holds its next step.
  */
 import type Database from 'better-sqlite3';
 import { turnLog } from '../trace/modelTrace';
@@ -72,6 +73,8 @@ const RESULT_IDS = ['nodeId', 'nodeType', 'edgeId', 'linkId', 'definitionId', 's
 
 /** The English line the model reads after a successful step of these tools. */
 const BUILD_MESSAGES: Record<string, string> = {
+  clearCanvas: 'Cleared the canvas; the previous graph is in revision history',
+  createGraphSet: 'Created graph containers; populate their inner graphs next',
   connectNodes: 'Connected the nodes',
   setParameter: 'Set the parameter',
   removeNode: 'Removed the node',
@@ -210,6 +213,9 @@ export function toolOutcome(name: string, args: Record<string, unknown> | undefi
     }
     if (name in BUILD_MESSAGES) {
       const ids: Record<string, unknown> = {};
+      if (name === 'createGraphSet' && Array.isArray(result?.results)) {
+        ids.graphs = result.results.filter((item: any) => item && typeof item.definitionId === 'string').map((item: any) => ({ nodeId: item.nodeId ?? item.instanceId, definitionId: item.definitionId }));
+      }
       for (const key of RESULT_IDS) {
         const value = result?.[key];
         if (typeof value === 'string' || typeof value === 'number') ids[key] = value;
@@ -282,6 +288,9 @@ export function stepTarget(
   const classType = classTypeOf(projection, nodeId);
   const nodeOwner = (id: string | undefined): ObjectRef | null => (id ? { kind: 'node', id, ...(classType ? { classType } : {}) } : null);
   switch (name) {
+    case 'clearCanvas':
+    case 'createGraphSet':
+      return { owner: null };
     case 'addNode':
     case 'insertBlueprint':
     case 'insertSubgraph':
@@ -330,10 +339,14 @@ export function createBuildTools(
     onRunEnded?: () => void;
     /** Test seam: where a grey draft goes (the proposals repository in the app). */
     createDraft?: typeof createProposal;
+    /** Normal assistant/build turns may perform the requested edits on existing graph objects. */
+    allowExistingEdits?: boolean;
   },
 ): Record<string, { description?: string; inputSchema: ReturnType<typeof jsonSchema>; execute: (args: Record<string, unknown>, call?: { toolCallId?: string }) => Promise<unknown> }> {
   const tools: Record<string, { description?: string; inputSchema: ReturnType<typeof jsonSchema>; execute: (args: Record<string, unknown>, call?: { toolCallId?: string }) => Promise<unknown> }> = {};
   let expectedRevisionId = options.run.expectedRevisionId;
+  // Placement depends on the current graph. A retry must keep the original coordinates/payload.
+  const graphSetPayloads = new Map<string, { args: string; payload: GraphMutation }>();
   for (const spec of specs) {
     if (!spec || typeof spec.name !== 'string') continue;
     const schema = spec.parameters && typeof spec.parameters === 'object'
@@ -351,6 +364,9 @@ export function createBuildTools(
           return { success: false, stopped: true, error: 'The build was stopped; nothing more is added.' };
         }
         if (held.expectedRevisionId && held.expectedRevisionId !== expectedRevisionId) {
+          // Ordinary additions can continue alongside manual work. Whole-canvas replacement cannot
+          // erase work created after the model's request was prepared.
+          if (spec.name === 'clearCanvas') return { success: false, conflict: true, error: 'The canvas changed while this clear was being prepared. Keep the newer work; ask again before clearing it.' };
           // Continue (or a manual edit during the pause) moved the run on: build on from there.
           expectedRevisionId = held.expectedRevisionId;
           options.onRevision?.(expectedRevisionId);
@@ -365,7 +381,10 @@ export function createBuildTools(
         } catch {
           context = undefined;
         }
-        const payload = mutationFromTool(spec.name, args, context);
+        const priorSet = spec.name === 'createGraphSet' ? graphSetPayloads.get(actionId) : undefined;
+        if (priorSet && priorSet.args !== JSON.stringify(args)) return { success: false, error: 'A repeated tool call changed its arguments.' };
+        const payload = priorSet?.payload ?? mutationFromTool(spec.name, args, context);
+        if (spec.name === 'createGraphSet' && payload && !priorSet) graphSetPayloads.set(actionId, { args: JSON.stringify(args), payload });
         turnLog(`[Agent] Tool ${spec.name} commit ${toolCallId}`);
         if (!payload) {
           return { success: false, error: `Unknown tool: ${spec.name}` };
@@ -374,17 +393,16 @@ export function createBuildTools(
         const subject = payload.type === 'edit-in-subgraph' ? payload.edit : payload;
         const guard = subject.type === 'add-node' ? validateNodeClass(options.db, subject.nodeType) : null;
         if (guard && !guard.ok) return { success: false, error: guard.error, suggestions: guard.suggestions };
-        // Inside its run the assistant changes only what it placed itself. A change to the person's nodes, links,
-        // notes or the project's name becomes a grey draft the person accepts (ownership.ts).
+        // Legacy proposal-only callers retain ownership restrictions; explicitly requested turns may edit.
         const owned = runOwned(options.db, options.run.projectId, options.run.runId);
-        if (payload.type === 'insert-blueprint' && payload.destinationDefinitionId && !owned.definitions.has(payload.destinationDefinitionId)) return { success: false, error: 'This build can insert blueprints inside only the subgraphs it created.' };
-        if (payload.type === 'edit-in-subgraph' && !owned.definitions.has(payload.definitionId)) {
+        if (!options.allowExistingEdits && payload.type === 'insert-blueprint' && payload.destinationDefinitionId && !owned.definitions.has(payload.destinationDefinitionId)) return { success: false, error: 'This build can insert blueprints inside only the subgraphs it created.' };
+        if (!options.allowExistingEdits && payload.type === 'edit-in-subgraph' && !owned.definitions.has(payload.definitionId)) {
           return { success: false, error: 'This build can edit inside only the subgraphs it created. Keep pre-existing user definitions unchanged.' };
         }
-        if (payload.type === 'configure-subgraph' && !owned.definitions.has(payload.definitionId)) {
+        if (!options.allowExistingEdits && payload.type === 'configure-subgraph' && !owned.definitions.has(payload.definitionId)) {
           return { success: false, error: 'This subgraph was not created by this build. Keep it unchanged; the person can configure its interface in the subgraph constructor.' };
         }
-        const draftKind = draftKindFor(payload as GraphMutation, owned, readProjection(options.db, options.run.projectId));
+        const draftKind = options.allowExistingEdits ? null : draftKindFor(payload as GraphMutation, owned, readProjection(options.db, options.run.projectId));
         if (draftKind) {
           try {
             const proposal = (options.createDraft ?? createProposal)(options.db, {

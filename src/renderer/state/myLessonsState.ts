@@ -31,6 +31,8 @@ export interface EditorState {
 interface MyLessonsState {
   lessons: MyLesson[];
   loaded: boolean;
+  loading: boolean;
+  error: boolean;
   editing: EditorState | null;
   /** Reads the list from main again (after start, an import, a save, a removal, an accepted draft). */
   refresh: () => Promise<void>;
@@ -40,19 +42,26 @@ interface MyLessonsState {
 }
 
 let nextSession = 0;
+let refreshTicket = 0;
 
 /** My lessons as main last listed them, and the lesson open in the editor. */
 export const useMyLessonsStore = create<MyLessonsState>((set) => ({
   lessons: [],
   loaded: false,
+  loading: false,
+  error: false,
   editing: null,
   refresh: async () => {
     const bridge = typeof window !== 'undefined' ? window.electronAPI : undefined;
     if (!bridge?.listMyLessons) return;
+    const ticket = ++refreshTicket;
+    set({ loading: true, error: false });
     try {
-      set({ lessons: await bridge.listMyLessons(), loaded: true });
+      const lessons = await bridge.listMyLessons();
+      if (!Array.isArray(lessons)) throw new Error('Invalid lesson list');
+      if (ticket === refreshTicket) set({ lessons, loaded: true, loading: false });
     } catch {
-      set({ loaded: true });
+      if (ticket === refreshTicket) set({ error: true, loading: false });
     }
   },
   setEditing: (editing) => set({ editing: editing ? { ...editing, session: ++nextSession, revision: 0, savedRevision: null } : null }),

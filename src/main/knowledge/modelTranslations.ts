@@ -45,7 +45,8 @@ export class ModelTranslations {
     const rows = this.deps.db().prepare('SELECT directory, name FROM model_catalog ORDER BY directory, name').all() as Array<{ directory: string; name: string }>;
     for (const row of rows) this.decorate(modelDetail(this.deps.db(), row.directory, row.name));
   }
-  stop(): void { this.stopped = true; this.pending.clear(); this.controller?.abort(); }
+  pause(): void { this.pending.clear(); this.controller?.abort(); }
+  stop(): void { this.stopped = true; this.pause(); }
   async idle(): Promise<void> { while (this.running) await new Promise((done) => setTimeout(done, 5)); }
   private async drain(): Promise<void> {
     if (this.running || this.stopped) return;
@@ -74,7 +75,7 @@ export class ModelTranslations {
           if (!current || modelTextHash(readableModelFields(current)) !== hash) continue;
           this.deps.db().prepare("INSERT INTO model_text_translations(source_hash, language, fields_json, updated_at) VALUES (?, 'ru', ?, ?) ON CONFLICT(source_hash, language) DO UPDATE SET fields_json=excluded.fields_json, updated_at=excluded.updated_at").run(hash, JSON.stringify(translated), this.now());
           this.failures.delete(hash); consecutiveErrors = 0;
-        } catch { if (!this.stopped) { this.failures.set(hash, this.now()); consecutiveErrors += 1; } }
+        } catch { if (!this.stopped && !this.controller.signal.aborted) { this.failures.set(hash, this.now()); consecutiveErrors += 1; } }
         finally { clearTimeout(timer); this.controller = null; }
         // A missing/unavailable provider must not make hundreds of failing paid calls.
         if (consecutiveErrors >= 3) { for (const pendingHash of this.pending.keys()) this.failures.set(pendingHash, this.now()); this.pending.clear(); break; }

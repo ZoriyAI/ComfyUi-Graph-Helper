@@ -66,6 +66,34 @@ jobs:
           RELEASE_INPUT: ${{ inputs.release_tag }}
         run: node scripts/release-plan.js plan
 
+  checks:
+    name: Types, lint and unit tests
+    needs: plan
+    if: needs.plan.outputs.run == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ needs.plan.outputs.source_sha }}
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run type-check
+      - run: npm run lint
+      - run: npm test
+
+  installers:
+    name: Install scripts at the release source
+    needs: plan
+    if: needs.plan.outputs.run == 'true'
+    uses: ./.github/workflows/install-scripts.yml
+    with:
+      source_sha: ${{ needs.plan.outputs.source_sha }}
+
   e2e:
     name: End-to-end tests
     needs: plan
@@ -319,7 +347,7 @@ jobs:
 
   release:
     name: Release
-    needs: [plan, e2e, walks, package, rpm]
+    needs: [plan, checks, installers, e2e, walks, package, rpm]
     if: needs.plan.outputs.publish == 'true'
     concurrency:
       group: release-${{ needs.plan.outputs.release_tag }}

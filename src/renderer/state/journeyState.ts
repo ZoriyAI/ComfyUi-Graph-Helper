@@ -13,6 +13,8 @@ import { create } from 'zustand';
 export type JourneyDialog = 'run' | 'error' | 'no-comfy' | null;
 
 interface JourneyState {
+  welcomeHidden: boolean;
+  setWelcomeHidden: (hidden: boolean) => void;
   dialog: JourneyDialog;
   /** Text the error card starts with (from the run card or a paste elsewhere). */
   errorText: string;
@@ -26,6 +28,8 @@ interface JourneyState {
 
 /** The open journey card, the error text it starts with, and the tour step. */
 export const useJourneyStore = create<JourneyState>((set) => ({
+  welcomeHidden: readFlag('journey.welcomeHidden'),
+  setWelcomeHidden: (welcomeHidden) => { writeFlag('journey.welcomeHidden', welcomeHidden); set({ welcomeHidden }); },
   dialog: null,
   errorText: '',
   tourStep: null,

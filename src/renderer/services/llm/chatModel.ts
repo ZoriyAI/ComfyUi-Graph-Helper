@@ -164,6 +164,7 @@ export function chatRecordFromMessage(message: ChatMessage, projectId: string, g
     timestamp: Math.max(0, Math.floor(message.timestamp)),
     graphRevisionId: message.graphRevisionId ?? graphRevisionId,
     toolCalls: calls.length > 0 ? calls.map(savedToolCall) : null,
+    ...(isFailedTurn(message) ? { failed: true } : {}),
   };
 }
 
@@ -199,6 +200,7 @@ export function messageFromChatRecord(record: ChatRecord): ChatMessage {
     role: record.role,
     content: record.content,
     timestamp: record.timestamp,
+    ...(record.failed ? { failed: true } : {}),
     ...(record.graphRevisionId ? { graphRevisionId: record.graphRevisionId } : {}),
     ...(toolCalls.length > 0 ? { toolCalls } : {}),
   };

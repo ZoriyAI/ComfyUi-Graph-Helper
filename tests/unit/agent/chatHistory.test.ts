@@ -10,6 +10,7 @@ import { ensureWorkspace } from '../../../src/main/commands/commit';
 import { migrate } from '../../../src/main/settings/migrate';
 import { DESKTOP_PROJECT_ID } from '../../../src/shared/project';
 import type { ChatRecord } from '../../../src/shared/contracts';
+import { chatRecordFromMessage, isFailedTurn, messageFromChatRecord } from '../../../src/renderer/services/llm/chatModel';
 import { mainLLMService } from '../../../src/main/llmService';
 
 /** A fresh in-memory database with the schema and the desktop workspace. */
@@ -103,4 +104,14 @@ describe('chat history', () => {
       mainLLMService.forgetKeys();
     }
   });
+});
+
+it('keeps the failure marker through the database and renderer round trip without guessing from text', () => {
+  const db = openDb();
+  const failed = chatRecordFromMessage({ id: 'failed', role: 'assistant', content: 'The provider stopped', timestamp: 1, failed: true }, DESKTOP_PROJECT_ID, null);
+  expect(saveChatMessage(db, failed)).toEqual({ ok: true });
+  expect(saveChatMessage(db, record({ id: 'ordinary', role: 'assistant', content: 'Error: is a word in this explanation', timestamp: 2 }))).toEqual({ ok: true });
+  const messages = loadChatHistory(db, DESKTOP_PROJECT_ID).map(messageFromChatRecord);
+  expect(messages.map(isFailedTurn)).toEqual([true, false]);
+  db.close();
 });

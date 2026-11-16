@@ -214,7 +214,7 @@ describe('chat service turn context and routing', () => {
     api.loadChatHistory.mockResolvedValue([{ id: 'old', projectId: DESKTOP_PROJECT_ID, role: 'user', content: 'x', timestamp: 1, graphRevisionId: null, toolCalls: null }]);
     useChatStore.setState({ messages: [{ id: 'live', role: 'user', content: 'now', timestamp: 2 }] });
     await new ChatService().loadHistory();
-    expect(useChatStore.getState().messages.map((m) => m.id)).toEqual(['live']);
+    expect(useChatStore.getState().messages.map((m) => m.id)).toEqual(['old', 'live']);
   });
 
   it('cancels the run when the person stops it', async () => {

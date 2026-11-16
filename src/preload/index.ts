@@ -8,7 +8,7 @@
  */
 import { contextBridge, ipcRenderer, webFrame, webUtils } from 'electron';
 import type { ServicesStatus, ServiceActionRequest, ServiceActionResult } from '../shared/contracts/services';
-import type { LocalModelStatus, LocalModelAction, LocalGenerationStyle } from '../shared/contracts/localModels';
+import type { AssistantMemoryState, LocalModelStatus, LocalModelAction, LocalGenerationStyle } from '../shared/contracts/localModels';
 import type { ChatRuntimeConfig, NonSecretSettings, SettingsRead } from '../shared/config/schema';
 import type { Preferences } from '../shared/config/preferences';
 import type { KeyProvider } from '../shared/config/keyOrigin';
@@ -102,6 +102,7 @@ const IPC_CHANNELS = {
   SETTINGS_GET: 'settings:get',
   SETTINGS_SAVE: 'settings:save',
   SETTINGS_SAVE_VIEW: 'settings:save-view',
+  SETTINGS_PATCH_PREFERENCES: 'settings:patch-preferences',
   SETTINGS_SAVE_SECRET: 'settings:save-secret',
   SETTINGS_FORGET_SECRET: 'settings:forget-secret',
   SECRETS_FORGET_ALL: 'secrets:forget-all',
@@ -146,6 +147,9 @@ const IPC_CHANNELS = {
   SERVICES_CONTROL: 'services:control',
   LLM_LOCAL_STATUS: 'llm:local-status',
   LLM_LOCAL_CONTROL: 'llm:local-control',
+  ASSISTANT_MEMORY_STATUS: 'assistant:memory-status',
+  ASSISTANT_MEMORY_RELEASE: 'assistant:memory-release',
+  ASSISTANT_MEMORY_RESUME: 'assistant:memory-resume',
   SETTINGS_CONNECTION_SUGGESTIONS: 'settings:connection-suggestions',
   KNOWLEDGE_SEARCH_NODES: 'knowledge:search-nodes',
   KNOWLEDGE_NODE_DETAIL: 'knowledge:node-detail',
@@ -310,6 +314,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getSettings: () => ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_GET),
   saveSettings: (input: unknown) => ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_SAVE, input),
   /** How the window was left (preferences.view) only; the rest of the settings row is not touched. */
+  savePreferencesPatch: (patch: unknown) => ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_PATCH_PREFERENCES, patch),
   saveViewPreferences: (patch: unknown) => ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_SAVE_VIEW, patch),
   /** Remembers one provider's key in the OS store. Without a value, the key held for that provider is the one saved. */
   saveSecret: (provider: CloudKeyProvider, value?: string) => ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_SAVE_SECRET, provider, value),
@@ -340,7 +345,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   secretStore: () => ipcRenderer.invoke(IPC_CHANNELS.SECRET_STORE_GET) as Promise<SecretStoreInfo>,
   setSecretStore: (choice: SecretStoreInfo['override']) => ipcRenderer.invoke(IPC_CHANNELS.SECRET_STORE_SET, choice) as Promise<{ ok: boolean }>,
   mcpForgetToken: () => ipcRenderer.invoke(IPC_CHANNELS.MCP_FORGET_TOKEN) as Promise<{ status: 'removed' | 'partial' }>,
-  mcpDetectAuth: (url?: string) => ipcRenderer.invoke(IPC_CHANNELS.MCP_DETECT_AUTH, url) as Promise<McpAuthProbe>,
+  mcpDetectAuth: (url?: string, expectedAuth?: string) => ipcRenderer.invoke(IPC_CHANNELS.MCP_DETECT_AUTH, url, expectedAuth) as Promise<McpAuthProbe>,
   mcpOAuthLogin: () => ipcRenderer.invoke(IPC_CHANNELS.MCP_OAUTH_LOGIN) as Promise<McpOAuthLoginResult>,
   mcpOAuthLogout: () => ipcRenderer.invoke(IPC_CHANNELS.MCP_OAUTH_LOGOUT) as Promise<McpOAuthStatus>,
   mcpOAuthStatus: () => ipcRenderer.invoke(IPC_CHANNELS.MCP_OAUTH_STATUS) as Promise<McpOAuthStatus>,
@@ -371,6 +376,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   servicesControl: (request: ServiceActionRequest) => ipcRenderer.invoke(IPC_CHANNELS.SERVICES_CONTROL, request) as Promise<ServiceActionResult>,
   llmLocalStatus: (draft: ChatRuntimeConfig) => ipcRenderer.invoke(IPC_CHANNELS.LLM_LOCAL_STATUS, draft) as Promise<LocalModelStatus>,
   llmLocalControl: (draft: ChatRuntimeConfig, model: string, action: LocalModelAction) => ipcRenderer.invoke(IPC_CHANNELS.LLM_LOCAL_CONTROL, draft, model, action) as Promise<LocalModelStatus>,
+  assistantMemoryStatus: () => ipcRenderer.invoke(IPC_CHANNELS.ASSISTANT_MEMORY_STATUS) as Promise<AssistantMemoryState>,
+  assistantMemoryRelease: () => ipcRenderer.invoke(IPC_CHANNELS.ASSISTANT_MEMORY_RELEASE) as Promise<AssistantMemoryState>,
+  assistantMemoryResume: () => ipcRenderer.invoke(IPC_CHANNELS.ASSISTANT_MEMORY_RESUME) as Promise<AssistantMemoryState>,
   llmOllamaWindow: (draft: { provider: string; model: string; baseURL: string }, window: number, style: LocalGenerationStyle = 'model') => ipcRenderer.invoke(IPC_CHANNELS.LLM_OLLAMA_WINDOW, draft, window, style) as Promise<{ ok: true; model: string; contextTokens: number; requestedTokens: number } | { ok: false; error: string }>,
   connectionSuggestions: (probe?: boolean) => ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_CONNECTION_SUGGESTIONS, probe === true) as Promise<ConnectionSuggestions>,
   llmStreamChat: (
@@ -623,6 +631,7 @@ export interface ElectronAPI {
   getSettings: () => Promise<SettingsRead>;
   /** `input.preferences`, when present, is a patch merged onto the stored preferences. */
   saveSettings: (input: unknown) => Promise<SettingsSaveResult>;
+  savePreferencesPatch: (patch: unknown) => Promise<SettingsSaveResult>;
   saveViewPreferences: (patch: unknown) => Promise<import('../shared/config/preferences').Preferences | null>;
   saveSecret: (provider: CloudKeyProvider, value?: string) => Promise<{ status: 'secret-storage-blocked' | 'stored' }>;
   saveSecretFile: (provider: CloudKeyProvider) => Promise<{ status: 'stored' | 'missing' }>;
@@ -651,7 +660,7 @@ export interface ElectronAPI {
   mcpSaveToken: (value?: string, forUrl?: string) => Promise<{ status: 'stored' | 'secret-storage-blocked' }>;
   mcpForgetToken: () => Promise<{ status: 'removed' | 'partial' }>;
   /** Settings ▸ Connection ▸ "Check": what the MCP server wants from a connection, found out by trying. */
-  mcpDetectAuth: (url?: string) => Promise<McpAuthProbe>;
+  mcpDetectAuth: (url?: string, expectedAuth?: string) => Promise<McpAuthProbe>;
   /** Signs in to the saved MCP URL through the system browser; resolves when the browser comes back (or fails). */
   mcpOAuthLogin: () => Promise<McpOAuthLoginResult>;
   /** Forgets the browser sign-in for the saved MCP URL's origin. */
@@ -694,6 +703,9 @@ export interface ElectronAPI {
   servicesControl: (request: ServiceActionRequest) => Promise<ServiceActionResult>;
   llmLocalStatus: (draft: ChatRuntimeConfig) => Promise<LocalModelStatus>;
   llmLocalControl: (draft: ChatRuntimeConfig, model: string, action: LocalModelAction) => Promise<LocalModelStatus>;
+  assistantMemoryStatus: () => Promise<AssistantMemoryState>;
+  assistantMemoryRelease: () => Promise<AssistantMemoryState>;
+  assistantMemoryResume: () => Promise<AssistantMemoryState>;
   llmOllamaWindow: (draft: { provider: string; model: string; baseURL: string }, window: number, style?: LocalGenerationStyle) => Promise<{ ok: true; model: string; contextTokens: number; requestedTokens: number } | { ok: false; error: string }>;
   /** Settings ▸ Connection: reported, saved and recent addresses; with `probe`, also a ComfyUI answering on this computer. */
   connectionSuggestions: (probe?: boolean) => Promise<ConnectionSuggestions>;

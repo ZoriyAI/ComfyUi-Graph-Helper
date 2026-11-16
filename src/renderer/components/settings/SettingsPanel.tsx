@@ -299,15 +299,14 @@ export default function SettingsPanel({
    * so a person who only pastes the address ends up with the right access. The dialog is closed by then: the
    * sentence comes as a toast, and SETTINGS_CHANGED brings the stored choice into the form.
    */
-  const detectAccessAfterSave = async (stored: NonSecretSettings, storedPrefs: Preferences) => {
+  const detectAccessAfterSave = async (stored: NonSecretSettings) => {
     try {
-      const note = detectionNote(await window.electronAPI.mcpDetectAuth(stored.mcpUrl), translate);
-      if (note.mode) {
-        const again = await window.electronAPI.saveSettings({ ...stored, mcpAuth: note.mode, preferences: storedPrefs });
-        if (!again.ok) return;
-        window.dispatchEvent(new CustomEvent<NonSecretSettings>(SETTINGS_CHANGED, { detail: again.values }));
+      const detected = await window.electronAPI.mcpDetectAuth(stored.mcpUrl, stored.mcpAuth);
+      const note = detectionNote(detected, translate);
+      if (detected.stored) {
+        window.dispatchEvent(new CustomEvent<NonSecretSettings>(SETTINGS_CHANGED, { detail: detected.stored }));
         refreshSyncStatus();
-      }
+      } else if (note.mode) return;
       showToast({ id: 'mcp-access', tone: note.tone === 'good' ? 'success' : 'warn', title: note.text });
     } catch {
       // Nothing was chosen; "Check" in Settings ▸ Connection asks again.
@@ -361,7 +360,7 @@ export default function SettingsPanel({
       onSavedRef.current(result.values);
       setOpen(false);
       refreshSyncStatus();
-      if (detect) void detectAccessAfterSave(result.values, stored);
+      if (detect) void detectAccessAfterSave(result.values);
     } catch {
       setNote({ kind: 'key', key: 'settings.saveFailed' });
     } finally {

@@ -11,14 +11,14 @@ export const AGENT_KNOWLEDGE_TOOLS = ['explain', 'draftLesson', 'draftExtension'
 /** Tools that leave a ghost for the person to accept. */
 export const AGENT_PROPOSAL_TOOLS = ['proposeNode', 'proposeConnection', 'proposeParameter', 'proposeSubgraph'] as const;
 /** Tools that change the graph at once (build intent). */
-export const AGENT_BUILD_TOOLS = ['insertBlueprint', 'addNode', 'connectNodes', 'setParameter', 'removeNode', 'createSubgraph', 'configureSubgraph', 'insertSubgraph', 'annotateNode', 'setComponentDocumentation', 'setProcess'] as const;
+export const AGENT_BUILD_TOOLS = ['clearCanvas', 'createGraphSet', 'insertBlueprint', 'addNode', 'connectNodes', 'setParameter', 'removeNode', 'createSubgraph', 'configureSubgraph', 'insertSubgraph', 'annotateNode', 'setComponentDocumentation', 'setProcess'] as const;
 
 export type AgentReadTool = (typeof AGENT_READ_TOOLS)[number];
 export type AgentKnowledgeTool = (typeof AGENT_KNOWLEDGE_TOOLS)[number];
 export type AgentProposalTool = (typeof AGENT_PROPOSAL_TOOLS)[number];
 export type AgentBuildTool = (typeof AGENT_BUILD_TOOLS)[number];
 /** Build tools that take a `why` and show as one step of the live build on the canvas. */
-export const BUILD_STEP_TOOLS = ['insertBlueprint', 'addNode', 'connectNodes', 'setParameter', 'createSubgraph', 'configureSubgraph', 'insertSubgraph', 'removeNode'] as const satisfies readonly AgentBuildTool[];
+export const BUILD_STEP_TOOLS = ['clearCanvas', 'createGraphSet', 'insertBlueprint', 'addNode', 'connectNodes', 'setParameter', 'createSubgraph', 'configureSubgraph', 'insertSubgraph', 'removeNode'] as const satisfies readonly AgentBuildTool[];
 export type BuildStepTool = (typeof BUILD_STEP_TOOLS)[number];
 /** Any tool name the agent may call. */
 export type AgentTool = AgentReadTool | AgentKnowledgeTool | AgentProposalTool | AgentBuildTool;

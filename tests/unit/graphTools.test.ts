@@ -14,6 +14,10 @@ import { typedWorkflow } from '../e2e/fixtures/typedWorkflow';
 
 /** One valid argument set per build tool, as a model would send it. */
 const SAMPLE_ARGS: Record<string, Record<string, unknown>> = {
+  clearCanvas: {},
+  createGraphSet: { graphs: [{ name: 'First' }, { name: 'Second' }] },
+  insertBlueprint: { templateId: 'image-basic' },
+  configureSubgraph: { definitionId: 'aaaaaaaa-0000-4000-8000-000000000001', name: 'Changed', widgets: [] },
   addNode: { nodeType: 'KSampler', title: 'Sampler', x: 1, y: 2 },
   connectNodes: { sourceNodeId: '1', targetNodeId: '2', sourceHandle: 'out-1', targetHandle: 'in-0' },
   setParameter: { nodeId: '2', key: 'text', value: 'a cat', widgetIndex: 0 },
@@ -56,7 +60,7 @@ describe('tool to mutation mapping', () => {
     expect(mutationFromTool('setParameter', { nodeId: '2', key: 'text' })).toBeNull();
     expect(mutationFromTool('removeNode', {})).toBeNull();
     expect(mutationFromTool('createSubgraph', { name: 'B', nodeIds: ['2'] })).toEqual({ type: 'create-subgraph', name: 'B', nodeIds: ['2'], inputs: [], outputs: [] });
-    expect(mutationFromTool('createSubgraph', { name: 'B', nodeIds: [] })).toBeNull();
+    expect(mutationFromTool('createSubgraph', { name: 'B', nodeIds: [] })).toEqual({ type: 'create-subgraph', name: 'B', nodeIds: [], inputs: [], outputs: [] });
     // A slot given by index and without name/type takes them from the inner port.
     expect(mutationFromTool('createSubgraph', { name: 'B', nodeIds: ['3'], inputs: [{ nodeId: '3', index: 1 }] }, context())).toMatchObject({
       inputs: [{ name: 'vae', type: 'VAE', nodeId: '3', handle: 'in-1' }],

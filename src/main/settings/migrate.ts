@@ -172,8 +172,10 @@ function applyVersion2(db: Database.Database): void {
  * fingerprint of the content written there (table project_files): Ctrl+S saves in place, and the unsaved mark says
  * whether what is on screen is in that file as it stands, across reloads and restarts.
  * Version 18 adds flags on node_catalog: the api, deprecated and experimental marks of a node class.
+ * Version 19 caches translated model descriptions by source hash and language.
+ * Version 20 preserves failed-turn markers in chat history.
  */
-export const SCHEMA_VERSION = 19;
+export const SCHEMA_VERSION = 20;
 
 /**
  * Brings the database up to SCHEMA_VERSION (or `upTo`), one step at a time from the version it has.
@@ -318,6 +320,14 @@ export function migrate(db: Database.Database, options?: { failBeforeVersionStam
     const apply = db.transaction(() => {
       db.exec("CREATE TABLE IF NOT EXISTS model_text_translations (source_hash TEXT NOT NULL, language TEXT NOT NULL, fields_json TEXT NOT NULL, updated_at INTEGER NOT NULL, PRIMARY KEY (source_hash, language))");
       db.prepare('INSERT INTO schema_migrations (version, applied_at) VALUES (19, ?)').run(Date.now());
+    });
+    apply.immediate();
+  }
+  if (schemaVersion(db) === 19 && target > 19) {
+    const apply = db.transaction(() => {
+      if (tableNames(db).includes('chat_messages') && !columnNames(db, 'chat_messages').includes('failed')) db.exec('ALTER TABLE chat_messages ADD COLUMN failed INTEGER NOT NULL DEFAULT 0');
+      if (options?.failBeforeVersionStamp) throw new Error('migration failed before version stamp');
+      db.prepare('INSERT INTO schema_migrations (version, applied_at) VALUES (20, ?)').run(Date.now());
     });
     apply.immediate();
   }

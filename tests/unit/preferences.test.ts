@@ -44,10 +44,16 @@ function openDb(): Database.Database {
 }
 
 describe('preferences schema', () => {
+  it('migrates the old default once, then preserves an explicit explain-only choice and exit preference', () => {
+    expect(parsePreferences({ assistant: { defaultIntent: 'ask' } }).assistant.defaultIntent).toBe('chat');
+    expect(parsePreferences({ assistant: { defaultIntent: 'build' } }).assistant.defaultIntent).toBe('build');
+    expect(parsePreferences({ assistant: { interactionVersion: 2, defaultIntent: 'ask', unloadOnExit: false } }).assistant).toMatchObject({ defaultIntent: 'ask', unloadOnExit: false });
+  });
+
   it('fills every section with its defaults', () => {
     expect(preferencesDefaults).toEqual({
       browserAccess: { enabled: false, address: '', port: 8787 },
-      assistant: { defaultIntent: 'ask', maxStepsPerTurn: 60, contextTokens: 0, allowWebSearch: true, allowFetchPage: true, answerLanguage: 'ui', verbosity: 'short' },
+      assistant: { defaultIntent: 'chat', interactionVersion: 2, unloadOnExit: true, maxStepsPerTurn: 60, contextTokens: 0, allowWebSearch: true, allowFetchPage: true, answerLanguage: 'ui', verbosity: 'short' },
       providers: {
         openai: { model: '', baseURL: '' },
         anthropic: { model: '', baseURL: '' },

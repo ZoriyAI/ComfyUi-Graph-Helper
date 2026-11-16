@@ -1,3 +1,4 @@
+/** Reads local model residency and performs bounded, verified load and unload requests. */
 import { getJson, ollamaOrigin } from './modelList';
 import type { LocalModelAction, LocalModelStatus } from '../../shared/contracts/localModels';
 
@@ -20,12 +21,12 @@ export async function localModelStatus(base: string, fetchImpl: typeof fetch): P
 }
 
 /** Explicit load/unload; require a native status reply first, and verify the final state instead of trusting HTTP200. */
-export async function controlLocalModel(base: string, model: string, action: LocalModelAction, fetchImpl: typeof fetch): Promise<LocalModelStatus> {
+export async function controlLocalModel(base: string, model: string, action: LocalModelAction, fetchImpl: typeof fetch, ensureUnload = false): Promise<LocalModelStatus> {
   const origin = ollamaOrigin(base);
   if (!origin || !model.trim() || model.length > 300 || !['load', 'unload'].includes(action)) return { ok: false, error: UNAVAILABLE };
   const before = await localModelStatus(base, fetchImpl);
   if (!before.ok) return before;
-  if (action === 'unload' && !before.models.some(item => tag(item.name) === tag(model))) return before;
+  if (action === 'unload' && !ensureUnload && !before.models.some(item => tag(item.name) === tag(model))) return before;
   try {
     const response = await fetchImpl(`${origin}/api/generate`, { method: 'POST', redirect: 'error',
       headers: { 'content-type': 'application/json' }, signal: AbortSignal.timeout(90_000),

@@ -58,7 +58,7 @@ Pick from the list ("Pick from 12 models on the server") or type the name. **Ref
 
 | Field | Default | What it does |
 |---|---|---|
-| **When I ask for a change** | **Suggest first (grey drafts)** | The mode the assistant's box opens in. Ask answers and offers grey drafts that go in only when you accept them. **Build directly** opens in Build. |
+| **When I ask for a change** | **Assistant** | Carries out requests directly. Explain only answers and drafts; Build emphasizes construction steps. |
 | **Steps per answer** | 60 (from 4 to 200) | After this many actions the assistant pauses and asks whether to go on. A text-to-image build takes about 16. |
 | **Conversation capacity** | Automatic | Task modes with explanations; applying to Ollama verifies the loaded window. For other providers it budgets conversation. |
 | **Allow web search**, **Allow reading web pages** | on | "Used only when your catalog cannot answer. Answers from the web carry their link." |
@@ -72,3 +72,9 @@ Pick from the list ("Pick from 12 models on the server") or type the name. **Ref
 - [Keys and where they are kept](../assistant/Keys.md)
 - [Web search and pages](../assistant/Web-Search.md)
 - [Settings](Settings.md)
+
+## Free memory before ComfyUI
+
+**Make room for ComfyUI** pauses chat and background model-description translation, then unloads the local Ollama models used by this app and checks the server result. Other model names and the shared service stay running. A failed or unsupported unload is shown as unconfirmed, with retry. **Resume assistant** or a new message resumes requests.
+
+**Unload assistant models when closing NodeWise** is on by default. Quitting the desktop stops browser access; closing a paired tab does not quit the desktop. The export handoff shows the same controls, even when its introductory hints were dismissed.

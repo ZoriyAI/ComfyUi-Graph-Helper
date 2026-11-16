@@ -1,3 +1,4 @@
+/** Adapts the renderer API to the authorized operations of the paired desktop browser server. */
 import { guideSource } from '../../shared/guidance/catalog';
 /** Browser transport for the existing renderer. Only reviewed operations travel to the running desktop. */
 import type { ElectronAPI } from '../../preload';

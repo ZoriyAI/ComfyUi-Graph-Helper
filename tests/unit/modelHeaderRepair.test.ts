@@ -1,3 +1,4 @@
+/** Checks model header repair, file identity matching and safe catalog enrichment. */
 import { describe, expect, it } from 'vitest';
 import Database from 'better-sqlite3';
 import { readSelectedModelHeader, MODEL_HEADER_LIMIT } from '../../src/shared/knowledge/modelHeader';
