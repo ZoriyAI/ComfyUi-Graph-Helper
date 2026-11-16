@@ -9,6 +9,7 @@ import { requestAsk } from '../../services/ask';
 import { useUiStore } from '../../state/uiState';
 import { useDockStore } from '../../state/dockState';
 import { useKnowledgeStore } from '../../state/knowledgeState';
+import { useProviderStore } from '../../state/providerState';
 import { resolveEdgeKnowledge } from './lib/linkTypeKnowledge';
 import { edgeRef } from './lib/selection';
 
@@ -28,6 +29,14 @@ export function askAbout(objectRef: ObjectRef, message: string): void {
     context: { intent: 'ask', objectRef, selection: ui.selection, language: interfaceLanguage() },
     message,
   });
+}
+
+/** Repairs remain reviewable proposals; ask mode cannot call the direct build tools. */
+export function askForNodeFix(objectRef: ObjectRef, message: string): void {
+  const ui = useUiStore.getState();
+  if (!useProviderStore.getState().provider) { ui.openSettings('assistant'); return; }
+  ui.setFocus(objectRef);
+  requestAsk({ context: { intent: 'ask', objectRef, selection: [objectRef], language: interfaceLanguage() }, message });
 }
 
 /**

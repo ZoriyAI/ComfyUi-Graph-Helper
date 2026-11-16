@@ -116,9 +116,19 @@ export function clampInterval(raw: string | number): number {
   return Math.min(MAX_INTERVAL_MINUTES, Math.max(MIN_INTERVAL_MINUTES, Math.round(value)));
 }
 
+/** Pending files have no per-file error yet. Keep this visible even after Retry clears earlier failures. */
+export function metadataReport(status: SyncStatus | null | undefined): { done: number; total: number; failed: number; skipped: number; pending: number } {
+  const done = status?.metadata?.done ?? 0, total = status?.metadata?.total ?? 0;
+  if (status?.metadataReport) return { done, total, ...status.metadataReport };
+  const rows = (status?.unreadable ?? []).filter(row => row.kind === 'model');
+  const skipped = Math.min(Math.max(0, total - done), rows.filter(row => row.skipped).length);
+  const failed = Math.min(Math.max(0, total - done - skipped), rows.filter(row => !row.skipped).length);
+  return { done, total, failed, skipped, pending: Math.max(0, total - done - skipped - failed) };
+}
+
 /** How many rows of the "Could not be read" report wait for the person's eye: every row that is not skipped. */
 export function unreadCount(status: SyncStatus | null | undefined): number {
-  return (status?.unreadable ?? []).filter((row) => !row.skipped).length;
+  return (status?.unreadable ?? []).filter((row) => !row.skipped).length + metadataReport(status).pending;
 }
 
 /** Which toast, if any, a status change deserves: only the end of a run is news. */

@@ -1,0 +1,1152 @@
+[
+  {
+    "id": "p01",
+    "category": "setup",
+    "title": {
+      "ru": "Открыл workflow, а часть нод красная",
+      "en": "Missing nodes in an imported workflow"
+    },
+    "why": {
+      "ru": "Не установлен нужный пакет",
+      "en": "The workflow needs a node pack that is not installed."
+    },
+    "check": {
+      "ru": "Откройте проверку графа и найдите имя отсутствующего класса. Сверьте пакет с источником workflow.",
+      "en": "Run the graph check and find the missing class. Compare its pack with the workflow source."
+    },
+    "expected": {
+      "ru": "После установки пакета в ComfyUI и синхронизации класс появляется в библиотеке.",
+      "en": "After installing the pack in ComfyUI and syncing, the class appears in the library."
+    },
+    "action": "check",
+    "keywords": "missing node unknown class красные",
+    "source": "https://docs.comfy.org/basic-concepts/dependencies"
+  },
+  {
+    "id": "p02",
+    "category": "setup",
+    "title": {
+      "ru": "Пакет установлен, ноды всё равно нет",
+      "en": "Installed but still missing"
+    },
+    "why": {
+      "ru": "Импорт Python завершился ошибкой",
+      "en": "A Python import may have failed even though the folder exists."
+    },
+    "check": {
+      "ru": "Найдите в библиотеке пакет этой ноды и его состояние импорта. Смотрите первую ошибку пакета в журнале ComfyUI.",
+      "en": "Find this node's pack and its import state. Read its first error in the ComfyUI log."
+    },
+    "expected": {
+      "ru": "У пакета успешный импорт; нода находится по точному имени класса.",
+      "en": "The pack imports successfully and its exact class name can be found."
+    },
+    "action": "nodes",
+    "keywords": "import failed module not found",
+    "source": "https://docs.comfy.org/troubleshooting/custom-node-issues"
+  },
+  {
+    "id": "p03",
+    "category": "setup",
+    "title": {
+      "ru": "После установки дополнения сломалось другое",
+      "en": "One extension broke another"
+    },
+    "why": {
+      "ru": "Несовместимые зависимости",
+      "en": "Two packs may require incompatible Python dependencies."
+    },
+    "check": {
+      "ru": "Вспомните последнее изменение и сравните требования двух пакетов. Используйте отдельную установку для несовместимых наборов.",
+      "en": "Identify the last change and compare both packs' dependencies. Use separate installations for incompatible sets."
+    },
+    "expected": {
+      "ru": "Оба нужных сценария запускаются в своих проверенных окружениях.",
+      "en": "Both workflows work in their own verified environments."
+    },
+    "action": "services",
+    "keywords": "dependency conflict requirements pip",
+    "source": "https://docs.comfy.org/basic-concepts/dependencies"
+  },
+  {
+    "id": "p04",
+    "category": "setup",
+    "title": {
+      "ru": "После обновления пустой экран или пропали превью",
+      "en": "Blank screen after an update"
+    },
+    "why": {
+      "ru": "Конфликт расширения интерфейса",
+      "en": "A frontend extension can conflict with the new interface."
+    },
+    "check": {
+      "ru": "В ComfyUI отключите подозреваемое расширение интерфейса и обновите страницу. Проверяйте по одному изменению.",
+      "en": "Disable the suspected frontend extension in ComfyUI and reload. Test one change at a time."
+    },
+    "expected": {
+      "ru": "Интерфейс открывается; найдено конкретное расширение, влияющее на сбой.",
+      "en": "The interface opens and the extension involved is identified."
+    },
+    "action": "services",
+    "keywords": "blank black screen extension",
+    "source": "https://docs.comfy.org/interface/settings/extension"
+  },
+  {
+    "id": "p05",
+    "category": "setup",
+    "title": {
+      "ru": "Обновил ComfyUI, новой функции нет",
+      "en": "Updated but a feature is missing"
+    },
+    "why": {
+      "ru": "Core, frontend и шаблоны обновляются отдельно",
+      "en": "Core, frontend and template packages have separate versions."
+    },
+    "check": {
+      "ru": "Сопоставьте требуемую версию шаблона с версиями ComfyUI и frontend. Перед обновлением сохраните рабочую конфигурацию.",
+      "en": "Compare template requirements with ComfyUI and frontend versions. Save a working configuration before updating."
+    },
+    "expected": {
+      "ru": "Нужная функция видна в совместимой версии, исходный workflow сохранён.",
+      "en": "The feature is available in a compatible version and the original workflow is saved."
+    },
+    "action": "services",
+    "keywords": "update version frontend templates",
+    "source": "https://docs.comfy.org/installation/update_comfyui"
+  },
+  {
+    "id": "p06",
+    "category": "setup",
+    "title": {
+      "ru": "Модель не появляется в списке",
+      "en": "Model not in the dropdown"
+    },
+    "why": {
+      "ru": "Неверная папка/не обновлён каталог",
+      "en": "The file may be in the wrong model folder or the list is stale."
+    },
+    "check": {
+      "ru": "Откройте «Модели», найдите файл и его тип. Сверьте загрузчик с типом файла, затем синхронизируйте.",
+      "en": "Open Models and find the file and its type. Match the loader to that type, then sync."
+    },
+    "expected": {
+      "ru": "Файл доступен в подходящем загрузчике, ошибка Value not in list исчезла.",
+      "en": "The correct loader lists the file and Value not in list is resolved."
+    },
+    "action": "models",
+    "keywords": "value not in list missing checkpoint",
+    "source": "https://docs.comfy.org/basic-concepts/models"
+  },
+  {
+    "id": "p07",
+    "category": "setup",
+    "title": {
+      "ru": "Модели лежат на другом диске и не видны",
+      "en": "Models on another disk are invisible"
+    },
+    "why": {
+      "ru": "Внешняя папка не добавлена в пути ComfyUI",
+      "en": "ComfyUI needs a configured search path for the external folder."
+    },
+    "check": {
+      "ru": "Сравните папку в карточке модели с её местом на сервере. Для общей папки проверьте extra_model_paths.yaml в ComfyUI.",
+      "en": "Compare the catalog folder with the server location. Check extra_model_paths.yaml for shared folders in ComfyUI."
+    },
+    "expected": {
+      "ru": "После применения путей и синхронизации видны модели нужной папки.",
+      "en": "After applying paths and syncing, models from the expected folder appear."
+    },
+    "action": "models",
+    "keywords": "extra_model_paths path disk",
+    "source": "https://docs.comfy.org/basic-concepts/models#adding-extra-model-paths"
+  },
+  {
+    "id": "p08",
+    "category": "models",
+    "title": {
+      "ru": "Ошибка mat1/mat2 или числа каналов",
+      "en": "Tensor shape mismatch"
+    },
+    "why": {
+      "ru": "Смешаны семейства моделей",
+      "en": "Components from different model families may be mixed."
+    },
+    "check": {
+      "ru": "Найдите ноду из ошибки и проследите её MODEL, CLIP и VAE до загрузчиков. Сравните семейства.",
+      "en": "Find the failing node and trace MODEL, CLIP and VAE to their loaders. Compare model families."
+    },
+    "expected": {
+      "ru": "В одной цепочке совместимые компоненты; проверка не сообщает известное смешение семейств.",
+      "en": "The chain uses compatible components and the check reports no known family conflict."
+    },
+    "action": "check",
+    "keywords": "mat1 mat2 shapes channels tensor",
+    "source": "https://docs.comfy.org/troubleshooting/model-issues"
+  },
+  {
+    "id": "p09",
+    "category": "models",
+    "title": {
+      "ru": "VAE Decode падает",
+      "en": "VAE Decode fails"
+    },
+    "why": {
+      "ru": "VAE не соответствует latent/модели",
+      "en": "The decoder must understand the latent representation."
+    },
+    "check": {
+      "ru": "Покажите VAE Decode и проверьте, откуда пришли LATENT и VAE. Сверьте VAE с официальным шаблоном модели.",
+      "en": "Inspect VAE Decode and the sources of LATENT and VAE. Compare with the model's official template."
+    },
+    "expected": {
+      "ru": "LATENT и VAE согласованы; контрольный запуск декодирует изображение.",
+      "en": "LATENT and VAE match and a small trial decodes an image."
+    },
+    "action": "check",
+    "keywords": "vae decode expected input channels",
+    "source": "https://docs.comfy.org/troubleshooting/model-issues"
+  },
+  {
+    "id": "p10",
+    "category": "models",
+    "title": {
+      "ru": "Ошибка CLIP или текст не понимается",
+      "en": "Text encoder or CLIP errors"
+    },
+    "why": {
+      "ru": "Неподходящий encoder/конфигурация загрузчика",
+      "en": "A loader can use the wrong encoder or configuration."
+    },
+    "check": {
+      "ru": "Сверьте имена энкодеров и режим CLIPLoader с шаблоном именно этой модели. Не подставляйте один файл во все слоты.",
+      "en": "Compare encoder names and loader mode with this model's template. Do not fill all slots with one file."
+    },
+    "expected": {
+      "ru": "Каждый слот получает предусмотренный энкодер, текстовая цепочка проходит пробный запуск.",
+      "en": "Each slot has its intended encoder and the text path passes a trial."
+    },
+    "action": "templates",
+    "keywords": "clip t5 encoder conditioning",
+    "source": "https://docs.comfy.org/troubleshooting/model-issues"
+  },
+  {
+    "id": "p11",
+    "category": "models",
+    "title": {
+      "ru": "ControlNet не работает с моей моделью",
+      "en": "ControlNet does not match"
+    },
+    "why": {
+      "ru": "Не совпало семейство или вид контроля",
+      "en": "ControlNet must support the base model and control signal."
+    },
+    "check": {
+      "ru": "Сравните базовую модель ControlNet и checkpoint, затем тип сигнала: поза, глубина или контуры.",
+      "en": "Compare ControlNet and checkpoint families, then the signal: pose, depth or edges."
+    },
+    "expected": {
+      "ru": "Совместимая пара принимает нужный сигнал управления.",
+      "en": "A compatible pair accepts the intended control signal."
+    },
+    "action": "check",
+    "keywords": "controlnet pose depth canny",
+    "source": "https://docs.comfy.org/troubleshooting/model-issues"
+  },
+  {
+    "id": "p12",
+    "category": "models",
+    "title": {
+      "ru": "LoRA ничего не меняет",
+      "en": "LoRA has no visible effect"
+    },
+    "why": {
+      "ru": "Обходится загрузчик, нулевой вес или неподходящая база",
+      "en": "Its output may be bypassed, strength may be zero, or the base model differs."
+    },
+    "check": {
+      "ru": "Проследите MODEL и CLIP через Load LoRA, проверьте силу и указания автора, включая слова активации.",
+      "en": "Trace MODEL and CLIP through Load LoRA. Check strength and author guidance, including trigger words."
+    },
+    "expected": {
+      "ru": "При том же seed изменение одного веса даёт сравнимый эффект.",
+      "en": "With the same seed, changing one strength produces a comparable effect."
+    },
+    "action": "models",
+    "keywords": "lora strength trigger words",
+    "source": "https://docs.comfy.org/tutorials/basic/lora"
+  },
+  {
+    "id": "p13",
+    "category": "models",
+    "title": {
+      "ru": "Несколько LoRA портят результат",
+      "en": "Multiple LoRAs fight each other"
+    },
+    "why": {
+      "ru": "Их эффекты складываются",
+      "en": "Their effects accumulate along the loader chain."
+    },
+    "check": {
+      "ru": "Оставьте одну LoRA, сравните результат, затем добавляйте остальные по одной с тем же seed.",
+      "en": "Start with one LoRA, compare, then add the others one at a time with the same seed."
+    },
+    "expected": {
+      "ru": "Понятно, какая LoRA и какой вес изменяют результат.",
+      "en": "You can identify which LoRA and strength change the result."
+    },
+    "action": "templates",
+    "keywords": "multiple loras chain strength",
+    "source": "https://docs.comfy.org/tutorials/basic/multiple-loras"
+  },
+  {
+    "id": "p14",
+    "category": "setup",
+    "title": {
+      "ru": "Error while deserializing header",
+      "en": "Cannot deserialize a model header"
+    },
+    "why": {
+      "ru": "Незавершённый/неверный файл или ошибка доступа",
+      "en": "The file may be incomplete, inaccessible or not the expected format."
+    },
+    "check": {
+      "ru": "Откройте отчёт синхронизации. Повторите чтение и сверьте размер/источник файла; не удаляйте рабочую копию вслепую.",
+      "en": "Open the sync report. Retry and check file size and source; keep any working copy."
+    },
+    "expected": {
+      "ru": "Заголовок читается либо показана конкретная ошибка; это ещё не проверка всех весов.",
+      "en": "The header is readable or a specific error is shown; this does not validate all weights."
+    },
+    "action": "sync",
+    "keywords": "deserializing header safetensors",
+    "source": "https://docs.comfy.org/troubleshooting/model-issues"
+  },
+  {
+    "id": "p15",
+    "category": "setup",
+    "title": {
+      "ru": "Нет описания, хотя модель существует",
+      "en": "The model has no description"
+    },
+    "why": {
+      "ru": "Метаданные необязательны, описание может быть рядом",
+      "en": "Embedded metadata is optional; author notes may be in a companion file."
+    },
+    "check": {
+      "ru": "Повторите чтение и откройте карточку модели. Различайте встроенные сведения, описание автора и предположение по имени.",
+      "en": "Retry reading and open the model card. Distinguish embedded facts, author notes and filename guesses."
+    },
+    "expected": {
+      "ru": "Доступные описания показаны с источником; отсутствие текста не названо поломкой модели.",
+      "en": "Available descriptions show their source; absent text is not called model damage."
+    },
+    "action": "sync",
+    "keywords": "metadata description lora описание",
+    "source": "https://github.com/huggingface/safetensors#format"
+  },
+  {
+    "id": "p16",
+    "category": "setup",
+    "title": {
+      "ru": "Синхронизация остановилась, цифры непонятны",
+      "en": "Sync stopped and counts do not add up"
+    },
+    "why": {
+      "ru": "Если соединение прервалось, часть файлов ещё не проверена. Это не значит, что они повреждены.",
+      "en": "When the connection stops, some files have not been checked yet. This does not mean they are damaged."
+    },
+    "check": {
+      "ru": "Смотрите четыре числа: прочитано, ожидают, с ошибками, исключены. Нажмите повтор без исключённых.",
+      "en": "Check read, pending, errors and excluded counts. Retry non-excluded files."
+    },
+    "expected": {
+      "ru": "Каждый файл учтён, прочитанные описания сохранены, оставшиеся продолжают читаться.",
+      "en": "Every file is accounted for, read descriptions remain and pending work continues."
+    },
+    "action": "sync",
+    "keywords": "mcp not connected синхронизация",
+    "source": "https://github.com/Comfy-Org/ComfyUI/blob/master/server.py"
+  },
+  {
+    "id": "p17",
+    "category": "performance",
+    "title": {
+      "ru": "CUDA out of memory",
+      "en": "CUDA out of memory"
+    },
+    "why": {
+      "ru": "Пик использования VRAM превышает доступную память",
+      "en": "The run's peak memory demand exceeded available VRAM."
+    },
+    "check": {
+      "ru": "Начните с batch 1 и меньшего размера. Откройте оценку ресурсов и проверьте фоновые нагрузки.",
+      "en": "Start with batch 1 and a smaller size. Inspect resource estimates and other workloads."
+    },
+    "expected": {
+      "ru": "Небольшой контрольный запуск завершается; оценка памяти остаётся приблизительной.",
+      "en": "A small trial finishes; memory estimates remain approximate."
+    },
+    "action": "resources",
+    "keywords": "cuda out of memory oom vram",
+    "source": "https://docs.comfy.org/troubleshooting/overview"
+  },
+  {
+    "id": "p18",
+    "category": "performance",
+    "title": {
+      "ru": "Генерация очень медленная",
+      "en": "Generation is unexpectedly slow"
+    },
+    "why": {
+      "ru": "CPU/offload/загрузка моделей/сложность графа",
+      "en": "Compute, memory offload or disk loading may be the bottleneck."
+    },
+    "check": {
+      "ru": "Посмотрите состояние служб и нагрузку. Сравните простой шаблон и текущий граф, не меняя всё сразу.",
+      "en": "Inspect service state and load. Compare a simple template with the current graph, one change at a time."
+    },
+    "expected": {
+      "ru": "Известно, на какой стадии тратится время и что изменило скорость.",
+      "en": "You know which stage takes time and which change affected speed."
+    },
+    "action": "services",
+    "keywords": "slow cpu gpu offload",
+    "source": "https://docs.comfy.org/troubleshooting/overview"
+  },
+  {
+    "id": "p19",
+    "category": "performance",
+    "title": {
+      "ru": "Апскейл съедает всю память",
+      "en": "Upscaling exhausts memory"
+    },
+    "why": {
+      "ru": "Большой промежуточный IMAGE",
+      "en": "Large images make expensive intermediate results."
+    },
+    "check": {
+      "ru": "Уменьшите тестовую картинку, проверьте коэффициент увеличения и модель апскейла.",
+      "en": "Use a smaller test image and check the scale factor and upscaler."
+    },
+    "expected": {
+      "ru": "Малый опыт проходит; размер увеличивается постепенно, а не сразу до максимума.",
+      "en": "A small test works and size increases gradually."
+    },
+    "action": "resources",
+    "keywords": "upscale memory large image",
+    "source": "https://docs.comfy.org/tutorials/basic/upscale"
+  },
+  {
+    "id": "p20",
+    "category": "performance",
+    "title": {
+      "ru": "Несколько моделей в графе не помещаются",
+      "en": "Combining models exceeds hardware limits"
+    },
+    "why": {
+      "ru": "Суммарные веса и промежуточные данные",
+      "en": "Several model stages and intermediate data share memory."
+    },
+    "check": {
+      "ru": "Разделите граф по выходам, оцените модели каждой ветви и проверьте их по отдельности.",
+      "en": "Separate output branches, estimate their models and test each independently."
+    },
+    "expected": {
+      "ru": "Есть проверенные отдельные стадии и понятный план совместного запуска.",
+      "en": "Individual stages are tested and there is a plan for a combined run."
+    },
+    "action": "resources",
+    "keywords": "multiple models memory hardware",
+    "source": "https://docs.comfy.org/installation/system_requirements"
+  },
+  {
+    "id": "p21",
+    "category": "graph",
+    "title": {
+      "ru": "Required input is missing",
+      "en": "A required input is missing"
+    },
+    "why": {
+      "ru": "Обязательный порт остался пустым",
+      "en": "An essential input has no value or connection."
+    },
+    "check": {
+      "ru": "Запустите проверку графа, выберите находку и посмотрите подсвеченный вход.",
+      "en": "Run the graph check, select the finding and inspect the highlighted input."
+    },
+    "expected": {
+      "ru": "Обязательный вход получает значение подходящего типа.",
+      "en": "The required input receives a value of the correct type."
+    },
+    "action": "check",
+    "keywords": "required input missing",
+    "source": "https://docs.comfy.org/basic-concepts/properties"
+  },
+  {
+    "id": "p22",
+    "category": "graph",
+    "title": {
+      "ru": "Провод не подключается",
+      "en": "A wire will not connect"
+    },
+    "why": {
+      "ru": "Не совпадает тип данных",
+      "en": "Ports carry different types of data."
+    },
+    "check": {
+      "ru": "Нажмите порт и прочитайте его тип. Выберите совместимый порт или явную ноду преобразования.",
+      "en": "Select the port and read its type. Choose a compatible port or an explicit converter."
+    },
+    "expected": {
+      "ru": "Провод соединяет совместимые типы; данные не подменяются по имени.",
+      "en": "The link joins compatible types rather than merely similar names."
+    },
+    "action": "check",
+    "keywords": "type mismatch incompatible port wire",
+    "source": "https://docs.comfy.org/basic-concepts/links"
+  },
+  {
+    "id": "p23",
+    "category": "graph",
+    "title": {
+      "ru": "Меняю число, но ничего не меняется",
+      "en": "A changed field has no effect"
+    },
+    "why": {
+      "ru": "Значение приходит по проводу",
+      "en": "A linked input takes its value from another node."
+    },
+    "check": {
+      "ru": "Найдите провод у этого поля и перейдите к его источнику. Меняйте значение там или осознанно уберите связь.",
+      "en": "Find the field's incoming wire and inspect its source. Change it there or deliberately remove the link."
+    },
+    "expected": {
+      "ru": "Видно, кто управляет значением, и изменение проверяется в правильном месте.",
+      "en": "The value's source is clear and the change is tested in the right place."
+    },
+    "action": "canvas",
+    "keywords": "widget input value linked",
+    "source": "https://docs.comfy.org/basic-concepts/properties"
+  },
+  {
+    "id": "p24",
+    "category": "graph",
+    "title": {
+      "ru": "Граф зациклен/не проходит проверку",
+      "en": "The graph contains a cycle"
+    },
+    "why": {
+      "ru": "Циклические зависимости",
+      "en": "A dependency eventually points back to itself."
+    },
+    "check": {
+      "ru": "Проверьте граф и проследите отмеченную цепочку. Уберите только связь, которая замыкает цикл.",
+      "en": "Check the graph and trace the marked path. Remove only the link closing the cycle."
+    },
+    "expected": {
+      "ru": "В выбранной ветви нет циклической зависимости.",
+      "en": "The selected branch has no dependency cycle."
+    },
+    "action": "check",
+    "keywords": "cycle cyclic recursion",
+    "source": "https://docs.comfy.org/basic-concepts/workflow"
+  },
+  {
+    "id": "p25",
+    "category": "graph",
+    "title": {
+      "ru": "Граф есть, результат не сохраняется",
+      "en": "There is no saved result"
+    },
+    "why": {
+      "ru": "Нет выходной ноды в нужной ветви",
+      "en": "The intended branch may not reach an output node."
+    },
+    "check": {
+      "ru": "Проследите результат до Save Image, Save Video или другого выхода шаблона.",
+      "en": "Trace the result to Save Image, Save Video or the template's output."
+    },
+    "expected": {
+      "ru": "Нужная ветвь заканчивается выходом, и пробный запуск создаёт результат.",
+      "en": "The intended branch reaches an output and a trial produces a result."
+    },
+    "action": "check",
+    "keywords": "no output save preview",
+    "source": "https://docs.comfy.org/get_started/first_generation"
+  },
+  {
+    "id": "p26",
+    "category": "create",
+    "title": {
+      "ru": "Слишком много параметров, не знаю с чего начать",
+      "en": "Too many settings to start"
+    },
+    "why": {
+      "ru": "У каждой задачи есть подходящая исходная схема. Готовый шаблон помогает получить первый результат, прежде чем разбираться во всех параметрах.",
+      "en": "Each task needs a suitable starting workflow. A template helps you reach a first result before learning every setting."
+    },
+    "check": {
+      "ru": "Выберите задачу в мастере, проверьте требования и сначала оставьте исходные параметры.",
+      "en": "Choose a task template, check requirements and initially keep its settings."
+    },
+    "expected": {
+      "ru": "Есть первый рабочий пример, который можно менять по одному параметру.",
+      "en": "You have a first working example to change one parameter at a time."
+    },
+    "action": "templates",
+    "keywords": "beginner first image start",
+    "source": "https://docs.comfy.org/tutorials/basic/text-to-image"
+  },
+  {
+    "id": "p27",
+    "category": "create",
+    "title": {
+      "ru": "Каждый раз получается другая картинка",
+      "en": "The result changes every time"
+    },
+    "why": {
+      "ru": "Меняется seed/режим после генерации",
+      "en": "The seed or its post-generation behavior may change."
+    },
+    "check": {
+      "ru": "Зафиксируйте seed, модель и размеры для сравнения. Проверьте режим seed после генерации.",
+      "en": "Fix the seed, model and dimensions for comparison. Check the seed's post-generation mode."
+    },
+    "expected": {
+      "ru": "Контрольные опыты сравниваются при одинаковых исходных условиях.",
+      "en": "Trials can be compared under the same starting conditions."
+    },
+    "action": "canvas",
+    "keywords": "seed random reproducible",
+    "source": "https://docs.comfy.org/tutorials/basic/text-to-image"
+  },
+  {
+    "id": "p28",
+    "category": "create",
+    "title": {
+      "ru": "Фото меняется до неузнаваемости",
+      "en": "Image-to-image changes too much"
+    },
+    "why": {
+      "ru": "Слишком сильный denoise",
+      "en": "Denoise controls how far generation moves from the input."
+    },
+    "check": {
+      "ru": "Проверьте подключённое исходное фото и уменьшайте denoise небольшими шагами.",
+      "en": "Check the input photo and lower denoise in small steps."
+    },
+    "expected": {
+      "ru": "Исходная композиция сохраняется настолько, насколько нужно для задачи.",
+      "en": "The original composition is preserved to the degree your task needs."
+    },
+    "action": "templates",
+    "keywords": "denoise img2img preserve",
+    "source": "https://docs.comfy.org/tutorials/basic/image-to-image"
+  },
+  {
+    "id": "p29",
+    "category": "create",
+    "title": {
+      "ru": "Фото почти не меняется",
+      "en": "Image-to-image barely changes"
+    },
+    "why": {
+      "ru": "Мало denoise или неверный вход",
+      "en": "Denoise may be too low or the intended image path is unused."
+    },
+    "check": {
+      "ru": "Проверьте Load Image → VAE Encode → sampler и слегка увеличьте denoise.",
+      "en": "Check Load Image → VAE Encode → sampler and slightly increase denoise."
+    },
+    "expected": {
+      "ru": "Изменение denoise заметно влияет на сравнимый результат.",
+      "en": "Changing denoise visibly affects a comparable result."
+    },
+    "action": "templates",
+    "keywords": "img2img unchanged denoise",
+    "source": "https://docs.comfy.org/tutorials/basic/image-to-image"
+  },
+  {
+    "id": "p30",
+    "category": "create",
+    "title": {
+      "ru": "IMAGE нельзя подключить к LATENT",
+      "en": "IMAGE and LATENT are confusing"
+    },
+    "why": {
+      "ru": "Это разные представления",
+      "en": "Pixels and compressed generation data are different representations."
+    },
+    "check": {
+      "ru": "Найдите VAE Encode между изображением и sampler, VAE Decode между sampler и просмотром.",
+      "en": "Find VAE Encode before the sampler and VAE Decode before preview."
+    },
+    "expected": {
+      "ru": "Понятно, где обычная картинка, а где данные для генерации.",
+      "en": "You can identify ordinary images and generation data in the graph."
+    },
+    "action": "canvas",
+    "keywords": "image latent vae encode decode",
+    "source": "https://docs.comfy.org/tutorials/basic/image-to-image"
+  },
+  {
+    "id": "p31",
+    "category": "create",
+    "title": {
+      "ru": "Редактируется не та область картинки",
+      "en": "The wrong region is edited"
+    },
+    "why": {
+      "ru": "Перепутана маска/её направление",
+      "en": "The mask or its interpretation differs from the intended region."
+    },
+    "check": {
+      "ru": "Просмотрите саму маску до запуска. Сверьте белую/чёрную область с ожидаемым действием выбранной ноды.",
+      "en": "Preview the mask before running. Compare its light/dark regions with the chosen node's behavior."
+    },
+    "expected": {
+      "ru": "Редактируемая область заранее видна и соответствует задаче.",
+      "en": "The intended edit region is visible before the run."
+    },
+    "action": "templates",
+    "keywords": "mask inverted wrong region",
+    "source": "https://docs.comfy.org/tutorials/basic/inpaint"
+  },
+  {
+    "id": "p32",
+    "category": "create",
+    "title": {
+      "ru": "Inpaint не меняет выделенную область",
+      "en": "Inpainting does nothing"
+    },
+    "why": {
+      "ru": "Маска не попала в нужный путь",
+      "en": "The mask may not reach the inpainting path."
+    },
+    "check": {
+      "ru": "Проследите IMAGE и MASK до inpaint/encode и проверьте, что маска не пустая.",
+      "en": "Trace IMAGE and MASK to the inpaint/encode path and check that the mask is not empty."
+    },
+    "expected": {
+      "ru": "Маска участвует в нужной ветви; проба меняет выбранную область.",
+      "en": "The mask participates in the intended branch and a trial edits that region."
+    },
+    "action": "templates",
+    "keywords": "inpaint mask no effect",
+    "source": "https://docs.comfy.org/tutorials/basic/inpaint"
+  },
+  {
+    "id": "p33",
+    "category": "create",
+    "title": {
+      "ru": "Не понимаю как расширить края фото",
+      "en": "I want to extend a photo"
+    },
+    "why": {
+      "ru": "Нужен padding и inpaint",
+      "en": "Outpainting combines padding with a masked edit."
+    },
+    "check": {
+      "ru": "Выберите шаблон outpaint, задайте сторону и размер добавления, проверьте превью маски.",
+      "en": "Choose an outpaint template, set the side and added area, then inspect its mask."
+    },
+    "expected": {
+      "ru": "Добавленная область находится с нужной стороны исходного изображения.",
+      "en": "The new area is on the intended side of the image."
+    },
+    "action": "templates",
+    "keywords": "outpaint extend borders padding",
+    "source": "https://docs.comfy.org/tutorials/basic/outpaint"
+  },
+  {
+    "id": "p34",
+    "category": "create",
+    "title": {
+      "ru": "Увеличил картинку, детализация не улучшилась",
+      "en": "Resize did not add detail"
+    },
+    "why": {
+      "ru": "Обычный resize отличается от model upscale",
+      "en": "Interpolation and a learned upscaler solve different tasks."
+    },
+    "check": {
+      "ru": "Сравните обычный resize и модельный upscale на небольшом фрагменте.",
+      "en": "Compare ordinary resize and model-based upscaling on a small sample."
+    },
+    "expected": {
+      "ru": "Выбран способ, который даёт нужные детали при приемлемой памяти.",
+      "en": "The chosen method gives useful detail within the available memory."
+    },
+    "action": "templates",
+    "keywords": "resize upscale detail",
+    "source": "https://docs.comfy.org/tutorials/basic/upscale"
+  },
+  {
+    "id": "p35",
+    "category": "graph",
+    "title": {
+      "ru": "Чужой workflow просит отсутствующее фото/видео",
+      "en": "A workflow cannot find its input photo"
+    },
+    "why": {
+      "ru": "JSON не содержит исходные медиа",
+      "en": "Workflow JSON can refer to media it does not contain."
+    },
+    "check": {
+      "ru": "Найдите ноды загрузки и выберите необходимые файлы на своём устройстве.",
+      "en": "Find media loaders and choose the required files from your device."
+    },
+    "expected": {
+      "ru": "Каждый загрузчик показывает правильный файл или превью.",
+      "en": "Each loader shows the intended file or preview."
+    },
+    "action": "canvas",
+    "keywords": "missing image video input file",
+    "source": "https://docs.comfy.org/basic-concepts/dependencies"
+  },
+  {
+    "id": "p36",
+    "category": "graph",
+    "title": {
+      "ru": "Workflow загрузился со связями, но без значений",
+      "en": "Imported settings are missing"
+    },
+    "why": {
+      "ru": "Формат/нестандартные виджеты/потеря сериализации",
+      "en": "UI workflows and execution formats do not carry the same editor information."
+    },
+    "check": {
+      "ru": "Сохраните исходный JSON. Сравните значения ключевых нод после импорта и после экспорта/открытия в ComfyUI.",
+      "en": "Keep the source JSON. Compare key widget values after import and after export/reopening in ComfyUI."
+    },
+    "expected": {
+      "ru": "Настройки и связи сохранены; несовместимые виджеты обозначены явно.",
+      "en": "Settings and links survive, and unsupported widgets are identified."
+    },
+    "action": "check",
+    "keywords": "widgets_values import export json",
+    "source": "https://github.com/Comfy-Org/workflows#04--repo-layout"
+  },
+  {
+    "id": "p37",
+    "category": "graph",
+    "title": {
+      "ru": "Картинка не восстановила workflow",
+      "en": "An image does not restore the workflow"
+    },
+    "why": {
+      "ru": "Метаданные не сохранены/удалены сервисом",
+      "en": "The file may no longer contain workflow metadata."
+    },
+    "check": {
+      "ru": "Попробуйте исходный файл, не копию из мессенджера. Если метаданных нет, запросите workflow JSON.",
+      "en": "Try the original file instead of a messaging copy. If metadata is absent, obtain the workflow JSON."
+    },
+    "expected": {
+      "ru": "Получен настоящий workflow, а не догадка по изображению.",
+      "en": "You have the actual workflow rather than a guess from its image."
+    },
+    "action": "import",
+    "keywords": "png workflow metadata",
+    "source": "https://docs.comfy.org/basic-concepts/workflow"
+  },
+  {
+    "id": "p38",
+    "category": "graph",
+    "title": {
+      "ru": "Не хочу запускать весь огромный граф",
+      "en": "Only one branch needs to run"
+    },
+    "why": {
+      "ru": "Нужна только одна выходная ветвь",
+      "en": "ComfyUI can execute dependencies of a chosen output."
+    },
+    "check": {
+      "ru": "Найдите нужный выход и изучите ведущую к нему цепочку. В ComfyUI используйте частичный запуск выхода.",
+      "en": "Locate the output and its dependency path. Use partial execution for that output in ComfyUI."
+    },
+    "expected": {
+      "ru": "Выполняется выбранная ветвь; остальные выходы не запускаются без необходимости.",
+      "en": "Only the intended output branch runs."
+    },
+    "action": "canvas",
+    "keywords": "partial execution branch",
+    "source": "https://docs.comfy.org/interface/features/partial-execution"
+  },
+  {
+    "id": "p39",
+    "category": "graph",
+    "title": {
+      "ru": "Нода на холсте есть, но не участвует",
+      "en": "A node seems ignored"
+    },
+    "why": {
+      "ru": "Mute/bypass или не ведёт к выходу",
+      "en": "It may be muted, bypassed or disconnected from the output."
+    },
+    "check": {
+      "ru": "Проверьте режим ноды и её связи до выхода. Сравните mute и bypass на копии графа.",
+      "en": "Check the node mode and path to the output. Compare mute and bypass on a graph copy."
+    },
+    "expected": {
+      "ru": "Понятно, исключена ли нода, пропускает ли данные или просто не используется.",
+      "en": "You know whether the node is disabled, bypassed or unused."
+    },
+    "action": "canvas",
+    "keywords": "mute bypass ignored",
+    "source": "https://docs.comfy.org/basic-concepts/nodes"
+  },
+  {
+    "id": "p40",
+    "category": "graph",
+    "title": {
+      "ru": "Не понимаю что делает нода и что дальше",
+      "en": "What does this node do next?"
+    },
+    "why": {
+      "ru": "Нода — отдельный шаг работы: получает данные, обрабатывает их и передаёт дальше. Понять её роль проще по входам, выходам и соседним шагам.",
+      "en": "A node is one step: it receives data, processes it and passes it on. Its inputs, outputs and neighbouring steps help explain its role."
+    },
+    "check": {
+      "ru": "Откройте меню ноды: объяснение, типичные связи или предложение следующего шага.",
+      "en": "Open the node menu for an explanation, common connections or a proposed next step."
+    },
+    "expected": {
+      "ru": "Понятны вход, действие и выход ноды; следующая правка видна до применения.",
+      "en": "The node's input, action and output are clear; the next edit is previewed."
+    },
+    "action": "canvas",
+    "keywords": "what next node explain",
+    "source": "https://docs.comfy.org/interface/features/node-docs"
+  },
+  {
+    "id": "p41",
+    "category": "subgraphs",
+    "title": {
+      "ru": "Как собрать свою ноду из нескольких",
+      "en": "Build my own reusable node"
+    },
+    "why": {
+      "ru": "Неясны границы и входы/выходы",
+      "en": "A subgraph packages a connected set of nodes behind an interface."
+    },
+    "check": {
+      "ru": "Выберите внутренние ноды или пустой конструктор. Назовите входы, выходы и назначение.",
+      "en": "Select inner nodes or an empty constructor. Name inputs, outputs and purpose."
+    },
+    "expected": {
+      "ru": "Снаружи одна нода; внутри доступны исходные узлы и связи.",
+      "en": "One node appears outside while its inner nodes and links remain editable."
+    },
+    "action": "constructor",
+    "keywords": "subgraph reusable custom node",
+    "source": "https://docs.comfy.org/interface/features/subgraph"
+  },
+  {
+    "id": "p42",
+    "category": "subgraphs",
+    "title": {
+      "ru": "Параметр внутри субграфа не виден снаружи",
+      "en": "Show an inner setting outside"
+    },
+    "why": {
+      "ru": "Не опубликован управляющий виджет",
+      "en": "An inner widget must be exposed on the subgraph interface."
+    },
+    "check": {
+      "ru": "В конструкторе выберите внутреннее поле и проверьте его значение на внешней ноде.",
+      "en": "Choose the inner field in the constructor and check it on the outer node."
+    },
+    "expected": {
+      "ru": "Внешний регулятор управляет нужным полем конкретного экземпляра.",
+      "en": "The outer control changes the intended field of this instance."
+    },
+    "action": "constructor",
+    "keywords": "promote expose widget",
+    "source": "https://docs.comfy.org/interface/features/subgraph"
+  },
+  {
+    "id": "p43",
+    "category": "subgraphs",
+    "title": {
+      "ru": "После открытия изменились значения вложенной ноды",
+      "en": "Nested instance values reset"
+    },
+    "why": {
+      "ru": "Ошибка сохранения экземпляров/версий",
+      "en": "Some frontend versions overwrite per-instance promoted values on load."
+    },
+    "check": {
+      "ru": "Создайте два экземпляра с разными значениями, сохраните копию и сравните после повторного открытия.",
+      "en": "Use two instances with different values, save a copy and compare after reopening."
+    },
+    "expected": {
+      "ru": "Оба значения сохранены либо обнаружена конкретная несовместимость версии.",
+      "en": "Both values survive or a specific version incompatibility is identified."
+    },
+    "action": "check",
+    "keywords": "nested instance widgets_values reset",
+    "source": "https://github.com/Comfy-Org/ComfyUI_frontend/issues/23102"
+  },
+  {
+    "id": "p44",
+    "category": "subgraphs",
+    "title": {
+      "ru": "Не могу вернуться из вложенного графа",
+      "en": "Lost inside a subgraph"
+    },
+    "why": {
+      "ru": "Непонятна навигация уровней",
+      "en": "Nested editing has a separate navigation level."
+    },
+    "check": {
+      "ru": "Найдите цепочку уровней над холстом и вернитесь на родительский уровень.",
+      "en": "Find the level breadcrumb above the canvas and return to its parent."
+    },
+    "expected": {
+      "ru": "Внешняя нода видна, внутренний граф остался на месте.",
+      "en": "The outer node is visible and its inner graph is preserved."
+    },
+    "action": "canvas",
+    "keywords": "subgraph back exit navigation",
+    "source": "https://docs.comfy.org/interface/features/subgraph"
+  },
+  {
+    "id": "p45",
+    "category": "graph",
+    "title": {
+      "ru": "У ноды список входов растёт, не знаю как соединять",
+      "en": "Inputs keep growing"
+    },
+    "why": {
+      "ru": "Dynamic/autogrow входы",
+      "en": "Autogrow nodes add repeatable slots as they are connected."
+    },
+    "check": {
+      "ru": "Проверьте описание ноды и тип повторяемого входа. Добавляйте по одной связи.",
+      "en": "Check the node description and repeated input type. Add one connection at a time."
+    },
+    "expected": {
+      "ru": "Новые слоты появляются по назначению и принимают совместимые данные.",
+      "en": "New slots appear as intended and accept compatible data."
+    },
+    "action": "canvas",
+    "keywords": "autogrow dynamic combo list",
+    "source": "https://docs.comfy.org/interface/features/autogrow-inputs"
+  },
+  {
+    "id": "p46",
+    "category": "touch",
+    "title": {
+      "ru": "На телефоне нет правой кнопки и удаления",
+      "en": "No right-click on a phone"
+    },
+    "why": {
+      "ru": "Действия, которые на компьютере вызываются правой кнопкой, на телефоне доступны через кнопку ⋯ в заголовке ноды.",
+      "en": "Actions opened by right-click on a computer are available through the ⋯ button in the node header on a phone."
+    },
+    "check": {
+      "ru": "Нажмите кнопку меню на ноде или меню холста. Удаление и отмена должны быть доступны касанием.",
+      "en": "Tap the node menu or canvas menu. Delete and undo should be reachable by touch."
+    },
+    "expected": {
+      "ru": "Меню открывается без мыши, выбранную правку можно отменить.",
+      "en": "The menu opens without a mouse and the edit can be undone."
+    },
+    "action": "canvas",
+    "keywords": "touch right click delete phone",
+    "source": "https://github.com/Comfy-Org/ComfyUI_frontend/issues/2889"
+  },
+  {
+    "id": "p47",
+    "category": "touch",
+    "title": {
+      "ru": "Панели на телефоне закрывают весь холст",
+      "en": "Panels cover the canvas"
+    },
+    "why": {
+      "ru": "Раскладка рассчитана на мышь/широкий экран",
+      "en": "A narrow screen needs explicit panel navigation."
+    },
+    "check": {
+      "ru": "Нажмите «На холст» или закрытие панели. Откройте библиотеку только для выбора ноды.",
+      "en": "Use Back to canvas or close the panel. Open the library only while choosing a node."
+    },
+    "expected": {
+      "ru": "Можно свободно видеть холст и по очереди открывать нужные панели.",
+      "en": "The canvas is visible and panels can be opened one at a time."
+    },
+    "action": "canvas",
+    "keywords": "mobile panels close phone",
+    "source": "https://github.com/Comfy-Org/ComfyUI_frontend/issues/2891"
+  },
+  {
+    "id": "p48",
+    "category": "touch",
+    "title": {
+      "ru": "Кнопка фото в субграфе не открывает выбор",
+      "en": "Photo picker in a subgraph does nothing"
+    },
+    "why": {
+      "ru": "Медиа-виджет неправильно вынесен наружу",
+      "en": "A promoted media widget may not preserve its file-picker behavior."
+    },
+    "check": {
+      "ru": "Откройте внутренний Load Image и выберите фото там. Проверьте превью и внешний выход IMAGE.",
+      "en": "Open the inner Load Image and choose the photo there. Check its preview and outer IMAGE output."
+    },
+    "expected": {
+      "ru": "Выбрано фото с устройства; нужный выход передаёт изображение.",
+      "en": "A device photo is selected and the intended output carries it."
+    },
+    "action": "canvas",
+    "keywords": "upload image picker subgraph",
+    "source": "https://github.com/Comfy-Org/ComfyUI_frontend/issues/15332"
+  },
+  {
+    "id": "p49",
+    "category": "models",
+    "title": {
+      "ru": "Хочу промпт по фото, локальная модель не видит фото",
+      "en": "Describe a photo with local AI"
+    },
+    "why": {
+      "ru": "Нужна vision-модель и реальный IMAGE-вход",
+      "en": "The selected model must support vision and receive image data."
+    },
+    "check": {
+      "ru": "Выберите vision-модель Ollama и проверьте реальный IMAGE-вход, а не только имя файла в тексте.",
+      "en": "Choose an Ollama vision model and check a real image input rather than only a filename in text."
+    },
+    "expected": {
+      "ru": "Модель описывает содержимое контрольной картинки.",
+      "en": "The model describes the contents of a test image."
+    },
+    "action": "templates",
+    "keywords": "ollama vision image prompt",
+    "source": "https://docs.ollama.com/capabilities/vision"
+  },
+  {
+    "id": "p50",
+    "category": "models",
+    "title": {
+      "ru": "Хочу искать похожие тексты, embeddings выдаёт числа",
+      "en": "Embeddings return numbers instead of text"
+    },
+    "why": {
+      "ru": "Embedding — вектор для сравнения, не ответ чата",
+      "en": "Embeddings represent text for similarity search, not chat answers."
+    },
+    "check": {
+      "ru": "Используйте одну embedding-модель для документов и запроса; сравнивайте векторы на стадии поиска.",
+      "en": "Use the same embedding model for documents and query, then compare vectors in retrieval."
+    },
+    "expected": {
+      "ru": "Находятся близкие тексты; текстовый ответ формируется отдельной стадией.",
+      "en": "Similar texts are retrieved; a separate stage produces a written answer."
+    },
+    "action": "templates",
+    "keywords": "ollama embedding vector rag",
+    "source": "https://docs.ollama.com/capabilities/embeddings"
+  }
+]

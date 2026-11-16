@@ -6,6 +6,7 @@ import Button from '../../ui/Button';
 import { startSyncSubscription, useKnowledgeStore } from '../../state/knowledgeState';
 import { useUiStore } from '../../state/uiState';
 import { redactDiagnostic, translateKnownError, type Translator } from '../../../shared/i18n';
+import { metadataReport } from './syncView';
 import UnreadableList from './UnreadableList';
 import { pauseEnrichment, requestSync } from './SyncIndicator';
 import styles from './SyncProblemsDialog.module.css';
@@ -27,7 +28,7 @@ export default function SyncProblemsDialog({ open, onOpenChange }: { open: boole
         {warnings.map(warning => <p key={warning} className={styles.warning}>{translateKnownError(translate, warning) ?? redactDiagnostic(warning)}</p>)}
         {status?.progress?.phase === 'enrichment' ? <p role="status">{t('sync.enriching', status?.metadata ?? { done: 0, total: 0 })}</p> : null}
         <UnreadableList status={status} />
-        {!status?.unreadable?.length ? <p>{t(warnings.length ? 'sync.repair.noFileErrors' : 'sync.repair.empty')}</p> : null}
+        {!status?.unreadable?.length && metadataReport(status).pending === 0 ? <p>{t(warnings.length ? 'sync.repair.noFileErrors' : 'sync.repair.empty')}</p> : null}
         {status?.headerRepairs?.length ? <section aria-label={String(t('sync.repair.history'))}>
           <h3 className={styles.subtitle}>{t('sync.repair.history')}</h3>
           <ul className={styles.history}>{status.headerRepairs.map(item => <li key={`${item.directory}/${item.name}`}>

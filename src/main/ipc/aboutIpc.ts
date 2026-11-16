@@ -22,6 +22,7 @@ import {
 } from '../../shared/contracts/about';
 import { isPageRef, WHATS_NEW_PAGE } from '../../shared/help/contextHelp';
 import { appVersion, DISPLAY_NAME, projectLinks } from '../identity';
+import { guideSource } from '../../shared/guidance/catalog';
 
 /** dist/ (this file is dist/main/ipc/aboutIpc.js, packaged or not): notices and help are written there at build. */
 const DIST = path.join(__dirname, '..', '..');
@@ -239,6 +240,12 @@ export function registerAboutIpc(ipcMain: IpcMain): void {
   });
 
   ipcMain.handle(IPC_CHANNELS.HELP_TREE, (_event, language: unknown): HelpTree => helpTree(languageOf(language)));
+  ipcMain.handle(IPC_CHANNELS.HELP_GUIDE_SOURCE, async (_event, id: unknown) => {
+    const url = guideSource(id);
+    if (!url) return { ok: false as const, error: 'unknown-guide' };
+    await shell.openExternal(url);
+    return { ok: true as const };
+  });
   ipcMain.handle(IPC_CHANNELS.HELP_PAGE, (_event, ref: unknown, language: unknown): HelpPage => helpPage(ref, languageOf(language)));
   ipcMain.handle(IPC_CHANNELS.HELP_SEARCH, (_event, query: unknown, language: unknown): HelpSearchHit[] => helpSearch(query, languageOf(language)));
 }

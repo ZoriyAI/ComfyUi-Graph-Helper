@@ -23,6 +23,7 @@ import { revealNewNode } from './lib/reveal';
 import ExtensionDraftCard from '../chat/ExtensionDraftCard';
 import type { ExtensionDraft } from '../../../shared/contracts/extensions';
 import styles from './SubgraphWizard.module.css';
+import { openGuidance } from '../guidance/guidanceState';
 
 const FAMILIES = ['image', 'video', 'audio', '3d', 'text', 'local-ai', 'extension'] as const;
 export default function TaskWizard({ request }: { request: SubgraphWizardRequest }) {
@@ -46,7 +47,7 @@ export default function TaskWizard({ request }: { request: SubgraphWizardRequest
   const select = (id: string) => { const entry = BLUEPRINTS.find((b) => b.id === id)!; setTemplateId(id); setName(entry.title[language]); setDescription(entry.description[language]); setError(''); };
   const ask = (teacher: boolean) => {
     if (stale || busy) return;
-    if (!provider) { useUiStore.getState().openSettings('assistant'); return; }
+    if (!provider) { close(); useUiStore.getState().openSettings('assistant'); return; }
     const intro = String(t(teacher ? 'taskWizard.teacherRequest' : 'taskWizard.agentRequest'));
     const message = [intro, `${t('taskWizard.goal')}: ${goal || description || t(`taskWizard.family.${family}`)}`, template ? `Blueprint: ${template.id} (${template.title[language]}). ${t('taskWizard.inspectFirst')}` : t(family === 'extension' ? 'extension.request' : 'taskWizard.localAiRequest'), request.levelId ? `Destination definitionId: ${request.levelId}. Preserve existing user nodes; create a new editable variation.` : '', t('taskWizard.agentStages')].filter(Boolean).join('\n');
     close(); requestAsk({ context: { intent: teacher ? 'ask' : 'build', language, selection: [] }, message }); requestWorkspacePanel('assistant');
@@ -70,6 +71,7 @@ export default function TaskWizard({ request }: { request: SubgraphWizardRequest
       {step === 0 ? <><div className={styles.families} role="group" aria-label={String(t('taskWizard.chooseTask'))}>{FAMILIES.map((id) => <button type="button" aria-pressed={family === id} key={id} onClick={() => { setFamily(id); setTemplateId(''); setQuery(''); }}>{t(`taskWizard.family.${id}`)}</button>)}</div>
         {family === 'local-ai' || family === 'extension' ? <div className={styles.templatePort}><h3>{t(family === 'extension' ? 'extension.title' : 'taskWizard.localAiTitle')}</h3><p>{t(family === 'extension' ? 'extension.lead' : 'taskWizard.localAiLead')}</p><Button disabled={busy} onClick={() => { setBusy(true); void window.electronAPI.extensionStarter().then(setStarter).catch(() => setError(String(t('extension.failed')))).finally(() => setBusy(false)); }}>{t('extension.starter')}</Button>{starter ? <ExtensionDraftCard draft={starter} /> : null}</div> : <><label className={styles.field}>{t('taskWizard.search')}<input type="search" value={query} onChange={(e) => setQuery(e.target.value)} /></label><div className={styles.templateList} role="listbox" aria-label={String(t('taskWizard.templates'))}>{entries.map((entry) => <button type="button" key={entry.id} role="option" aria-selected={templateId === entry.id} onClick={() => select(entry.id)}><strong>{entry.title[language]}</strong><small>{entry.title.en} · {entry.category}</small></button>)}</div><p className={styles.hint}>{t('taskWizard.matchCount', { count: entries.length })}</p></>}
         <Button size="sm" onClick={() => useSubgraphWizardStore.setState({ request: { ...request, templates: false } })}>{t('taskWizard.custom')}</Button>
+        <Button size="sm" onClick={() => { close(); openGuidance(undefined, 'p26'); }}>{t('guidance.taskHelp')}</Button>
       </> : null}
       {step === 1 ? <><label className={styles.field}>{t('taskWizard.goal')}<textarea value={goal} onChange={(e) => setGoal(e.target.value)} rows={3} maxLength={4000} placeholder={String(t('taskWizard.goalHint'))} /></label>{template ? <><label className={styles.field}>{t('subgraphWizard.name')}<input value={name} onChange={(e) => setName(e.target.value)} maxLength={200} /></label><label className={styles.field}>{t('subgraphWizard.purpose')}<textarea rows={3} value={description} onChange={(e) => setDescription(e.target.value)} maxLength={4000} /></label>{ports('inputs')}{ports('outputs')}</> : <p>{t(family === 'extension' ? 'extension.lead' : 'taskWizard.localAiLead')}</p>}</> : null}
       {step === 2 ? <><h3>{name || t(`taskWizard.family.${family}`)}</h3><p>{goal || description}</p><ol className={styles.teachingSteps}><li>{t('taskWizard.stageInputs')}</li><li>{t('taskWizard.stageInner')}</li><li>{t('taskWizard.stageExperiment')}</li><li>{t('taskWizard.stageExport')}</li></ol>

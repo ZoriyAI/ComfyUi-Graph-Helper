@@ -1,3 +1,4 @@
+import { guideSource } from '../../shared/guidance/catalog';
 /** Browser transport for the existing renderer. Only reviewed operations travel to the running desktop. */
 import type { ElectronAPI } from '../../preload';
 import { BROWSER_METHODS } from '../../shared/browser/methods';
@@ -61,6 +62,7 @@ export async function installBrowserBridge(bootstrap: { platform?: string; versi
       if (!response.ok) return { ok: false, error: response.status === 413 ? 'large' : 'failed' };
       return (await response.json()).value;
     },
+    openGuideSource: async (id: string) => { const url = guideSource(id); if (!url) return { ok: false }; window.open(url, '_blank', 'noopener,noreferrer'); return { ok: true }; },
     setInterfaceScale: () => undefined,
     onSyncEvent: (listener: (payload: unknown) => void) => subscribe(IPC_CHANNELS.SYNC_EVENT, listener),
     onProposalsEvent: (listener: (payload: unknown) => void) => subscribe(IPC_CHANNELS.PROPOSALS_EVENT, listener),

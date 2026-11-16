@@ -23,6 +23,7 @@ import AboutContent from './AboutContent';
 import HelpReader from './HelpReader';
 import SyncProblemsDialog from '../sync/SyncProblemsDialog';
 import SubgraphWizard from '../graph/SubgraphWizard';
+import GuidanceWizard from '../guidance/GuidanceWizard';
 import { showToast } from '../../ui/Toast';
 import styles from './CommandDialogs.module.css';
 
@@ -344,6 +345,7 @@ export default function CommandDialogs() {
       <StopBuildDialog />
       <SyncProblemsDialog open={dialog === 'sync-problems'} onOpenChange={close} />
       <SubgraphWizard />
+      <GuidanceWizard />
     </>
   );
 }

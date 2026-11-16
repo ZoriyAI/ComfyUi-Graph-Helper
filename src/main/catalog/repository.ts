@@ -320,7 +320,7 @@ export interface ModelEnrichment {
   description: string;
   sourceUrl: string | null;
   metadata: Record<string, string>;
-  enrichedAt: number;
+  enrichedAt: number | null;
   /** The file's SHA-256 when a description gave it; absent or null leaves the stored one. */
   sha256?: string | null;
   /**

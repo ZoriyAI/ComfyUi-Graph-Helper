@@ -23,6 +23,8 @@ import { runCommand } from '../../commands/registry';
 import { LANGUAGE_CHOICES } from '../../commands/appCommands';
 import { explainError, type Translator } from '../../../shared/i18n';
 import styles from './Onboarding.module.css';
+import { openTaskWizard } from './subgraphWizardState';
+import { openGuidance } from '../guidance/guidanceState';
 
 /** Where a row stands: still to do, in progress, done, or stuck with a reason. */
 type StepState = 'todo' | 'busy' | 'done' | 'problem';
@@ -42,8 +44,8 @@ interface Step {
 const PROVIDER_NAMES: Record<string, string> = { openai: 'OpenAI', anthropic: 'Anthropic', google: 'Google', test: 'TEST' };
 
 /**
- * The empty canvas is the person's first screen. It offers three ways to start (take a lesson, open an example built
- * from their own nodes, ask the assistant) and, under them, the two things those ways need (ComfyUI read, an
+ * The empty canvas is the person's first screen. It offers three ways to start (choose a task template, take a
+ * lesson, ask the assistant) and, under them, the connection and optional assistant setup (ComfyUI read, an
  * assistant chosen), each with where it stands now and the one button that moves it on. A person with no ComfyUI
  * gets "I have no ComfyUI yet" (components/journey/NoComfyDialog.tsx); recent files are one click away. Keeps the
  * legacy `.canvas-empty` class and the `graph.empty` sentence; the parent fades it out when the first node lands.
@@ -108,13 +110,18 @@ export default function Onboarding({ onImport }: { onImport?: () => void }) {
     helper = { ...helperBase, state: 'done', text: translate('canvas.onboardHelperReady', { name }) };
   }
 
-  // The three ways to start: a lesson, an example, the assistant. The two setup steps above are what they need.
+  // Start with a practical task; lessons and the optional assistant remain separate choices.
   const ready = connect.state === 'done' && helper.state === 'done';
   const examples = useOpenListsStore((state) => state.examples);
   const recent = useOpenListsStore((state) => state.recent);
   // The first picture lesson's example when this ComfyUI can build it, else the first one it can.
   const example = examples.includes('image') ? 'image' : examples[0];
   const ways: Step[] = [
+    {
+      key: 'create', icon: <Shapes size={18} aria-hidden="true" />, tone: 'accent', state: 'todo',
+      title: translate('guidance.startTitle'), text: translate('guidance.startLead'),
+      action: { label: translate('guidance.startAction'), onClick: openTaskWizard, icon: <Shapes size={16} aria-hidden="true" /> },
+    },
     {
       key: 'lesson',
       icon: <GraduationCap size={18} aria-hidden="true" />,
@@ -123,15 +130,6 @@ export default function Onboarding({ onImport }: { onImport?: () => void }) {
       text: translate('journey.welcome.lessonBody'),
       state: 'todo',
       action: { label: translate('journey.welcome.lessonAction'), onClick: openLessons, icon: <GraduationCap size={16} aria-hidden="true" />, primary: connect.state === 'done' },
-    },
-    {
-      key: 'example',
-      icon: <Shapes size={18} aria-hidden="true" />,
-      tone: 'accent',
-      title: translate('journey.welcome.exampleTitle'),
-      text: translate(example ? 'journey.welcome.exampleBody' : 'journey.welcome.exampleWaiting'),
-      state: 'todo',
-      ...(example ? { action: { label: translate('journey.welcome.exampleAction'), onClick: () => void openExampleGraph(example), icon: <Shapes size={16} aria-hidden="true" /> } } : {}),
     },
     {
       key: 'ask',
@@ -200,6 +198,8 @@ export default function Onboarding({ onImport }: { onImport?: () => void }) {
           ))}
         </ul>
         <div className={styles.actions}>
+          <Button variant="subtle" icon={<CircleHelp size={16} aria-hidden="true" />} onClick={() => openGuidance()}>{t('guidance.open')}</Button>
+          {example ? <Button variant="subtle" icon={<Shapes size={16} aria-hidden="true" />} onClick={() => void openExampleGraph(example)}>{t('journey.welcome.exampleAction')}</Button> : null}
           {onImport ? (
             <Button variant="subtle" icon={<FolderInput size={16} aria-hidden="true" />} onClick={onImport}>
               {t('canvas.onboardImport')}

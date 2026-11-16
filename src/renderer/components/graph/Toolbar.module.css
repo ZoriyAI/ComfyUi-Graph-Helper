@@ -219,3 +219,7 @@
   .crumb, .crumbs .button { min-height: 44px; min-width: 44px; }
   .crumbHint { display: none; }
 }
+
+/* The beginner entry always keeps its words, including on a phone. */
+.guide { padding-inline: 10px; }
+.guide span { display: inline; }

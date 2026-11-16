@@ -10,6 +10,7 @@ import type { AgentTurnContext } from '../../shared/contracts';
 import { useDockStore } from '../state/dockState';
 import { useProviderStore } from '../state/providerState';
 import { useUiStore } from '../state/uiState';
+import { requestWorkspacePanel } from '../commands/events';
 
 /** One question for the helper: the message the person sees and the context the turn is sent with. */
 export interface AskRequest {
@@ -30,6 +31,8 @@ let pending: AskRequest[] = [];
  * "Show both" already shows the chat and stays as it is.
  */
 function revealChat(): void {
+  // The dock can still be logically open while a phone shows the canvas tab.
+  requestWorkspacePanel('assistant');
   const dock = useDockStore.getState();
   if (!dock.collapsed && (dock.split || dock.tab === 'assistant')) return;
   dock.show('chat');
@@ -40,6 +43,10 @@ export function requestAsk(request: AskRequest): void {
   // No assistant chosen: a question about an object is answered from the app's built-in knowledge in the Explain
   // tab, and nothing is posted to the chat (it would only say that nothing was sent).
   const about = request.context.objectRef;
+  if (request.context.intent === 'build' && useProviderStore.getState().provider === '') {
+    useUiStore.getState().openSettings('assistant');
+    return;
+  }
   if (about && useProviderStore.getState().provider === '') {
     useUiStore.getState().setFocus(about);
     useDockStore.getState().show('explain');

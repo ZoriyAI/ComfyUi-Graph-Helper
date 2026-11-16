@@ -90,6 +90,14 @@ export default function WindowTour() {
   // No dependency list: the handlers close over the current step and stops, so they are bound again each render.
   useEffect(() => {
     if (step === null) return;
+    // A person starting real work takes precedence over the introductory overlay. Radix dialogs can open after
+    // the initial timer has already started the tour (including from a separate wizard store).
+    const stopForDialog = () => {
+      if (document.querySelector('[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]')) end();
+    };
+    stopForDialog();
+    const dialogs = new MutationObserver(stopForDialog);
+    dialogs.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-state'] });
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') end();
       else if (event.key === 'ArrowRight' && card.current?.contains(document.activeElement)) setStep(Math.min(stops.length - 1, step + 1));
@@ -99,6 +107,7 @@ export default function WindowTour() {
     window.addEventListener('keydown', onKey);
     window.addEventListener('resize', onResize);
     return () => {
+      dialogs.disconnect();
       window.removeEventListener('keydown', onKey);
       window.removeEventListener('resize', onResize);
     };

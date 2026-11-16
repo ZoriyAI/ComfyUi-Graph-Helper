@@ -353,7 +353,7 @@ describe('the words of the report', () => {
     const t = createTranslator('en');
     const text = reportText(rows, 'Model files read: 10 of 13; could not be read: 2; skipped: 1.', t, 'en');
     const lines = text.split('\n');
-    expect(lines[0]).toBe('Could not be read');
+    expect(lines[0]).toBe('Model reading report');
     expect(lines[1]).toMatch(/^Model files read: 10 of 13/);
     expect(lines.filter((line) => line.startsWith('- '))).toHaveLength(rows.length);
   });

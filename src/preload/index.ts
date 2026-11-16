@@ -191,6 +191,7 @@ const IPC_CHANNELS = {
   ABOUT_OPEN_CHROMIUM_LICENCES: 'about:open-chromium-licences',
   ABOUT_ISSUE_DRAFT: 'about:issue-draft',
   ABOUT_OPEN_PROJECT_LINK: 'about:open-project-link',
+  HELP_GUIDE_SOURCE: 'help:guide-source',
   HELP_TREE: 'help:tree',
   HELP_PAGE: 'help:page',
   HELP_SEARCH: 'help:search',
@@ -469,6 +470,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openChromiumLicences: () => ipcRenderer.invoke(IPC_CHANNELS.ABOUT_OPEN_CHROMIUM_LICENCES) as Promise<{ ok: true } | { ok: false; error: string }>,
   issueDraft: () => ipcRenderer.invoke(IPC_CHANNELS.ABOUT_ISSUE_DRAFT) as Promise<IssueDraft>,
   openProjectLink: (kind: ProjectLinkKind) => ipcRenderer.invoke(IPC_CHANNELS.ABOUT_OPEN_PROJECT_LINK, kind) as Promise<{ ok: true } | { ok: false; error: string }>,
+  openGuideSource: (id: string) => ipcRenderer.invoke(IPC_CHANNELS.HELP_GUIDE_SOURCE, id) as Promise<{ ok: boolean }>,
   helpTree: (language: string) => ipcRenderer.invoke(IPC_CHANNELS.HELP_TREE, language) as Promise<HelpTree>,
   helpPage: (ref: string, language: string) => ipcRenderer.invoke(IPC_CHANNELS.HELP_PAGE, ref, language) as Promise<HelpPage>,
   helpSearch: (query: string, language: string) => ipcRenderer.invoke(IPC_CHANNELS.HELP_SEARCH, query, language) as Promise<HelpSearchHit[]>,
@@ -769,6 +771,7 @@ export interface ElectronAPI {
   /** Opens the project page, its releases or a new issue in the browser; main builds the address. */
   openProjectLink: (kind: ProjectLinkKind) => Promise<{ ok: true } | { ok: false; error: string }>;
   /** The help reader: the section tree, one page (wiki ref or '@whats-new'), and a search over the pages. */
+  openGuideSource: (id: string) => Promise<{ ok: boolean }>;
   helpTree: (language: string) => Promise<HelpTree>;
   helpPage: (ref: string, language: string) => Promise<HelpPage>;
   helpSearch: (query: string, language: string) => Promise<HelpSearchHit[]>;

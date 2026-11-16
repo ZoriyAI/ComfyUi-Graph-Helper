@@ -85,3 +85,10 @@ describe('sync view: the hint follows the access the person chose', () => {
     expect(syncView(status({ state: 'error', lastError: SIGN_IN_AGAIN, authChoice: 'token' })).needsSignIn).toBe(false);
   });
 });
+
+
+it('accounts for every model while stopped without blaming untouched files', async () => {
+  const { metadataReport } = await import('../../src/renderer/components/sync/syncView');
+  const status = { metadata: { done: 550, total: 694 }, unreadable: [{ kind: 'model', skipped: true }, { kind: 'model', skipped: true }] } as import('../../src/shared/contracts').SyncStatus;
+  expect(metadataReport(status)).toEqual({ done: 550, total: 694, pending: 142, failed: 0, skipped: 2 });
+});

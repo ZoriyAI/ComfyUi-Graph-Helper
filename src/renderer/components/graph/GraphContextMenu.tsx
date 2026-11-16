@@ -21,7 +21,7 @@ import { useUiStore } from '../../state/uiState';
 import { useDockStore } from '../../state/dockState';
 import { ghostSpots, openProposals, useProposalsStore } from '../../state/proposalsState';
 import type { GraphEdge, GraphNode, PortDefinition } from '../../types/graph';
-import { askAbout, askWhatFlows } from './askAbout';
+import { askAbout, askForNodeFix, askWhatFlows } from './askAbout';
 import { useCanvasStore } from './canvasStore';
 import { commitManual } from './commit';
 import { boundsOf, nodeRect, ghostNodePosition, GHOST_SIZE } from './lib/geometry';
@@ -38,6 +38,7 @@ import { startGraphTour } from './tour/startTour';
 import { nodeDisplayName } from './lib/nodeName';
 import { edgeEditingItems, groupEditingItems, groupMembershipItems, nodeEditingItems, paneEditingItems } from './editingMenu';
 import styles from './GraphContextMenu.module.css';
+import { openGuidance } from '../guidance/guidanceState';
 
 /**
  * Insert subgraph (contextMenu.insertSubgraph) from the menu: at the point of the click, moved to the nearest spot
@@ -186,11 +187,14 @@ export default function GraphContextMenu({ children, nodes: levelNodes, edges, r
       const instance = node.data.kind === 'subgraph-instance';
       const definitionId = node.data.subgraphId ?? node.data.comfyType;
       items.push(
+        item('guide', t('guidance.nodeGuide'), () => openGuidance(ref, 'p40'), { icon: Compass }),
         askLabel,
         item('what', t('contextMenu.whatIs'), () => askAbout(ref, say(instance ? 'contextMenu.askSubgraph' : 'contextMenu.askWhat', { name })), { icon: CircleHelp }),
         item('why', t('contextMenu.whyHere'), () => askAbout(ref, say('contextMenu.askWhy', { name })), { icon: MessageCircleQuestion }),
         item('next', t('contextMenu.whatNext'), () => askAbout(ref, say('contextMenu.askNext', { name })), { icon: CircleArrowRight }),
         item('ports', t('contextMenu.explainPorts'), () => askAbout(ref, say('contextMenu.askPorts', { name })), { icon: Cable }),
+        item('common', t('guidance.common'), () => askAbout(ref, say('guidance.commonRequest', { name })), { icon: Plug }),
+        item('fix', t('guidance.fixNode'), () => askForNodeFix(ref, say('guidance.fixNodeRequest', { name })), { icon: PenLine, disabled: !canBuild }),
         separator('s0'),
         item('tour', t('contextMenu.tourFromHere'), () => void startGraphTour({ fromNodeId: node.id }), { icon: Compass }),
         separator('s1'),

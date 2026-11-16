@@ -8,10 +8,12 @@ import type { McpSession, McpToolCallResult } from '../../src/shared/mcp/catalog
 
 const json = (value: unknown): McpToolCallResult => ({ structuredContent: value });
 const response = (value: unknown) => new Response(JSON.stringify(value));
+import { headerBytes } from '../fixtures/modelHeader';
+
 const origin = 'http://127.0.0.1:8188';
 
 /** Labelled fixture: reproduces the owner's paged catalog and a permanently disconnected MCP metadata reader. */
-function fixture(options: { native?: boolean; disconnected?: boolean; reportedOrigin?: string; metadataMissing?: boolean; missingFiles?: string[]; batch?: number; files?: string[] } = {}) {
+function fixture(options: { native?: boolean; disconnected?: boolean; reportedOrigin?: string; metadataMissing?: boolean; missingFiles?: string[]; batch?: number; files?: string[]; headers?: Record<string, Buffer>; sidecars?: boolean; invalidMetadata?: boolean } = {}) {
   const db = new Database(':memory:');
   migrate(db);
   const classes = Object.fromEntries(Array.from({ length: 3375 }, (_, i) => [`Node${i}`, {
@@ -25,7 +27,7 @@ function fixture(options: { native?: boolean; disconnected?: boolean; reportedOr
   const factory = async (): Promise<McpSession> => {
     connections += 1;
     return {
-      listTools: async () => ['studio_info', 'studio_capabilities', 'models', 'comfy_api', 'model_metadata'].map(name => ({ name })),
+      listTools: async () => ['studio_info', 'studio_capabilities', 'models', 'comfy_api', 'model_metadata', ...(options.headers ? ['workspace_files'] : [])].map(name => ({ name })),
       callTool: async (name, args) => {
         calls.push({ name, args });
         if (name === 'studio_info') return json({ installation_id: 'fixture', comfyui_url: options.native === false ? null : options.reportedOrigin ?? origin });
@@ -35,8 +37,19 @@ function fixture(options: { native?: boolean; disconnected?: boolean; reportedOr
           const start = Number(args.cursor ?? 0), limit = Number(args.limit ?? 100);
           return json({ items: Object.keys(classes).slice(start, start + limit).map(class_type => ({ class_type, module: 'custom_nodes.fixture' })), next_cursor: start + limit < 3375 ? String(start + limit) : null });
         }
-        if (name === 'models') return json({ items: (options.files ?? ['a', 'b', 'c']).map(n => ({ category: 'loras', filename: `${n}.safetensors`, root_path: '/models/loras', size_bytes: 10 })), complete: true });
+        if (name === 'models') return json({ items: (options.files ?? ['a', 'b', 'c']).flatMap(n => [
+          { category: 'loras', filename: `${n}.safetensors`, root_path: '/models/loras', size_bytes: options.headers?.[n]?.length ?? 10 },
+          ...(options.sidecars ? [{ category: 'loras', filename: `${n}.metadata.json`, root_path: '/models/loras', size_bytes: 100 }] : []),
+        ]), complete: true });
+        if (name === 'workspace_files') {
+          const file = String(args.absolute_path).split('/').pop() ?? '';
+          const bytes = file.endsWith('.metadata.json') ? Buffer.from(JSON.stringify({ description: 'Author description', baseModel: 'SDXL 1.0', trainedWords: ['flower'] })) : options.headers?.[file.replace('.safetensors', '')];
+          if (!bytes) throw new Error('Missing fixture file');
+          const start = Number(args.offset), length = Number(args.length);
+          return json({ data_base64: bytes.subarray(start, start + length).toString('base64'), size_bytes: bytes.length, next_offset: Math.min(bytes.length, start + length), complete: start + length >= bytes.length });
+        }
         if (name === 'model_metadata') {
+          if (options.invalidMetadata) return json({ unsupported: true });
           if (options.disconnected) throw new Error('Not connected');
           return json({ embedded_metadata: {}, civitai_sidecar: null });
         }
@@ -196,4 +209,34 @@ describe('owner-reported sync scan amplification and disconnected metadata reade
     } finally { release?.(); f.sync.stop(); f.db.close(); }
   });
 
+});
+
+
+describe('metadata-free headers and independent descriptions', () => {
+  it('recovers a disconnected metadata endpoint without reconnect loops, including metadata-free and large headers', async () => {
+    const f = fixture({ disconnected: true, metadataMissing: true, headers: { a: headerBytes(), b: headerBytes({ description: 'x'.repeat(2 * 1024 * 1024) }), c: headerBytes() }, sidecars: true });
+    try {
+      await f.sync.runSync(f.db); await f.sync.whenEnrichmentDone();
+      expect(f.sync.status(f.db)).toMatchObject({ metadata: { done: 3, total: 3 }, metadataReport: { pending: 0, failed: 0, skipped: 0 }, unreadable: [] });
+      expect(f.sync.status(f.db).warnings).not.toContain(METADATA_CONNECTION_LOST);
+      expect(f.calls.filter(c => c.name === 'model_metadata')).toHaveLength(1);
+      expect(f.db.prepare('SELECT description FROM model_catalog ORDER BY name').all()).toEqual(Array(3).fill({ description: 'Author description' }));
+    } finally { f.sync.stop(); f.db.close(); }
+  });
+  it('keeps sidecar facts when the header is invalid without counting it as read', async () => {
+    const bad = Buffer.alloc(100); bad.writeBigUInt64LE(2n); bad.write('{}', 8);
+    const f = fixture({ files: ['a'], invalidMetadata: true, headers: { a: bad }, sidecars: true });
+    try {
+      await f.sync.runSync(f.db); await f.sync.whenEnrichmentDone();
+      expect(f.db.prepare('SELECT description, enriched_at FROM model_catalog').get()).toEqual({ description: 'Author description', enriched_at: null });
+      expect(f.sync.status(f.db)).toMatchObject({ metadata: { done: 0, total: 1 }, metadataReport: { pending: 0, failed: 1, skipped: 0 } });
+    } finally { f.sync.stop(); f.db.close(); }
+  });
+  it('counts untouched files as pending after a connection outage', async () => {
+    const f = fixture({ native: false, disconnected: true });
+    try {
+      await f.sync.runSync(f.db); await f.sync.whenEnrichmentDone();
+      expect(f.sync.status(f.db)).toMatchObject({ metadata: { done: 0, total: 3 }, metadataReport: { pending: 3, failed: 0, skipped: 0 } });
+    } finally { f.sync.stop(); f.db.close(); }
+  });
 });

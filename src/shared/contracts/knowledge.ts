@@ -343,6 +343,8 @@ export interface SyncStatus {
   warnings?: string[];
   /** Model files in the enrichment scope, and how many of them carry metadata. */
   metadata?: { done: number; total: number };
+  /** Disjoint counts within the current reading scope; pending is not a file error. */
+  metadataReport?: { pending: number; failed: number; skipped: number };
   /** Background metadata reading was paused by the person; it resumes with the next run. */
   enrichmentPaused?: boolean;
   /** How the last successful run authenticated: the manual token, the browser sign-in, or nothing (the server needs none). */

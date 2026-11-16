@@ -6,7 +6,8 @@
  * download and delete; the tutor only reads, so anything not listed here cannot be called, by the app or a bug in it.
  */
 import { z } from 'zod';
-import type { McpSession } from '../../shared/mcp/catalogSource';
+import { toolPayload, type McpSession } from '../../shared/mcp/catalogSource';
+import { ModelHeaderError, readSelectedModelHeader, type SelectedModelHeader } from '../../shared/knowledge/modelHeader';
 import { isPlainRelativeName, isPlainServerPath, isUnderServerFolder, normalServerFolder, pathParts } from '../../shared/mcp/serverPaths';
 
 const name = z.string().min(1).max(1000);
@@ -355,14 +356,7 @@ export function readOnlySession(session: McpSession, options: ReadOnlySessionOpt
     }
     return [...all];
   };
-  return {
-    listTools: () => list(),
-    async callTool(name, args, callOptions) {
-      if (!isReadOnlyCall(name, args)) throw new McpRefusedError(name);
-      if (name === 'workspace_files') {
-        const path = String((args as { absolute_path?: unknown }).absolute_path ?? '');
-        if (!roots().some((root) => isUnderRoot(path, root))) throw new McpRootRefusedError();
-      }
+  const invoke: McpSession['callTool'] = async (name, args, callOptions) => {
       // The server's own listing says whether its names carry a gateway prefix.
       try {
         await list();
@@ -394,7 +388,57 @@ export function readOnlySession(session: McpSession, options: ReadOnlySessionOpt
         }
         throw error;
       }
+  };
+  const wrapped: McpSession = {
+    listTools: () => list(),
+    async callTool(name, args, callOptions) {
+      if (!isReadOnlyCall(name, args)) throw new McpRefusedError(name);
+      if (name === 'workspace_files') {
+        const path = String((args as { absolute_path?: unknown }).absolute_path ?? '');
+        if (!roots().some((root) => isUnderRoot(path, root))) throw new McpRootRefusedError();
+      }
+      return invoke(name, args, callOptions);
     },
     close: () => session.close(),
   };
+  // This capability is deliberately separate from callTool: agents and generic callers cannot request weights.
+  headerReaders.set(wrapped, async (path, expectedName, size, signal) => {
+    if (!/\.(safetensors|sft)$/i.test(path) || !isPlainAbsolutePath(path)
+      || !roots().some(root => isUnderRoot(path, root))) throw new McpRootRefusedError();
+    const check = () => { if (signal?.aborted) throw new ModelHeaderError('readFailed'); };
+    return readSelectedModelHeader({ name: pathParts(path).at(-1) ?? '', size,
+      slice: (start, end) => ({ arrayBuffer: async () => {
+        // readSelectedModelHeader alone chooses these ranges: prefix, then the validated declared JSON header.
+        const chunks: Buffer[] = [];
+        for (let offset = start; offset < end;) {
+          check();
+          const length = Math.min(SIDE_FILE_CHUNK_BYTES, end - offset);
+          const result = await invoke('workspace_files', { action: 'read', absolute_path: path, encoding: 'base64', offset, length });
+          check();
+          const payload = toolPayload(result);
+          const row = payload && typeof payload === 'object' ? payload as Record<string, unknown> : null;
+          const text = row?.data_base64;
+          if (result.isError || typeof text !== 'string' || text.length !== Math.ceil(length / 3) * 4
+            || !/^[A-Za-z0-9+/]*={0,2}$/.test(text)) throw new ModelHeaderError('readFailed');
+          const chunk = Buffer.from(text, 'base64');
+          const total = row?.size_bytes ?? row?.total;
+          if (chunk.length !== length || chunk.toString('base64') !== text
+            || (total !== undefined && total !== size)
+            || (row?.next_offset != null && row.next_offset !== offset + length)) throw new ModelHeaderError('readFailed');
+          chunks.push(chunk); offset += length;
+        }
+        const bytes = new Uint8Array(Buffer.concat(chunks));
+        return bytes.buffer;
+      } }),
+    }, expectedName);
+  });
+  return wrapped;
+}
+
+type HeaderReader = (path: string, expectedName: string, size: number, signal?: AbortSignal) => Promise<SelectedModelHeader>;
+const headerReaders = new WeakMap<McpSession, HeaderReader>();
+
+/** Only a wrapped read-only session can read a model's declared JSON header; arbitrary byte reads stay denied. */
+export async function readSessionModelHeader(session: McpSession, path: string, expectedName: string, size: number, signal?: AbortSignal): Promise<SelectedModelHeader | null> {
+  return headerReaders.get(session)?.(path, expectedName, size, signal) ?? null;
 }

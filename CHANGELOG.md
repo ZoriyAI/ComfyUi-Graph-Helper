@@ -5,6 +5,12 @@
 Releases, newest first. Each release has full notes in `docs/releases/`.
 This file is written by `node scripts/changelog.js`: change the notes, not this file.
 
+## 1.2.7
+
+Synchronization automatically tries another way to read model headers and reports **read, pending, failed and excluded** files separately. The new **Solve a problem** guide covers 50 practical situations with an explanation, an interactive diagram and a route to the relevant tool.
+
+Notes: [docs/releases/v1.2.7.md](docs/releases/v1.2.7.md)
+
 ## 1.2.6
 
 Create, rename, colour, move and remove **groups inside subgraphs**, and use **Dissolve subgraph** on a nested node. These operations now follow the displayed graph level and its undo history.

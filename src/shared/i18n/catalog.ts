@@ -6,9 +6,11 @@
  */
 import { syncProfilesEn, syncProfilesRu } from './syncProfiles';
 import { servicesEn, servicesRu } from './services';
+import { guidanceEn, guidanceRu } from './guidance';
 
 // ── English ──
 export const en = {
+  guidance: guidanceEn,
   services: servicesEn,
   syncProfiles: syncProfilesEn,
   extension: {"title": "Create a custom extension", "lead": "For a new algorithm, describe its inputs, outputs and steps. The configured agent drafts a native ComfyUI package that you can read and export. For existing nodes use a subgraph.", "request": "Help me design a new native ComfyUI custom-node extension step by step. Clarify its typed inputs and outputs and dependencies, explain the algorithm, then use draftExtension to provide reviewable Python sources and README for ZIP export. Do not execute or install code. Keep import and INPUT_TYPES free of network, installers and GPU work. Distinguish source validation from runtime testing.", "starter": "Review Ollama node package", "sourceOnly": "Source package for review. Format checked; code has not been executed or installed.", "ports": "Inputs, outputs and dependencies", "file": "Read a source file", "download": "Download extension ZIP", "install": "After reviewing: extract the package folder into ComfyUI/custom_nodes, restart ComfyUI and synchronize NodeWise. Choose models separately.", "gone": "This temporary draft is no longer available. Ask the agent to draft it again.", "failed": "Could not prepare the extension package."},
@@ -1474,9 +1476,12 @@ export const en = {
     elsewhereHint: 'The library was read from the previous address. Press “Sync now” to read the new one.',
     lastError: 'Last error: {{error}}',
     unread: {
-      title: 'Could not be read',
-      summary: 'Model files read: {{done, number}} of {{total, number}}; could not be read: {{failed, number}}; skipped: {{skipped, number}}.',
-      intro: 'The sync skipped these and read everything else. Each row says why and what to do.',
+      title: 'Model reading report',
+      summary: 'Read: {{done, number}} of {{total, number}} · waiting: {{pending, number}} · errors: {{failed, number}} · excluded: {{skipped, number}}.',
+      intro: 'The list below contains errors and your exclusions. Missing embedded descriptions alone do not mean a model is damaged.',
+      pendingBusy: '{{count, number}} files are waiting. Reading continues automatically.',
+      pendingPaused: '{{count, number}} files are waiting because reading is paused. Resume when ready.',
+      pendingStopped: '{{count, number}} files are still waiting; no file error has been established for them. Retry to continue. The descriptions already read are kept.',
       showAll: 'Show all ({{count, number}})',
       showFewer: 'Show fewer',
       retry: 'Try again now',
@@ -1512,7 +1517,7 @@ export const en = {
         listing: 'Sync again. If it stays, check the MCP server.',
         skipped: 'Automatic reading is skipped. You can still retry or read the file here; a successful read removes the exclusion.',
       },
-      toast: 'Sync done. Could not be read: {{count, number}}. See the list.',
+      toast: 'Catalog updated. Still waiting to be read or checked: {{count, number}}. Open the report.',
       toastAction: 'Show the list',
       card: 'No description: the file could not be read during sync. {{why}} See Sync ▸ Problems and repairs.',
       cardSkipped: 'No description: you chose to skip this file in Sync ▸ Problems and repairs.',
@@ -2278,7 +2283,7 @@ export const en = {
     metadataUnread: 'Model metadata could not be read.',
     metadataUnreadConnection: 'Model descriptions could not be read: the connection to the MCP server was lost while reading them. Restart the MCP server and sync again.',
     metadataUnreadServer: 'Model descriptions could not be read: the MCP server answered every file with an error. See the list under Settings ▸ Sync.',
-    metadataConnectionLost: 'Reading model files stopped because the MCP server lost its connection. Open Sync → Problems and repairs to retry or read a selected file header directly.',
+    metadataConnectionLost: 'Reading stopped because the server connection is unavailable. In Sync → Problems and repairs, retry reading: the app will reconnect and try an alternative header reader automatically. Files waiting below have not been identified as damaged.',
     mcpUnreachable: 'MCP server unreachable: {{host}}. Check the address and that the server is running.',
     comfyNotRunning: 'ComfyUI is not running at {{host}}, so node inputs and outputs were not updated. Start ComfyUI and sync again.',
     mcpSection: 'Not read: {{section}}; the library keeps the previous one. The rest was updated; sync again to retry.',
@@ -3433,6 +3438,7 @@ export type Catalog = MessageTree<typeof en>;
 
 // ── Russian: the same keys as `en` (checked by `satisfies Catalog` at the end). ──
 export const ru = {
+  guidance: guidanceRu,
   services: servicesRu,
   syncProfiles: syncProfilesRu,
   extension: {"title": "Создать своё расширение", "lead": "Для нового алгоритма опишите входы, выходы и этапы. Настроенный агент подготовит исходники нод ComfyUI для просмотра и экспорта. Для объединения готовых нод используйте субграф.", "request": "Помоги пошагово спроектировать собственное расширение нод ComfyUI. Уточни типы входов и выходов, зависимости и алгоритм, затем примени draftExtension для просмотра исходников Python и README и экспорта ZIP. Не запускай и не устанавливай код. При импорте и INPUT_TYPES не должно быть сетевых вызовов, установки пакетов или работы GPU. Различай проверку формата и реальное выполнение.", "starter": "Посмотреть пакет нод Ollama", "sourceOnly": "Исходники для проверки. Формат проверен; код не запускался и не устанавливался.", "ports": "Входы, выходы и зависимости", "file": "Просмотреть файл исходников", "download": "Скачать ZIP расширения", "install": "После проверки поместите папку пакета в ComfyUI/custom_nodes, перезапустите ComfyUI и выполните синхронизацию NodeWise. Модели выбираются отдельно.", "gone": "Временный черновик больше недоступен. Попросите агента подготовить его снова.", "failed": "Не удалось подготовить пакет расширения."},
@@ -4895,9 +4901,12 @@ export const ru = {
     elsewhereHint: 'Библиотека прочитана с прежнего адреса. Нажмите «Синхронизировать сейчас», чтобы прочитать новый.',
     lastError: 'Последняя ошибка: {{error}}',
     unread: {
-      title: 'Не удалось прочитать',
-      summary: 'Прочитано файлов моделей: {{done, number}} из {{total, number}}; не прочитано: {{failed, number}}; пропущено: {{skipped, number}}.',
-      intro: 'Синхронизация пропустила это и прочитала всё остальное. В каждой строке сказано, почему и что делать.',
+      title: 'Чтение моделей',
+      summary: 'Прочитано: {{done, number}} из {{total, number}} · ожидают: {{pending, number}} · с ошибками: {{failed, number}} · исключены: {{skipped, number}}.',
+      intro: 'Ниже — ошибки чтения и ваши исключения. Отсутствие встроенного описания само по себе не означает повреждение модели.',
+      pendingBusy: 'Ещё {{count, number}} файлов ожидают чтения. Оно продолжается автоматически.',
+      pendingPaused: 'Ещё {{count, number}} файлов ожидают: чтение приостановлено. Продолжите, когда будет удобно.',
+      pendingStopped: 'Ещё {{count, number}} файлов ожидают чтения; ошибка в этих файлах не установлена. Нажмите «Повторить без исключённых», чтобы продолжить. Уже прочитанные описания сохранены.',
       showAll: 'Показать все ({{count, number}})',
       showFewer: 'Показать меньше',
       retry: 'Повторить сейчас',
@@ -4933,10 +4942,10 @@ export const ru = {
         listing: 'Синхронизируйте снова. Если не пройдёт, проверьте MCP-сервер.',
         skipped: 'Автоматическое чтение пропущено. Здесь по-прежнему можно повторить проверку или прочитать файл; успешное чтение снимет исключение.',
       },
-      toast: 'Синхронизация завершена. Не удалось прочитать: {{count, number}}. Смотрите список.',
+      toast: 'Каталог обновлён. Ещё требуют чтения или проверки: {{count, number}}. Откройте отчёт.',
       toastAction: 'Показать список',
-      card: 'Описания нет: файл не удалось прочитать при синхронизации. {{why}} Подробности: Настройки ▸ Синхронизация.',
-      cardSkipped: 'Описания нет: вы выбрали пропускать этот файл в Настройки ▸ Синхронизация.',
+      card: 'Описания нет: файл не удалось прочитать при синхронизации. {{why}} Подробности: Синхронизация ▸ Проблемы и исправление.',
+      cardSkipped: 'Описания нет: вы выбрали пропускать этот файл в Синхронизация ▸ Проблемы и исправление.',
     },
   },
   check: {
@@ -5699,7 +5708,7 @@ export const ru = {
     metadataUnread: 'Не удалось прочитать метаданные моделей.',
     metadataUnreadConnection: 'Не удалось прочитать описания моделей: соединение с MCP-сервером оборвалось во время чтения. Перезапустите MCP-сервер и синхронизируйте снова.',
     metadataUnreadServer: 'Не удалось прочитать описания моделей: MCP-сервер ответил ошибкой на каждый файл. Список: Настройки ▸ Синхронизация.',
-    metadataConnectionLost: 'Чтение файлов остановлено: MCP-сервер потерял соединение. В меню «Синхронизация → Проблемы и исправление» повторите чтение или выберите файл на устройстве, чтобы прочитать его заголовок напрямую.',
+    metadataConnectionLost: 'Чтение остановилось из-за соединения с сервером. В «Синхронизация → Проблемы и исправление» повторите чтение: приложение переподключится и автоматически попробует другой способ чтения заголовков. Ожидающие файлы не признаны повреждёнными.',
     mcpUnreachable: 'MCP-сервер недоступен: {{host}}. Проверьте адрес и запущен ли сервер.',
     comfyNotRunning: 'ComfyUI не запущен на {{host}}, поэтому входы и выходы нод не обновлены. Запустите ComfyUI и синхронизируйте снова.',
     mcpSection: 'Не прочитан {{section}}, в библиотеке остался прежний. Остальное обновлено; синхронизируйте снова, чтобы повторить.',

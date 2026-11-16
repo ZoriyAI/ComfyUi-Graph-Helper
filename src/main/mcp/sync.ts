@@ -32,7 +32,9 @@ import {
 export { isNetworkError, mcpUnreachableError } from './client';
 import { explainConnectFailure, explainFailureNow } from './connectError';
 import { mcpOAuth } from './oauth';
-import { McpRefusedError } from './readOnly';
+import { McpRefusedError, readSessionModelHeader } from './readOnly';
+import { joinServerPath } from '../../shared/mcp/serverPaths';
+import { ModelHeaderError } from '../../shared/knowledge/modelHeader';
 import { packFilePath, PYPROJECT_MAX_BYTES, readPackFile, README_HEAD_BYTES, readSideFile, SIDECAR_MAX_BYTES, sideFilePath } from './sideFiles';
 import { mcpToken, releaseMcpTokenIfOriginChanged } from './token';
 import { redactSecrets } from '../../shared/config/draft';
@@ -368,6 +370,7 @@ interface EnrichRun {
   /** Read-only native fallback, only after this run verified the accepted ComfyUI origin. */
   metadataFallback?: McpSession;
   nativeMetadata?: boolean;
+  fileMetadata?: boolean;
   /** Bounded recovery lookahead, consumed in ordinary order (including across metadata batches). */
   metadataProbes?: Map<string, MetadataOutcome>;
   /** When the sync this reading belongs to began. */
@@ -488,6 +491,7 @@ export class SyncService {
       lastRunDurationMs: numberOrNull(state.last_run_duration_ms),
       warnings: readWarnings(state).filter(warning => warning !== METADATA_CONNECTION_LOST || metadata.total === 0 || metadata.done < metadata.total),
       metadata,
+      metadataReport: this.metadataReport(db, state),
       enrichmentPaused: this.enrichmentPaused,
       authMode: authModeOf(state),
       authChoice: this.readAuthMode(db),
@@ -843,6 +847,18 @@ export class SyncService {
     const row = db.prepare(`SELECT COUNT(*) AS total, COUNT(CASE WHEN ${readCondition(sideFiles, this.deps.now(), state.header_metadata_tool !== '0')} THEN 1 END) AS done FROM model_catalog ${where}`)
       .get(...(scope === 'all' ? [] : ENRICH_DIRECTORIES)) as { total: number; done: number };
     return { done: row.done, total: row.total };
+  }
+
+  private metadataReport(db: Database.Database, state: Record<string, string>): { pending: number; failed: number; skipped: number } {
+    const failures = readFailures(state), exclusions = readSkipped(state);
+    const report = { pending: 0, failed: 0, skipped: 0 };
+    for (const row of this.scopeRows(db, this.enrichmentSettings(db).scope, true, state[SIDE_FILES_KEY] === '1', state.header_metadata_tool !== '0')) {
+      const key = fileKey(row.directory, row.name);
+      if (exclusions[key]) report.skipped++;
+      else if (failures[key]) report.failed++;
+      else report.pending++;
+    }
+    return report;
   }
 
   /**
@@ -1443,6 +1459,10 @@ export class SyncService {
     // the records below, so a cancelled run leaves them as they were.
     const resetOld = state[FAILURES_RESET_KEY] !== '1';
     const failures = resetOld ? {} : readFailures(state);
+    const resetHeaders = run.hasFiles && state.enrich_header_recovery_v1 !== '1';
+    if (resetHeaders) for (const [key, failure] of Object.entries(failures)) {
+      if (failure.reason === 'unreadable' || failure.reason === 'tooLarge') delete failures[key];
+    }
     const skipped = readSkipped(state);
     const due = this.scopeRows(db, run.scope, true, run.hasFiles, run.hasTool)
       .filter((row) => {
@@ -1478,12 +1498,22 @@ export class SyncService {
         };
         const headerDue = row.enriched_at == null || (run.hasTool && isHeaderFile(row.name) && now - row.enriched_at >= HEADER_REFRESH_MS);
         let parsed: ParsedModelMetadata | null = null;
+        let headerFailure: ReadFailure | null = null;
+        let stopAfterFile = false;
         if (headerDue && run.hasTool && isHeaderFile(row.name)) {
-          let outcome = run.metadataProbes?.get(key) ?? await readMetadata(run.nativeMetadata && run.metadataFallback ? run.metadataFallback : run.session, row.directory, row.name);
+          let outcome = (run.fileMetadata ? await readFileMetadata(run, row) : null) ?? run.metadataProbes?.get(key) ?? await readMetadata(run.nativeMetadata && run.metadataFallback ? run.metadataFallback : run.session, row.directory, row.name);
           run.metadataProbes?.delete(key);
           if (run.cancelled || !run.isCurrent()) break;
           run.attempted += 1;
-          if (!outcome.ok && isConnectionLoss(outcome.failure) && !run.nativeMetadata) {
+          if (!outcome.ok && !run.fileMetadata) {
+            const recovered = await readFileMetadata(run, row);
+            if (run.cancelled || !run.isCurrent()) break;
+            if (recovered?.ok) {
+              if (isConnectionLoss(outcome.failure)) run.fileMetadata = true;
+              outcome = recovered;
+            }
+          }
+          if (!outcome.ok && isConnectionLoss(outcome.failure) && !run.nativeMetadata && !run.fileMetadata) {
             const droppedHere = outcome.failure.reason === 'dropped';
             const restored = await this.restoreConnection(run);
             if (run.cancelled || !run.isCurrent()) break;
@@ -1528,47 +1558,50 @@ export class SyncService {
               }
             }
             if (!outcome.ok && isConnectionLoss(outcome.failure)) {
+              const recovered = await readFileMetadata(run, row);
+              if (run.cancelled || !run.isCurrent()) break;
+              if (recovered?.ok) { outcome = recovered; run.fileMetadata = true; }
+            }
+            if (!outcome.ok && isConnectionLoss(outcome.failure)) {
               // The file broke a connection and fails again on a new one: it is the one that breaks it. It alone
               // waits the longest; the files after it are read.
               if (restored && (droppedHere || outcome.failure.reason === 'dropped')) {
-                failed({ reason: 'dropped' }, Math.max(SUSPECT_ATTEMPTS, (failures[key]?.attempts ?? 0) + 1));
+                headerFailure = { reason: 'dropped' };
+                failures[key] = { attempts: SUSPECT_ATTEMPTS - 1, lastAt: now, reason: 'dropped' };
               }
               // A new connection that is not connected either, or none: the server cannot read now. Nothing more is
               // asked in this run and no other file is blamed.
               if (!restored || outcome.failure.reason === 'notConnected') {
                 run.lost = true;
-                break;
+                stopAfterFile = true;
               }
-              continue;
             }
           }
           if (!outcome.ok) {
-            failed(outcome.failure);
-            continue;
-          }
-          parsed = outcome.parsed;
+            // An outage is pending work, not a new error on every remaining model.
+            if (!stopAfterFile || headerFailure) headerFailure ??= outcome.failure;
+          } else parsed = outcome.parsed;
         }
         // The description a model manager keeps next to the file. A file that is not a description, or is gone,
         // says nothing and is asked for again only when it changes; a read that failed on the way is retried.
         let side: ParsedSidecar | null = null;
+        let sideFailed = false;
         const sidePath = run.hasFiles ? sideFilePath(row.root_path, row.sidecar_file) : null;
         if (sidePath) {
           const read = await readSidecar(run.session, sidePath);
           if (run.cancelled || !run.isCurrent()) break;
           run.attempted += 1;
-          if (!read.ok) {
-            failed({ reason: 'failed' });
-            continue;
-          }
-          side = read.side;
+          if (!read.ok) sideFailed = true;
+          else side = read.side;
         }
-        delete failures[key];
+        if (headerFailure || sideFailed) failed(headerFailure ?? { reason: 'failed' });
+        else if (!stopAfterFile) delete failures[key];
         const previewSize = headerDue && run.comfyPreviews ? await this.askComfyPreview(run.comfyPreviews, row, run.signal) : null;
         if (run.cancelled || !run.isCurrent()) break;
         db.transaction(() => {
           if (previewSize !== null) db.prepare('UPDATE model_catalog SET preview_file = ?, preview_sig = ? WHERE directory = ? AND name = ?').run(COMFY_PREVIEW_FILE, String(previewSize), row.directory, row.name);
-          const sidecar = run.hasFiles ? { notes: side?.notes ?? EMPTY_NOTES, readSig: row.sidecar_sig ?? null } : undefined;
-          if (headerDue) {
+          const sidecar = run.hasFiles && !sideFailed ? { notes: side?.notes ?? EMPTY_NOTES, readSig: row.sidecar_sig ?? null } : undefined;
+          if (headerDue && !headerFailure && !stopAfterFile) {
             writeModelEnrichment(db, row.directory, row.name, { ...enrichmentOf(row.directory, row.name, parsed, side?.facts ?? null, this.deps.now()), sidecar });
           } else if (sidecar && side) {
             // The header was read at an earlier run; what the description says is laid over what was stored then.
@@ -1580,10 +1613,11 @@ export class SyncService {
         }).immediate();
         // Only a header that came through counts as read; a name-only guess does not.
         if (parsed) run.read += 1;
-        handled += 1;
+        if (!headerFailure && !sideFailed) handled += 1;
+        if (stopAfterFile) break;
       }
     } finally {
-      if (!run.cancelled && run.isCurrent()) writeState(db, { [ENRICH_FAILURES_KEY]: JSON.stringify(failures), ...(resetOld ? { [FAILURES_RESET_KEY]: '1' } : {}) });
+      if (!run.cancelled && run.isCurrent()) writeState(db, { [ENRICH_FAILURES_KEY]: JSON.stringify(failures), ...(resetOld ? { [FAILURES_RESET_KEY]: '1' } : {}), ...(resetHeaders ? { enrich_header_recovery_v1: '1' } : {}) });
     }
     if (run.cancelled || !run.isCurrent()) return { remaining: 0, stopped: true };
     if (phase === 'enrich' && rows.length > 0) this.setProgress(db, 'enrich', handled, rows.length);
@@ -1661,9 +1695,10 @@ export function reportedComfyUrl(db: Database.Database): string | null {
 /** State key: whether the server of the last run hands over the files next to a model ('1') or not. */
 const SIDE_FILES_KEY = 'side_files_tool';
 
-const ENRICH_COLUMNS = 'directory, name, enriched_at, root_path, sidecar_file, sidecar_sig, metadata_json, trigger_words, description, source_url';
+const ENRICH_COLUMNS = 'directory, name, size_bytes, enriched_at, root_path, sidecar_file, sidecar_sig, metadata_json, trigger_words, description, source_url';
 
 interface EnrichRow {
+  size_bytes: number | null;
   directory: string;
   name: string;
   enriched_at: number | null;
@@ -1763,13 +1798,28 @@ function enrichmentOver(row: EnrichRow, facts: SidecarFacts) {
     description: facts.description || row.description || '',
     sourceUrl: civitaiUrl(facts) ?? row.source_url ?? null,
     metadata,
-    enrichedAt: row.enriched_at ?? Date.now(),
+    enrichedAt: row.enriched_at,
     sha256: facts.sha256,
   };
 }
 
 /** One metadata read: the parsed header, or why it failed (unreadable.ts sorts the reasons). */
 type MetadataOutcome = { ok: true; parsed: ParsedModelMetadata } | { ok: false; failure: ReadFailure };
+
+/** Recovery when the metadata endpoint omits a valid header or its internal reader is disconnected. */
+async function readFileMetadata(run: EnrichRun, row: EnrichRow): Promise<MetadataOutcome | null> {
+  if (!run.hasFiles || !row.root_path || !Number.isSafeInteger(row.size_bytes) || row.size_bytes! < 10) return null;
+  const path = joinServerPath(row.root_path, row.name);
+  if (!path) return null;
+  try {
+    const header = await readSessionModelHeader(run.session, path, row.name, row.size_bytes!, run.signal);
+    return header ? { ok: true, parsed: { metadata: header.metadata, sidecar: null } } : null;
+  } catch (error) {
+    if (error instanceof ModelHeaderError) return { ok: false, failure: { reason: error.code === 'tooLarge' ? 'tooLarge' : error.code === 'invalid' ? 'unreadable' : 'failed' } };
+    if (error instanceof McpRefusedError) return null;
+    return { ok: false, failure: classifyReadError(error) };
+  }
+}
 
 /** One file's header metadata through `model_metadata`. A gate refusal is thrown; every other failure is sorted. */
 async function readMetadata(session: McpSession, directory: string, name: string): Promise<MetadataOutcome> {

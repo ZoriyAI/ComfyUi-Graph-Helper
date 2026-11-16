@@ -15,6 +15,7 @@ import { useKnowledgeStore } from '../../state/knowledgeState';
 import Button from '../../ui/Button';
 import Switch from '../../ui/Switch';
 import { markHandRun } from './SyncIndicator';
+import { metadataReport } from './syncView';
 import { reportText, rowLabel, rowTodo, rowWhy } from './unreadReport';
 import { ModelHeaderError, readSelectedModelHeader } from '../../../shared/knowledge/modelHeader';
 import styles from './UnreadableList.module.css';
@@ -24,14 +25,7 @@ const COLLAPSED_ROWS = 5;
 
 /** The summary line: files read of files in scope; could not be read; skipped. */
 export function unreadSummary(status: SyncStatus, t: Translator): string {
-  const rows = (status.unreadable ?? []).filter((row) => row.kind === 'model');
-  const skipped = rows.filter((row) => row.skipped).length;
-  return t('sync.unread.summary', {
-    done: status.metadata?.done ?? 0,
-    total: status.metadata?.total ?? 0,
-    failed: rows.length - skipped,
-    skipped,
-  });
+  return t('sync.unread.summary', metadataReport(status));
 }
 
 /** The report section; renders nothing while everything was read. */
@@ -48,6 +42,7 @@ export default function UnreadableList({ status }: { status: SyncStatus | null }
   if (!status) return null;
   const busy = working !== null || status.state === 'running' || status.progress?.phase === 'enrichment';
   const summary = unreadSummary(status, translate);
+  const counts = metadataReport(status);
   const shown = expanded ? rows : rows.slice(0, COLLAPSED_ROWS);
   const keyOf = (row: UnreadableItem) => `${row.kind}:${row.directory ?? ''}/${row.name}`;
 
@@ -111,8 +106,9 @@ export default function UnreadableList({ status }: { status: SyncStatus | null }
     <section className={styles.section} aria-label={String(t('sync.unread.title'))} data-testid="sync-unreadable">
       <input ref={picker} type="file" accept=".safetensors,.sft" hidden aria-label={String(t('sync.repair.selectFile'))}
         onChange={event => { const file = event.currentTarget.files?.[0]; event.currentTarget.value = ''; if (file) void readFile(file); }} />
-      {rows.length ? <h3 className={styles.title}>{t('sync.unread.title')}</h3> : null}
+      <h3 className={styles.title}>{t('sync.unread.title')}</h3>
       <p className={styles.note} role="status">{summary}</p>
+      {counts.pending > 0 ? <p className={styles.note} role="status">{t(busy ? 'sync.unread.pendingBusy' : status.enrichmentPaused ? 'sync.unread.pendingPaused' : 'sync.unread.pendingStopped', { count: counts.pending })}</p> : null}
       {rows.length ? <p className={styles.note}>{t('sync.unread.intro')}</p> : null}
       <ul className={styles.list}>
         {shown.map((row) => (
@@ -143,7 +139,7 @@ export default function UnreadableList({ status }: { status: SyncStatus | null }
           {expanded ? t('sync.unread.showFewer') : t('sync.unread.showAll', { count: rows.length })}
         </Button>
       ) : null}
-      {rows.length ? <div className={styles.actions}>
+      {rows.length || counts.pending > 0 ? <div className={styles.actions}>
         <Button size="sm" variant="subtle" disabled={busy} icon={<RefreshCw size={14} />} onClick={() => void retryAll()}>{t('sync.unread.retryAll')}</Button>
         <Button size="sm" variant="subtle" icon={<ClipboardCopy size={14} />} onClick={copy}>{t('sync.unread.copy')}</Button>
       </div> : null}

@@ -163,6 +163,7 @@ export const IPC_CHANNELS = {
   ABOUT_OPEN_CHROMIUM_LICENCES: 'about:open-chromium-licences',
   ABOUT_ISSUE_DRAFT: 'about:issue-draft',
   ABOUT_OPEN_PROJECT_LINK: 'about:open-project-link',
+  HELP_GUIDE_SOURCE: 'help:guide-source',
   HELP_TREE: 'help:tree',
   HELP_PAGE: 'help:page',
   HELP_SEARCH: 'help:search',
