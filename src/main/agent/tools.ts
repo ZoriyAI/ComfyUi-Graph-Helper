@@ -374,8 +374,8 @@ export function createAgentTools(deps: AgentToolDeps): Record<string, AgentToolD
       return { success: true, message: 'Saved the explanation to the object.', explanationId: saved.id, provenance: saved.provenance, owner: saved.owner };
     }),
     // LESSON FILES: a lesson draft the person keeps or discards (lessonDraftTool.ts).
-    draftExtension: createExtensionDraftTool(deps.signal),
-    draftLesson: createLessonDraftTool({ db, nodeClassDetail: knowledge.nodeClassDetail, signal: deps.signal }),
+    draftExtension: createExtensionDraftTool(deps.signal, undefined, projectId),
+    draftLesson: createLessonDraftTool({ db, projectId, nodeClassDetail: knowledge.nodeClassDetail, signal: deps.signal }),
     proposeNode: propose('proposeNode'),
     proposeConnection: propose('proposeConnection'),
     proposeParameter: propose('proposeParameter'),

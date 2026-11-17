@@ -18,6 +18,7 @@ export default function ExtensionDraftCard({ draftId, draft: initial }: { draftI
   const file = draft.files.find((f) => f.path === path) ?? draft.files[0];
   return <section className={styles.card} data-extension-draft={draft.id}>
     <h3>{draft.name}</h3><p>{draft.purpose}</p><p className={styles.note}>{t('extension.sourceOnly')}</p>
+    <p className={styles.note}>{t(draft.persistent ? 'extension.retained' : 'lessonFiles.draft.temporary')}</p>
     <details><summary>{t('extension.ports')}</summary><ul>{[...draft.inputs.map((p) => `${t('subgraphWizard.input')}: ${p.name} · ${p.type}`), ...draft.outputs.map((p) => `${t('subgraphWizard.output')}: ${p.name} · ${p.type}`)].map((p, i) => <li key={i}>{p}</li>)}</ul><ul>{draft.dependencies.map((d) => <li key={d}>{d}</li>)}</ul></details>
     <label>{t('extension.file')}<select value={file.path} onChange={(e) => setPath(e.target.value)}>{draft.files.map((f) => <option key={f.path} value={f.path}>{f.path}</option>)}</select></label>
     <pre tabIndex={0}>{file.content}</pre><p className={styles.note}>{t('extension.install')}</p>

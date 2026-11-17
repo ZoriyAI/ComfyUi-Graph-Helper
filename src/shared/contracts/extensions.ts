@@ -11,6 +11,8 @@ export interface ExtensionProposal {
 }
 export interface ExtensionDraft extends ExtensionProposal {
   id: string;
+  /** Saved for review across restarts; false when chat storage is disabled. */
+  persistent?: boolean;
   createdAt: number;
   origin: 'assistant' | 'starter';
   verification: 'source-only';

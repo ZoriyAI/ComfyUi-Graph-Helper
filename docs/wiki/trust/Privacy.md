@@ -144,6 +144,10 @@ Two download pages are opened there only when you click their buttons in the **N
 - Saved keys: in the system keychain, or, only if you choose it where there is no keychain, in a file in the app
   folder readable by your user only.
 - Your own lessons: one file per lesson in the `lessons` folder.
+- Pending assistant lessons and extension sources: in the profile database, separately from accepted lessons.
+  Keeping chat history also keeps the newest 20 lesson drafts and 12 extension drafts per project across restarts.
+  With history storage off, new drafts remain temporary. Clearing a project's chat removes its pending drafts
+  from the database and the app's recovery copies. Accepted lessons and separately downloaded ZIP files remain.
 - `recent-files.json`: the last 10 files you opened or saved, and the file each graph came from. Paths only, never
   the contents.
 - `graph-start.json`: a mark for the safe start ("drawing", "drawn"), so a graph that hung the window is not drawn

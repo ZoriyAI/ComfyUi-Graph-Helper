@@ -2,7 +2,7 @@
  * The assistant's draftLesson tool: the assistant writes a lesson in the lesson file format (from the graph on the
  * canvas, or from a request such as "teach me inpainting with what I have installed"); the app checks it with the
  * same strict reader as an imported file, tries it from an empty canvas with the classes of the person's ComfyUI,
- * and only then shows it in the chat as a card the person keeps or discards. Nothing is saved without the person.
+ * and only then shows a card for review. Saving the pending draft never adds it to My lessons without acceptance.
  *
  * Who uses it: tools.ts adds it to the assistant's tool set; the chat's ToolCard draws the card from the draft id
  * this returns (src/renderer/components/lessons/LessonDraftCard.tsx).
@@ -32,6 +32,7 @@ export interface LessonDraftToolDeps {
   signal?: AbortSignal;
   /** The drafts waiting for the person; the app's one store by default. */
   drafts?: LessonDrafts;
+  projectId?: string;
 }
 
 /** A reason the reader gave, in a sentence the model can act on. */
@@ -92,7 +93,7 @@ export function createLessonDraftTool(deps: LessonDraftToolDeps) {
       const read = readLessonFile({ format: LESSON_FILE_FORMAT, version: LESSON_FILE_VERSION, lessons: [lesson] });
       if (!read.ok) return fail(problemForModel(read.problem));
       const doc = read.file.lessons[0];
-      if (texts(doc).some((text) => carriesSecret({ text }))) return fail('A text of the lesson looks like it carries a secret; leave keys and tokens out.');
+      if (carriesSecret(doc) || texts(doc).some((text) => carriesSecret({ text }))) return fail('A text of the lesson looks like it carries a secret; leave keys and tokens out.');
       // Every role must have a class this ComfyUI has, once its catalog is read: a lesson for what is installed.
       const classes = [...new Set(doc.steps.flatMap((step) => (step.roles ?? []).map((spec) => spec.classes)).map((list) => list.join('|')))];
       const details = new Map<string, NodeClassDetail | null>();
@@ -118,11 +119,13 @@ export function createLessonDraftTool(deps: LessonDraftToolDeps) {
       }
       // Checked again: the checks above can take a while, and the person may have cancelled meanwhile.
       if (deps.signal?.aborted) return fail('The turn was cancelled; no draft was shown.');
-      const draft = drafts.add(doc, withCatalog ? 'catalog' : 'lesson');
+      let draft;
+      try { draft = drafts.add(doc, withCatalog ? 'catalog' : 'lesson', Date.now(), deps.projectId); }
+      catch { return fail('The checked lesson draft could not be saved. Free disk space or retry; it was not added to My lessons.'); }
       const words = doc.texts.en ?? doc.texts.ru!;
       return {
         success: true,
-        message: 'The lesson draft is shown to the person as a card. It is kept in My lessons only if they accept it; nothing is saved now.',
+        message: `The lesson draft is shown as a card for review. ${draft.persistent ? 'It is saved locally across restarts.' : 'It is temporary because chat history storage is disabled.'} It is added to My lessons only when the person accepts it.`,
         lessonDraftId: draft.id,
         title: words.title,
         steps: doc.steps.length,

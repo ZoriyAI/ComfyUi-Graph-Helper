@@ -183,6 +183,8 @@ export type LessonExportOutcome = { ok: true } | { ok: false; canceled: true } |
 /** A lesson the assistant drafted, waiting for the person to accept or reject it. */
 export interface LessonDraft {
   id: string;
+  /** Saved for review across restarts; false when chat storage is disabled. */
+  persistent?: boolean;
   doc: LessonDoc;
   createdAt: number;
   /** How the draft was tried before it was shown: with the catalog of this ComfyUI, or only with the lesson's own promises. */

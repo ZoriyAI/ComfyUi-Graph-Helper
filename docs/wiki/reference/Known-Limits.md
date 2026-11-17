@@ -81,7 +81,7 @@ what to expect. Wishes go to the project's Discussions, problems to its Issues.
 - The quality of answers depends on the model. Small local models with a small context window lose track of long
   builds. [The context window](../assistant/Context-Window.md)
 - The video lessons on WanVideoWrapper cover a part of that pack; the rest of its features have no lesson.
-- A lesson the assistant drafted is gone after a restart unless you kept it in My lessons.
+- Pending lesson and extension drafts survive restart when chat history storage is enabled. Each project keeps the newest 20 lesson drafts and 12 extension drafts. Accept a lesson or download an extension ZIP for a separate copy; clearing the chat also removes its pending drafts.
 
 ## Accessibility
 

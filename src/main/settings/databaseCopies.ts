@@ -3,7 +3,7 @@ import Database from 'better-sqlite3';
 import * as fs from 'fs';
 import * as path from 'path';
 
-type PrivateTable = 'secret_records' | 'chat_messages';
+type PrivateTable = 'secret_records' | 'chat_messages' | 'assistant_drafts';
 
 export function databaseCopies(file: string): { files: string[]; unverified: number } {
   if (!file || file === ':memory:') return { files: [], unverified: 0 };

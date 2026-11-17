@@ -111,17 +111,13 @@ export function registerLessonsIpc(ipcMain: IpcMain, deps: LessonsIpcDeps): void
 
   ipcMain.handle(IPC_CHANNELS.LESSONS_DRAFT_RESOLVE, (_event, draftId: unknown, accept: unknown): LessonDraftResolution => {
     if (typeof draftId !== 'string') return { ok: false, gone: true };
-    const draft = lessonDrafts.take(draftId);
+    const draft = lessonDrafts.get(draftId);
     if (!draft) return { ok: false, gone: true };
-    if (accept !== true) return { ok: true, rejected: true };
-    let kept = false;
-    try {
-      const outcome = write(() => importDocs(folder(), [draft.doc], { origin: 'assistant' }));
-      kept = outcome.ok;
-      return outcome;
-    } finally {
-      // Every failure, including an exception, leaves the draft available for another attempt.
-      if (!kept) lessonDrafts.put(draft);
-    }
+    if (accept !== true) { lessonDrafts.take(draftId); return { ok: true, rejected: true }; }
+    // Keep the durable draft until the accepted lesson has actually been written.
+    // A failed write or a crash cannot destroy the only remaining copy of the person's work.
+    const outcome = write(() => importDocs(folder(), [draft.doc], { origin: 'assistant' }));
+    if (outcome.ok) lessonDrafts.take(draftId);
+    return outcome;
   });
 }

@@ -1,9 +1,11 @@
-/** Bounded volatile drafts and a dependency-free, UTF-8, uncompressed ZIP writer. Never runs submitted code. */
+/** Bounded persistent drafts and a dependency-free, UTF-8, uncompressed ZIP writer. Never runs submitted code. */
 import { randomUUID } from 'node:crypto';
+import type Database from 'better-sqlite3';
 import { crc32 } from 'node:zlib';
 import { z } from 'zod';
 import { carriesSecret } from '../../shared/config/draft';
 import type { ExtensionDraft, ExtensionProposal } from '../../shared/contracts/extensions';
+import { DraftStore } from '../agent/draftStore';
 
 const port = z.object({ name: z.string().min(1).max(100), type: z.string().min(1).max(100) }).strict();
 export const extensionSchema = z.object({
@@ -26,9 +28,7 @@ export function sourceZip(slug: string, files: ExtensionProposal['files']): Buff
   return Buffer.concat([...chunks, ...directory, end]);
 }
 
-export class ExtensionDrafts {
-  private readonly drafts = new Map<string, ExtensionDraft>();
-  add(input: unknown, origin: ExtensionDraft['origin'] = 'assistant'): ExtensionDraft {
+function readProposal(input: unknown): ExtensionProposal {
     const proposal = extensionSchema.parse(input); const seen = new Set<string>(); let bytes = 0;
     for (const file of proposal.files) {
       if (!/^[a-zA-Z0-9_./-]+\.(py|js|json|md|toml|txt)$/.test(file.path) || file.path.startsWith('/') || file.path.split('/').some((p) => !p || p === '.' || p === '..') || file.path.toLowerCase() === 'nodewise-extension.json' || seen.has(file.path.toLowerCase())) throw Error('Use unique relative source paths; nodewise-extension.json is reserved.');
@@ -38,11 +38,32 @@ export class ExtensionDrafts {
     if (!seen.has('__init__.py') || !seen.has('readme.md')) throw Error('Include __init__.py and README.md with installation, ports, dependencies and limitations.');
     if (!proposal.files.some((f) => f.path.endsWith('.py') && /NODE_CLASS_MAPPINGS\s*(?::[^=\n]+)?=|(?:async\s+)?def\s+comfy_entrypoint\s*\(/.test(f.content))) throw Error('Include a native ComfyUI V1 NODE_CLASS_MAPPINGS or V3 comfy_entrypoint registration.');
     if (carriesSecret(proposal)) throw Error('Remove credentials and secrets from the source package.');
-    const manifest = { format: 'nodewise-extension', version: 1, name: proposal.name, purpose: proposal.purpose, inputs: proposal.inputs, outputs: proposal.outputs, dependencies: proposal.dependencies, verification: 'source-only' };
-    const draft: ExtensionDraft = { ...structuredClone(proposal), id: randomUUID(), createdAt: Date.now(), origin, verification: 'source-only', archiveBase64: sourceZip(proposal.slug, [...proposal.files, { path: 'nodewise-extension.json', content: JSON.stringify(manifest, null, 2) }]).toString('base64') };
-    this.drafts.set(draft.id, draft); while (this.drafts.size > 12) this.drafts.delete(this.drafts.keys().next().value!);
-    return structuredClone(draft);
+    return proposal;
+}
+
+function makeDraft(proposal: ExtensionProposal, id: string, createdAt: number, origin: ExtensionDraft['origin']): ExtensionDraft {
+  const manifest = { format: 'nodewise-extension', version: 1, name: proposal.name, purpose: proposal.purpose, inputs: proposal.inputs, outputs: proposal.outputs, dependencies: proposal.dependencies, verification: 'source-only' };
+  return { ...structuredClone(proposal), id, createdAt, origin, verification: 'source-only', archiveBase64: sourceZip(proposal.slug, [...proposal.files, { path: 'nodewise-extension.json', content: JSON.stringify(manifest, null, 2) }]).toString('base64') };
+}
+
+/** Revalidate stored sources and rebuild the archive: a corrupt stored ZIP must never bypass path checks. */
+function readDraft(value: unknown): ExtensionDraft | null {
+  if (!value || typeof value !== 'object') return null;
+  const { id, createdAt, origin, verification, archiveBase64: _archive, persistent: _persistent, ...source } = value as ExtensionDraft;
+  if (typeof id !== 'string' || !id || id.length > 64 || !Number.isFinite(createdAt)
+    || !['assistant', 'starter'].includes(origin) || verification !== 'source-only') return null;
+  try { return makeDraft(readProposal(source), id, createdAt, origin); } catch { return null; }
+}
+
+export class ExtensionDrafts {
+  private readonly drafts = new DraftStore<ExtensionDraft>('extension', 12, readDraft);
+  attach(db: Database.Database, mayPersist?: () => boolean, containsHeldSecret?: (text: string) => boolean): void { this.drafts.attach(db, mayPersist, containsHeldSecret); }
+  clearMemory(projectId: string): void { this.drafts.clearMemory(projectId); }
+
+  add(input: unknown, origin: ExtensionDraft['origin'] = 'assistant', projectId?: string): ExtensionDraft {
+    const draft = makeDraft(readProposal(input), randomUUID(), Date.now(), origin);
+    return this.drafts.put(draft, projectId);
   }
-  get(id: string): ExtensionDraft | null { const draft = this.drafts.get(id); return draft ? structuredClone(draft) : null; }
+  get(id: string): ExtensionDraft | null { return this.drafts.get(id); }
 }
 export const extensionDrafts = new ExtensionDrafts();

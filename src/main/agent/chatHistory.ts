@@ -10,6 +10,8 @@ import { z } from 'zod';
 import { redactSecrets } from '../../shared/agent/redact';
 import { mainLLMService } from '../llmService';
 import type { ChatRecord, ChatSaveResult } from '../../shared/contracts';
+import { lessonDrafts } from '../lessons/drafts';
+import { extensionDrafts } from '../extensions/drafts';
 
 /**
  * Protective (one SQLite row): a message longer than this is stored with a visible "[… N characters not stored]"
@@ -159,9 +161,13 @@ export function loadChatHistory(db: Database.Database, projectId: unknown, page?
 export function clearChatHistory(db: Database.Database, projectId: unknown): { ok: true; removed: number } | { ok: false; error: string } {
   if (typeof projectId !== 'string' || projectId === '' || projectId.length > 200) return { ok: false, error: 'Chat history could not be cleared.' };
   try {
+    lessonDrafts.clearMemory(projectId);
+    extensionDrafts.clearMemory(projectId);
     const result = erasePrivateRows(db, 'chat_messages', 'project_id = ?', [projectId]);
     const copies = eraseCopyRows(db.name, 'chat_messages', 'project_id = ?', [projectId]);
-    if (!result.compacted || copies.unverified) return { ok: false, error: 'Chat history could not be cleared.' };
+    const drafts = erasePrivateRows(db, 'assistant_drafts', 'project_id = ?', [projectId]);
+    const draftCopies = eraseCopyRows(db.name, 'assistant_drafts', 'project_id = ?', [projectId]);
+    if (!result.compacted || copies.unverified || !drafts.compacted || draftCopies.unverified) return { ok: false, error: 'Chat history could not be cleared.' };
     return { ok: true, removed: result.records };
   } catch {
     return { ok: false, error: 'Chat history could not be cleared.' };

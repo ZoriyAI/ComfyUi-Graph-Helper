@@ -1,11 +1,11 @@
 /**
  * The card of a lesson the assistant drafted (the draftLesson tool), in the chat: its title, what the person ends
  * up with, how many steps, how it was tried, the mark "drafted by the assistant, check it before you share", and
- * two buttons: keep it in My lessons, or discard it. Like grey drafts on the canvas, nothing is kept until the
+ * two buttons: keep it in My lessons, or discard it. Like grey drafts on the canvas, nothing is accepted until the
  * person says so.
  *
  * Who uses it: the chat's ToolCard, for a successful draftLesson call. Why it asks main for the draft: the chat
- * keeps only the draft's id, so a card from before a restart says the draft is gone instead of showing stale text.
+ * keeps only the draft's id, while the profile stores the checked draft for review after a restart.
  */
 
 import React, { useEffect, useState } from 'react';
@@ -87,6 +87,7 @@ export default function LessonDraftCard({ draftId }: { draftId: string }) {
       </div>
       <p className={styles.warn}>{t('lessonFiles.assistantWarn')}</p>
       <p className={panel.cardMeta}>{draft.triedWith === 'catalog' ? t('lessonFiles.draft.triedCatalog') : t('lessonFiles.draft.triedLesson')}</p>
+      <p className={panel.cardMeta}>{t(draft.persistent ? 'lessonFiles.draft.retained' : 'lessonFiles.draft.temporary')}</p>
       <p className={panel.cardMeta}>
         {t('lessonFiles.rules')}{' '}
         <Button variant="ghost" size="sm" className={styles.inline} icon={<BookOpen size={14} />} onClick={() => openHelp('content-rules')}>{t('lessonFiles.rulesOpen')}</Button>

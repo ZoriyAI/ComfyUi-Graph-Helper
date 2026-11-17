@@ -174,8 +174,9 @@ function applyVersion2(db: Database.Database): void {
  * Version 18 adds flags on node_catalog: the api, deprecated and experimental marks of a node class.
  * Version 19 caches translated model descriptions by source hash and language.
  * Version 20 preserves failed-turn markers in chat history.
+ * Version 21 keeps pending assistant lessons and extension sources across restarts, scoped to their project.
  */
-export const SCHEMA_VERSION = 20;
+export const SCHEMA_VERSION = 21;
 
 /**
  * Brings the database up to SCHEMA_VERSION (or `upTo`), one step at a time from the version it has.
@@ -328,6 +329,17 @@ export function migrate(db: Database.Database, options?: { failBeforeVersionStam
       if (tableNames(db).includes('chat_messages') && !columnNames(db, 'chat_messages').includes('failed')) db.exec('ALTER TABLE chat_messages ADD COLUMN failed INTEGER NOT NULL DEFAULT 0');
       if (options?.failBeforeVersionStamp) throw new Error('migration failed before version stamp');
       db.prepare('INSERT INTO schema_migrations (version, applied_at) VALUES (20, ?)').run(Date.now());
+    });
+    apply.immediate();
+  }
+  if (schemaVersion(db) === 20 && target > 20) {
+    const apply = db.transaction(() => {
+      db.exec(`CREATE TABLE assistant_drafts (
+        id TEXT PRIMARY KEY, kind TEXT NOT NULL CHECK(kind IN ('lesson', 'extension')),
+        project_id TEXT NOT NULL, created_at INTEGER NOT NULL, payload TEXT NOT NULL
+      ); CREATE INDEX assistant_drafts_project ON assistant_drafts (project_id, kind, created_at);`);
+      if (options?.failBeforeVersionStamp) throw new Error('migration failed before version stamp');
+      db.prepare('INSERT INTO schema_migrations (version, applied_at) VALUES (21, ?)').run(Date.now());
     });
     apply.immediate();
   }
