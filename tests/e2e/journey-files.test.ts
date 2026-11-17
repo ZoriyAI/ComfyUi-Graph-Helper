@@ -161,7 +161,7 @@ test('journey: welcome ways, tour, example, a dropped picture, run card, a Comfy
     // A ComfyUI error comes back: explained, and its node shown.
     await run.getByRole('button', { name: 'Explain a ComfyUI error…' }).click();
     const card = page.locator('.journey-error-dialog');
-    await card.getByRole('textbox').fill('Prompt outputs failed validation\nKSampler 12:\n - Required input is missing: model');
+    await card.getByRole('textbox', { name: 'Text of the ComfyUI error', exact: true }).fill('Prompt outputs failed validation\nKSampler 12:\n - Required input is missing: model');
     await card.getByRole('button', { name: 'Explain', exact: true }).click();
     await expect(card.locator('[data-error-node="12"]')).toBeVisible();
     await expect(card.locator('[data-error-note]').first()).toBeVisible();

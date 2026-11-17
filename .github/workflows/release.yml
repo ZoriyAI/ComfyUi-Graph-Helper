@@ -123,7 +123,7 @@ jobs:
       # The unpackaged build has no fuses: Playwright attaches through the inspector here, never to a release binary.
       # Native Electron windows share this X display: parallel workers steal each other's keyboard/menu focus.
       - name: Queue diagnosis through the real IPC and window
-        run: xvfb-run -a npx playwright test tests/e2e/comfy-execution.test.ts --trace off --retries=0
+        run: xvfb-run -a npx playwright test tests/e2e/comfy-execution.test.ts tests/e2e/journey-files.test.ts --trace off --workers=1 --retries=0
       - name: End-to-end tests (Electron under Xvfb)
         run: xvfb-run -a npx playwright test --trace off --grep-invert "live-local|layout-walk" --workers=1 --retries=1
       - name: Upload results on failure
