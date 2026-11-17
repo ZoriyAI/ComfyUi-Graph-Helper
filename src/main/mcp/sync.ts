@@ -1507,9 +1507,16 @@ export class SyncService {
         if (headerDue && run.hasTool && isHeaderFile(row.name)) {
           // Some MCP backends return the entire embedded header through a smaller stdio transport.
           // Read bounded file chunks first, before a large model_metadata reply can disconnect that backend.
-          const fileOutcome = await readFileMetadata(run, row);
+          // Once native recovery worked, keep using it. Some gateways hash the whole model even for an
+          // eight-byte read, and repeatedly probing that failed reader costs minutes per large model.
+          const recovered = run.nativeMetadata && run.metadataFallback
+            ? run.metadataProbes?.get(key) ?? await readMetadata(run.metadataFallback, row.directory, row.name)
+            : null;
           if (run.cancelled || !run.isCurrent()) break;
-          let outcome = fileOutcome ?? run.metadataProbes?.get(key) ?? await readMetadata(run.nativeMetadata && run.metadataFallback ? run.metadataFallback : run.session, row.directory, row.name);
+          // Native ComfyUI cannot read every header; retain bounded file recovery for those individual files.
+          const fileOutcome = recovered?.ok ? null : await readFileMetadata(run, row);
+          if (run.cancelled || !run.isCurrent()) break;
+          let outcome = fileOutcome ?? recovered ?? run.metadataProbes?.get(key) ?? await readMetadata(run.session, row.directory, row.name);
           run.metadataProbes?.delete(key);
           if (run.cancelled || !run.isCurrent()) break;
           run.attempted += 1;

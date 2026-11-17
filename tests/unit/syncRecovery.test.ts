@@ -14,7 +14,7 @@ import { headerBytes } from '../fixtures/modelHeader';
 const origin = 'http://127.0.0.1:8188';
 
 /** Labelled fixture: reproduces the owner's paged catalog and a permanently disconnected MCP metadata reader. */
-function fixture(options: { native?: boolean; disconnected?: boolean; comfyApiWorks?: boolean; reportedOrigin?: string; metadataMissing?: boolean; missingFiles?: string[]; batch?: number; files?: string[]; headers?: Record<string, Buffer>; truncatedHeader?: string; sidecars?: boolean; invalidMetadata?: boolean } = {}) {
+function fixture(options: { native?: boolean; disconnected?: boolean; fileReaderDisconnected?: boolean; comfyApiWorks?: boolean; reportedOrigin?: string; metadataMissing?: boolean; missingFiles?: string[]; batch?: number; files?: string[]; headers?: Record<string, Buffer>; truncatedHeader?: string; sidecars?: boolean; invalidMetadata?: boolean } = {}) {
   const db = new Database(':memory:');
   migrate(db);
   const classes = Object.fromEntries(Array.from({ length: 3375 }, (_, i) => [`Node${i}`, {
@@ -43,6 +43,7 @@ function fixture(options: { native?: boolean; disconnected?: boolean; comfyApiWo
           ...(options.sidecars ? [{ category: 'loras', filename: `${n}.metadata.json`, root_path: '/models/loras', size_bytes: 100 }] : []),
         ]), complete: true });
         if (name === 'workspace_files') {
+          if (options.fileReaderDisconnected) throw new Error('Not connected');
           const file = String(args.absolute_path).split('/').pop() ?? '';
           const bytes = file.endsWith('.metadata.json') ? Buffer.from(JSON.stringify({ description: 'Author description', baseModel: 'SDXL 1.0', trainedWords: ['flower'] })) : options.headers?.[file.replace('.safetensors', '')];
           if (!bytes) throw new Error('Missing fixture file');
@@ -217,6 +218,18 @@ describe('owner-reported sync scan amplification and disconnected metadata reade
 
 
 describe('metadata-free headers and independent descriptions', () => {
+  it('keeps reading later files through native recovery without repeating broken expensive range reads', async () => {
+    const f = fixture({ disconnected: true, fileReaderDisconnected: true, comfyApiWorks: true,
+      headers: { a: headerBytes(), b: headerBytes(), c: headerBytes() } });
+    try {
+      await f.sync.runSync(f.db); await f.sync.whenEnrichmentDone();
+      expect(f.sync.status(f.db)).toMatchObject({ metadata: { done: 3, total: 3 }, metadataReport: { pending: 0, failed: 0, skipped: 0 } });
+      const headers = f.calls.filter(c => c.name === 'workspace_files' && String(c.args.absolute_path).endsWith('.safetensors'));
+      expect(headers.length).toBeGreaterThan(0);
+      expect(headers.every(c => String(c.args.absolute_path).endsWith('/a.safetensors'))).toBe(true);
+      expect(f.urls.filter(url => url.includes('/view_metadata/'))).toHaveLength(3);
+    } finally { f.sync.stop(); f.db.close(); }
+  });
   it('reads a 14 MiB header in bounded chunks before the metadata tool can break its 10 MiB transport', async () => {
     const f = fixture({ native: false, disconnected: true, comfyApiWorks: true, files: ['a', 'b'], headers: {
       a: headerBytes({ _: 'x'.repeat(14 * 1024 * 1024), description: 'Large header' }),
