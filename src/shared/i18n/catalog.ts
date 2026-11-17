@@ -172,7 +172,7 @@ export const en = {
     // (src/shared/i18n/index.ts NAME_VALUES); no text spells it.
     title: '{{app}}',
     // The line under the name: About, the desktop entry, package.json and the README say the same words.
-    tagline: 'A desktop tutor for ComfyUI graphs',
+    tagline: 'Create, learn and get guidance in ComfyUI',
     settings: 'Settings',
     untitled: 'Untitled project',
     dirty: 'Unsaved changes',
@@ -3683,7 +3683,7 @@ export const ru = {
 
   shell: {
     title: '{{app}}',
-    tagline: 'Учебный помощник по графам ComfyUI',
+    tagline: 'Творчество, обучение и советы по ComfyUI',
     settings: 'Настройки',
     untitled: 'Проект без названия',
     dirty: 'Есть несохранённые изменения',

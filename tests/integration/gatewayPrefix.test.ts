@@ -46,7 +46,10 @@ describe('a server whose tools carry a gateway prefix', () => {
       expect(call.tool!.startsWith(PREFIX), call.tool).toBe(true);
       const bare = call.tool!.slice(PREFIX.length);
       expect(Object.keys(READ_ONLY_TOOLS)).toContain(bare);
-      expect(READ_ONLY_TOOLS[bare](call.args ?? {})).toBe(true);
+      // The fixture does not implement ranges, so only the bounded 8-byte prefix probe is expected.
+      const headerPrefix = bare === 'workspace_files' && /\.(safetensors|sft)$/i.test(String(call.args?.absolute_path));
+      if (headerPrefix) expect(call.args).toMatchObject({ action: 'read', encoding: 'base64', offset: 0, length: 8 });
+      else expect(READ_ONLY_TOOLS[bare](call.args ?? {})).toBe(true);
       expect(WRITE_TOOLS as readonly string[]).not.toContain(bare);
     }
     // The log names the tool by its bare name and the name the call went out under.
