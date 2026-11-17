@@ -229,8 +229,9 @@ async function resize(page: Page, size: Size): Promise<void> {
   for (let turn = 0; turn < 20; turn += 1) {
     const seen = await page.evaluate(() => ({ width: window.innerWidth, height: window.innerHeight, dpr: window.devicePixelRatio }));
     actual = `${seen.width}x${seen.height} at ${seen.dpr}`;
-    // Chromium can report 0.999999964 for scale 1; dimensions and any meaningful scale difference remain strict.
-    if (seen.width === size.width && seen.height === size.height && Math.abs(seen.dpr - (DPR > 0 ? DPR : 1)) < 1e-6) return;
+    // Chromium's fractional zoom can round a requested 1400px viewport up to 1401px while reporting
+    // 0.999999964 for scale 1. Allow that single CSS-pixel rounding, not a different window or scale.
+    if (Math.abs(seen.width - size.width) <= 1 && Math.abs(seen.height - size.height) <= 1 && Math.abs(seen.dpr - (DPR > 0 ? DPR : 1)) < 1e-6) return;
     await page.waitForTimeout(50);
   }
   throw new Error(`the window is ${actual} where ${wanted} was asked for`);

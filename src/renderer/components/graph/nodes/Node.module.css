@@ -162,6 +162,12 @@
   line-height: 18px;
 }
 .fieldStacked { grid-template-columns: minmax(0, 1fr); row-gap: 3px; padding-top: 2px; }
+/* Reserve the whole numeric control before giving room to its label. A 220px imported card otherwise gives
+ * seed less than its two 24px steppers + 36px value + 24px random button + 4px gap, making the buttons overlap. */
+.fields .field:has(> [data-field-kind="int"]),
+.fields .field:has(> [data-field-kind="float"]) {
+  grid-template-columns: minmax(0, 1fr) minmax(112px, 1.38fr);
+}
 .fieldName { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-dim, #a3b1c6); }
 .linkedMark { justify-self: start; padding: 0 6px; border-radius: 6px; border: 1px dashed color-mix(in srgb, var(--canvas-port, #8b939c) 60%, transparent); color: var(--text-dim, #a3b1c6); font-size: 12px; line-height: 20px; }
 .fieldLinked .fieldName { color: var(--text, #e8eef7); }
@@ -559,6 +565,12 @@
 
 .touchMenu { display: none; }
 @media (pointer: coarse), (max-width: 700px) {
+  /* Touch controls need 36 + 36 + 36 + 44 + 4px. Keep a readable label beside them on narrow imported cards. */
+  .node.node { min-width: 250px; }
+  .fields .field:has(> [data-field-kind="int"]),
+  .fields .field:has(> [data-field-kind="float"]) {
+    grid-template-columns: minmax(0, 1fr) minmax(156px, 1.38fr);
+  }
   .touchMenu { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; margin-left: auto; width: 40px; min-height: 40px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-sunken); color: var(--text); touch-action: manipulation; }
   .touchMenu:focus-visible { outline: 2px solid var(--focus); }
   .port { min-height: 34px; }
