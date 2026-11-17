@@ -1,12 +1,12 @@
-import { hasDynamicInputs, resolveInputs } from '../../shared/catalog/dynamicInputs';
-import type { CatalogInput } from '../../shared/catalog/types';
-import { fieldSpecOf } from '../../shared/catalog/fieldSpec';
 /**
  * The main-process tools of a turn: read the graph, search and describe the catalog, read the web, save
  * explanations, draft lessons and propose changes as ghosts. agent/turn.ts creates them for every turn; the build
  * tools come from buildTools.ts. Every argument is checked with zod here, since the model's input is not trusted,
  * and every result is escaped so outside text cannot close the prompt's data block.
  */
+import { hasDynamicInputs, resolveInputs } from '../../shared/catalog/dynamicInputs';
+import type { CatalogInput } from '../../shared/catalog/types';
+import { fieldSpecOf } from '../../shared/catalog/fieldSpec';
 import type Database from 'better-sqlite3';
 import { graphResources } from '../knowledge/resources';
 import { BLUEPRINTS, BLUEPRINT_SOURCE, blueprintById, blueprintFacts } from '../../shared/templates/catalog';

@@ -30,7 +30,7 @@ export function promotedWidgetValue(data: Data, index: number): { held: boolean;
   const name = promotedWidgetName(data, index);
   const values = native?.widgets_values;
   const value = named && name && Object.hasOwn(named, name) ? named[name] : Array.isArray(values) ? values[index] : undefined;
-  return { held: value != null, value };
+  return { held: value != null, value: value ?? undefined };
 }
 
 export function definitionWidgetPairs(raw: RecordValue): Array<[string, string]> {

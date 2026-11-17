@@ -1,3 +1,4 @@
+/** Image model lesson exercises and preparation for supported model families. */
 import { CORE_SOURCE, type LessonCycle } from './types';
 
 export const IMAGE_MODEL_CYCLES: Record<string, LessonCycle> = {

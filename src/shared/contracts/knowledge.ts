@@ -1,10 +1,10 @@
-import type { CatalogInput } from '../catalog/types';
 /**
  * The knowledge contracts: what main tells the renderer and the agent about node classes, model files, field
  * controls, explanations, the graph check and the sync. Main fills them from the catalog database and the knowledge
  * sets (main/knowledge, main/catalog, main/mcp); the library, the Properties panel, the explain and check panels and
  * the agent's tools read them.
  */
+import type { CatalogInput } from '../catalog/types';
 import type { ModelNotes } from '../knowledge/sidecar';
 import type { PackInfo } from '../knowledge/packInfo';
 import type { WebError, WebFound, WebStatus } from '../knowledge/webLookup';

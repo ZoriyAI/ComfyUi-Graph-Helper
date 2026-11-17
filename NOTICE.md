@@ -141,6 +141,7 @@ The releases. "Published" is the time GitHub's servers recorded on the release p
 | 1.2.6 | `v1.2.6` | `465350ec3fdd` | 2026-11-16 05:02:06 | [notes](docs/releases/v1.2.6.md) |
 | 1.2.7 | `v1.2.7` | `1e63b7997637` | 2026-11-16 15:40:00 | [notes](docs/releases/v1.2.7.md) |
 | 1.2.8 | `v1.2.8` | release tag | see release page | [notes](docs/releases/v1.2.8.md) |
+| 1.3.0 | `v1.3.0` | release tag | see release page | [notes](docs/releases/v1.3.0.md) |
 
 A release cannot hold its own publication time, so each row is filled in by the first commit after that release.
 

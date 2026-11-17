@@ -1,3 +1,4 @@
+/** Checks that project file refresh requests coalesce without losing final state. */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { refreshProjectFile, useProjectFileStore } from '../../src/renderer/services/projectFile';
 import type { ProjectFileState } from '../../src/shared/contracts/projectFile';

@@ -1,5 +1,5 @@
-import { promotedWidgetPairs, promotedWidgetValue } from '../workflow/promotedWidgets';
 /** File sizes are a reference, not VRAM usage. Offloading, quantization, activations and runtime sharing vary. */
+import { promotedWidgetPairs, promotedWidgetValue } from '../workflow/promotedWidgets';
 import type { CatalogView } from '../catalog/types';
 import type { GraphResources, HardwareSnapshot } from '../contracts/resources';
 import type { GraphSnapshot } from '../workflow/codec';

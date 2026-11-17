@@ -1,3 +1,4 @@
+/** WanVideoWrapper lesson practice, source references and outcome checks. */
 import type { LessonCycle } from './types';
 
 const sources = ['https://github.com/kijai/ComfyUI-WanVideoWrapper'];

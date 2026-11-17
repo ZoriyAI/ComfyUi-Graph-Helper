@@ -1,5 +1,3 @@
-import { hasDynamicInputs, resolvedNode } from '../catalog/dynamicInputs';
-import { definitionWidgetPairs } from './promotedWidgets';
 /**
  * The ComfyUI workflow codec: reads a workflow file (UI format 1 or the older 0.4) into the app's graph snapshot
  * (canvas nodes and edges, subgraph definitions, groups, and a stored copy of the rest of the file), and writes the
@@ -7,6 +5,8 @@ import { definitionWidgetPairs } from './promotedWidgets';
  * written back as the file had it. Main imports, commits and exports with it (main/ipc.ts, main/commands); the
  * renderer reads its helpers (services/commands/projection.ts, state/graphState.ts, commands/actions.ts).
  */
+import { hasDynamicInputs, resolvedNode } from '../catalog/dynamicInputs';
+import { definitionWidgetPairs } from './promotedWidgets';
 import { slotDefault } from '../catalog/objectInfo';
 import type { CatalogNode, CatalogView } from '../catalog/types';
 import type { ComponentRecord, ProcessMeta } from '../components/model';

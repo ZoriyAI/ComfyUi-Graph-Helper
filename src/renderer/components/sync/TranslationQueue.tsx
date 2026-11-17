@@ -1,10 +1,10 @@
+/** Pausing the background queue never changes the selected assistant or the original model data. */
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ModelTranslationControl, ModelTranslationQueue } from '../../../shared/contracts/knowledge';
 import Button from '../../ui/Button';
 import styles from './TranslationQueue.module.css';
 
-/** Pausing the background queue never changes the selected assistant or the original model data. */
 export default function TranslationQueue() {
   const { t } = useTranslation();
   const [status, setStatus] = useState<ModelTranslationQueue | null>(null);

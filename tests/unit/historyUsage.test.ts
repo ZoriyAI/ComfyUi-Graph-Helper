@@ -1,3 +1,4 @@
+/** Checks stored graph history accounting, protected revisions and reviewed cleanup. */
 import Database from 'better-sqlite3';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ensureWorkspace, ensureProject, listRevisions, readProjection, startRun } from '../../src/main/commands/commit';

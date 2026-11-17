@@ -1,4 +1,3 @@
-import { hasDynamicInputs } from '../../shared/catalog/dynamicInputs';
 /**
  * Knowledge repository: reads the catalog tables, and reads and writes the explanations table (migration v9).
  * Other main-process modules (agent tools, IPC) call only these functions. Inputs are validated here too,
@@ -6,6 +5,7 @@ import { hasDynamicInputs } from '../../shared/catalog/dynamicInputs';
  * Callers: knowledge/handlers.ts (the knowledge IPC), agent/tools.ts and agent/turn.ts (the assistant), and the
  * other knowledge modules (fieldModels, nodeClassGuard, seedCore, modelWeb). checkGraph (check.ts) is re-exported here.
  */
+import { hasDynamicInputs } from '../../shared/catalog/dynamicInputs';
 import type Database from 'better-sqlite3';
 import { randomUUID } from 'crypto';
 import type {

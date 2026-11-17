@@ -1,3 +1,4 @@
+/** Checks that assistive announcements coalesce progress and preserve final state. */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { announcementQueue } from '../../src/renderer/a11y/announcementQueue';
 

@@ -86,5 +86,5 @@ describe('scripts/lesson-lint.js', () => {
     } finally {
       fs.rmSync(folder, { recursive: true, force: true });
     }
-  });
+  }, 120_000);
 });

@@ -1,7 +1,7 @@
+/** Exercises judge the edited picture, not just a connected pipeline. */
 import type { LessonCycle } from './types';
 import { CORE_SOURCE } from './types';
 
-/** Exercises judge the edited picture, not just a connected pipeline. */
 export const EDITING_CYCLES: Readonly<Record<string, LessonCycle>> = {
   ipadapter: {
     prerequisites: ['image'], run: true, sources: ['https://github.com/cubiq/ComfyUI_IPAdapter_plus'],

@@ -583,7 +583,7 @@ describe('object_info catalog', () => {
       expectedRevisionId: phantom.projection!.currentRevisionId,
       actor: 'manual',
       runId: null,
-      payload: { type: 'set-parameter', nodeId: '1', key: 'text', value: 99 },
+      payload: { type: 'set-parameter', nodeId: '1', key: 'text', value: 'changed' },
     });
     expect(rejected.status).toBe('rejected');
     expect(rejected.result).toEqual({ error: 'Catalog widget order does not match widgets_values.' });
@@ -623,11 +623,11 @@ describe('object_info catalog', () => {
       expectedRevisionId: mixed.projection!.currentRevisionId,
       actor: 'manual',
       runId: null,
-      payload: { type: 'set-parameter', nodeId: '1', key: 'text', value: 99 },
+      payload: { type: 'set-parameter', nodeId: '1', key: 'text', value: 'changed' },
     });
     expect(written.status).toBe('applied');
     const node = (readProjection(db, DESKTOP_PROJECT_ID)!.snapshot.nodes as Array<Record<string, any>>)[0];
-    expect(node.data.comfy.widgets_values).toEqual(['a', 'randomize', '', 99]);
+    expect(node.data.comfy.widgets_values).toEqual(['a', 'randomize', '', 'changed']);
     db.close();
   });
 

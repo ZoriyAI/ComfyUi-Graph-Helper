@@ -1,3 +1,4 @@
+/** Checks typed parameter commands and rejection without graph mutations. */
 import Database from 'better-sqlite3';
 import { afterEach, describe, expect, it } from 'vitest';
 import { cachedCatalog, commitCommand, ensureWorkspace, readProjection } from '../../src/main/commands/commit';

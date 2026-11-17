@@ -1,3 +1,4 @@
+/** Learning goals, practical checks and exercises for the basic lesson family. */
 import { CORE_SOURCE, type LessonCycle } from './types';
 
 export const BASICS_CYCLES: Record<string, LessonCycle> = {

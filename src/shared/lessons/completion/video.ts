@@ -1,3 +1,4 @@
+/** Video lesson preparation, practical checks and independent exercises. */
 import type { LessonCycle } from './types';
 import { CORE_SOURCE } from './types';
 

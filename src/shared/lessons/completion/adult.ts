@@ -1,7 +1,7 @@
+/** Technical exercises remain non-graphic; the existing adult-content gate stays authoritative. */
 import type { LessonCycle } from './types';
 import { CORE_SOURCE } from './types';
 
-/** Technical exercises remain non-graphic; the existing adult-content gate stays authoritative. */
 export const ADULT_CYCLES: Readonly<Record<string, LessonCycle>> = {
   'adult-image': {
     prerequisites: ['image', 'sdxl'], run: true, sources: [CORE_SOURCE],

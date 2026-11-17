@@ -1,3 +1,4 @@
+/** Multi-model lesson preparation, verification and independent practice. */
 import { CORE_SOURCE, type LessonCycle } from './types';
 
 export const MODEL_CHAIN_CYCLES: Record<string, LessonCycle> = {

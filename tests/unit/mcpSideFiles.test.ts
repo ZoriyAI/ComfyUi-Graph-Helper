@@ -102,10 +102,7 @@ describe('reading a file next to a model', () => {
 describe('the catalog columns for the files next to a model (migration v12)', () => {
   it('adds them to a database of the version before, leaving its rows as they were', () => {
     const db = new Database(':memory:');
-    migrate(db);
-    // As version 11 left the table: without the new columns.
-    for (const column of ['sidecar_file', 'sidecar_sig', 'sidecar_read_sig', 'preview_file', 'preview_sig', 'notes_json']) db.exec(`ALTER TABLE model_catalog DROP COLUMN ${column}`);
-    db.prepare('DELETE FROM schema_migrations WHERE version >= 12').run();
+    migrate(db, { upTo: 11 });
     db.prepare("INSERT INTO model_catalog (directory, name, size_bytes, kind, base_model, enriched_at) VALUES ('loras', 'old.safetensors', 5, 'lora', 'sdxl', 3)").run();
     migrate(db);
     const row = db.prepare("SELECT * FROM model_catalog WHERE name = 'old.safetensors'").get() as Record<string, unknown>;
@@ -164,9 +161,7 @@ describe('the files at the top of a node pack', () => {
 describe('what a node pack says about itself on node_packs (migration v13)', () => {
   it('adds the columns to a database of the version before, leaving its packs as they were', () => {
     const db = new Database(':memory:');
-    migrate(db);
-    for (const column of ['description', 'repository_url', 'readme_summary', 'info_sig', 'info_read_at']) db.exec(`ALTER TABLE node_packs DROP COLUMN ${column}`);
-    db.prepare('DELETE FROM schema_migrations WHERE version >= 13').run();
+    migrate(db, { upTo: 12 });
     db.prepare("INSERT INTO node_packs (name, version, commit_sha, class_count, synced_at) VALUES ('ComfyUI-KJNodes', '1.1.7', 'a1b2c3d', 40, 3)").run();
     migrate(db);
     expect(db.prepare('SELECT * FROM node_packs').get()).toMatchObject({

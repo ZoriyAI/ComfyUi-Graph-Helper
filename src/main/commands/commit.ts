@@ -1,7 +1,3 @@
-import { hasDynamicInputs, resolvedNode } from '../../shared/catalog/dynamicInputs';
-import { DynamicInputError, reconcileDynamicConnections, setDynamicParameter } from './dynamicInputs';
-import { ParameterValueError, parameterInput, parameterValue } from './parameterValues';
-import { NOTE_NODE_TYPES } from '../../shared/graph/editorNodes';
 /**
  * The graph engine: every change to a project's graph is a command committed here as one new revision in SQLite.
  * Callers: ipc.ts (the canvas, via preload commitCommand, and the run controls), agent/buildTools.ts and
@@ -10,6 +6,10 @@ import { NOTE_NODE_TYPES } from '../../shared/graph/editorNodes';
  * Why it is shaped so: one revision per command gives one undo step; the action id makes a retried command
  * harmless; the expected revision turns a race with the person or another run into a 'conflict', never a lost edit.
  */
+import { hasDynamicInputs, resolvedNode } from '../../shared/catalog/dynamicInputs';
+import { DynamicInputError, reconcileDynamicConnections, setDynamicParameter } from './dynamicInputs';
+import { ParameterValueError, parameterInput, parameterValue } from './parameterValues';
+import { NOTE_NODE_TYPES } from '../../shared/graph/editorNodes';
 import { missingOnGraph, type GraphNodeLike } from '../../shared/graph/compatibility';
 import { promotedWidgetName } from '../../shared/workflow/promotedWidgets';
 import { nodeRunMode } from '../../shared/graph/layout';

@@ -1,6 +1,6 @@
+/** Native exposed-widget definitions and the independent values held by each subgraph instance. */
 import { definitionWidgetPairs, promotedWidgetName, promotedWidgetPairs, promotedWidgetValue } from '../../shared/workflow/promotedWidgets';
 import { hasDynamicInputs, resolvedNode } from '../../shared/catalog/dynamicInputs';
-/** Native exposed-widget definitions and the independent values held by each subgraph instance. */
 import type { CatalogView } from '../../shared/catalog/types';
 import type { SubgraphDefinition } from '../../shared/graph/subgraphs';
 import { widgetOrderMatches } from '../../shared/workflow/widgetValues';

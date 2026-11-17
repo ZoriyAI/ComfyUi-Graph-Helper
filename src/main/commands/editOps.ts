@@ -1,4 +1,3 @@
-import { hasDynamicInputs, resolvedNode } from '../../shared/catalog/dynamicInputs';
 /**
  * Editing commands a person runs by hand from the node, link and group menus of the canvas (and their shortcuts):
  * bypass or mute nodes, write a note, place a node on a link, put another class in a node's place, and colour
@@ -8,6 +7,7 @@ import { hasDynamicInputs, resolvedNode } from '../../shared/catalog/dynamicInpu
  *
  * Every refusal is a plain English sentence that shared/i18n/index.ts maps to a text on screen (EDIT_ERRORS).
  */
+import { hasDynamicInputs, resolvedNode } from '../../shared/catalog/dynamicInputs';
 import type { GraphMutation } from '../../shared/commands/types';
 import { NODE_PALETTE } from '../../shared/graph/palette';
 import type { CatalogView } from '../../shared/catalog/types';

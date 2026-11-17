@@ -1,3 +1,4 @@
+/** Checks declared dynamic sockets and controls through graph commands and export. */
 import Database from 'better-sqlite3';
 import { afterEach, describe, expect, it } from 'vitest';
 import { parseObjectInfo } from '../../src/shared/catalog/objectInfo';

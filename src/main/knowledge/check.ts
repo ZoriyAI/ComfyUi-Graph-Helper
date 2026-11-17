@@ -1,5 +1,3 @@
-import { hasDynamicInputs, resolveInputs, resolvedNode } from '../../shared/catalog/dynamicInputs';
-import type { CatalogInput } from '../../shared/catalog/types';
 /**
  * The graph check: what would stop the graph on screen from running in ComfyUI, or make it run wrong (missing
  * nodes and models, type clashes, LoRAs on another base model, empty required inputs, bad field values, cycles,
@@ -7,6 +5,8 @@ import type { CatalogInput } from '../../shared/catalog/types';
  * panel (knowledge IPC) and the assistant's check tool. It only reads SQLite: the check never asks ComfyUI to run.
  * Its rule is no false alarm: whatever the catalog cannot prove is left out rather than reported.
  */
+import { hasDynamicInputs, resolveInputs, resolvedNode } from '../../shared/catalog/dynamicInputs';
+import type { CatalogInput } from '../../shared/catalog/types';
 import type Database from 'better-sqlite3';
 import { readProjection } from '../commands/commit';
 import { catalogInputsFromJson, readCatalog } from '../catalog/repository';

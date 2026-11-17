@@ -1,4 +1,3 @@
-import { hasDynamicInputs, resolvedNode } from '../../shared/catalog/dynamicInputs';
 /**
  * Which model files a node on the canvas loads, for any loader class: the core loader fields
  * (shared/catalog/modelFolders.ts) plus every plain field value that is the name of a file in the synced catalog.
@@ -7,6 +6,7 @@ import { hasDynamicInputs, resolvedNode } from '../../shared/catalog/dynamicInpu
  *
  * Used by knowledge/check.ts, knowledge/promptCheck.ts and knowledge/fieldModels.ts.
  */
+import { hasDynamicInputs, resolvedNode } from '../../shared/catalog/dynamicInputs';
 import type { CatalogView } from '../../shared/catalog/types';
 import { canvasModelRefs, type GraphNodeLike } from '../../shared/graph/compatibility';
 

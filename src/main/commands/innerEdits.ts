@@ -1,9 +1,9 @@
-import { reconcileDynamicConnections } from './dynamicInputs';
 /**
  * Edits inside a subgraph definition (the `edit-in-subgraph` command) and the id counters of definitions.
  * Used only by commands/commit.ts: applyInnerEdit for the command, keepDefinitionCounters on undo and redo.
  * Shaped after ComfyUI's own numbering so an exported workflow opens there unchanged; details follow below.
  */
+import { reconcileDynamicConnections } from './dynamicInputs';
 import type { GraphMutation } from '../../shared/commands/types';
 import type { CatalogView } from '../../shared/catalog/types';
 import { portsCompatible } from '../../shared/graph/linkTypes';

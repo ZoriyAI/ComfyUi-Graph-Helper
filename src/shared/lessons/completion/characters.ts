@@ -1,3 +1,4 @@
+/** Character and reference lesson practice, expected outcomes and limitations. */
 import type { LessonCycle } from './types';
 import { CORE_SOURCE } from './types';
 

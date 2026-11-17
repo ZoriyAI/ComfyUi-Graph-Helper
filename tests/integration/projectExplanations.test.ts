@@ -434,6 +434,8 @@ describe('migration to version 15', () => {
       ALTER TABLE graph_revisions DROP COLUMN graph_key;
       DELETE FROM schema_migrations WHERE version >= 15;
       DROP TABLE project_files;
+      DROP TABLE assistant_drafts;
+      ALTER TABLE chat_messages DROP COLUMN checkpoint;
     `);
     expect(schemaVersion(db)).toBe(14);
     const insert = db.prepare(`INSERT INTO explanations (id, project_id, owner_kind, owner_id, owner_json, aspect, text, provenance,

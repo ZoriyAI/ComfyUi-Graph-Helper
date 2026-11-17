@@ -1,3 +1,4 @@
+/** Checks assistant step budgeting and applied-command continuity through compaction. */
 import { describe, expect, it } from 'vitest';
 import { AppliedActionMemory, compactToolSchema, ContextBudgetError, fitStepMessages } from '../../src/main/llm/stepBudget';
 import { configureLocalContext, MainLLMService, pauseOf } from '../../src/main/llmService';

@@ -1,3 +1,4 @@
+/** Checks independent learning state and exposed values of nested graph copies. */
 import Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { instanceGraph, instanceParameterMutation, lessonContextKey, parameterAddress, validInstanceDepth, type InstanceGraphSource } from '../../src/renderer/components/graph/lib/instanceContext';

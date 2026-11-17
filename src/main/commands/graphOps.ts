@@ -1,5 +1,3 @@
-import { definitionWidgetPairs, promotedWidgetPairs, promotedWidgetValue } from '../../shared/workflow/promotedWidgets';
-import { hasDynamicInputs, resolvedNode } from '../../shared/catalog/dynamicInputs';
 /**
  * Subgraph and group commands: make a subgraph from selected nodes, place, rename, change the slots of and dissolve
  * one, and add, remove and rename groups. Also the id allocator (Ids) every graph command uses.
@@ -7,6 +5,8 @@ import { hasDynamicInputs, resolvedNode } from '../../shared/catalog/dynamicInpu
  * Each function works on a deep copy and throws GraphOpError to refuse, so a refused command leaves no trace.
  * The shapes written follow ComfyUI's workflow format 1, so an exported subgraph opens in ComfyUI as made here.
  */
+import { definitionWidgetPairs, promotedWidgetPairs, promotedWidgetValue } from '../../shared/workflow/promotedWidgets';
+import { hasDynamicInputs, resolvedNode } from '../../shared/catalog/dynamicInputs';
 import { randomUUID } from 'crypto';
 import type { CatalogView } from '../../shared/catalog/types';
 import { exposedWidgets, refreshExposedWidgets, setExposedWidgets } from './subgraphWidgets';

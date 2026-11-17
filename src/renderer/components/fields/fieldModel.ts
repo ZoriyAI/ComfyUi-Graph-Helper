@@ -1,11 +1,11 @@
-import { resolveInputs } from '../../../shared/catalog/dynamicInputs';
-import { fieldSpecOf } from '../../../shared/catalog/fieldSpec';
 /**
  * The rules of node fields without React: which inputs are fields, the control kind, the shown value, number
  * clamping and typing, the typing state of a number field, seeds and the "after run" row. Used by FieldControl.tsx, ModelList.tsx, graph/Inspector.tsx,
  * graph/nodes (FieldRow, EditorNodes, NodeCard) and lessons/lessonModel.ts; tests/unit/fieldControl.test.ts,
  * typedNumber.test.ts, numberEdit.test.ts and nodeMarks.test.ts cover it.
  */
+import { resolveInputs } from '../../../shared/catalog/dynamicInputs';
+import { fieldSpecOf } from '../../../shared/catalog/fieldSpec';
 import type { FieldKind, FieldSpec, NodeClassDetail } from '../../../shared/contracts/knowledge';
 import type { ComfyNodeData, PortDefinition } from '../../types/graph';
 import { afterRunSlot } from '../../../shared/graph/layout';

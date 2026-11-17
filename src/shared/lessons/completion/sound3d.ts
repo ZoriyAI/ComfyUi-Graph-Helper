@@ -1,3 +1,4 @@
+/** Audio and three-dimensional lesson exercises with explicit outcome checks. */
 import type { LessonCycle } from './types';
 import { CORE_SOURCE } from './types';
 

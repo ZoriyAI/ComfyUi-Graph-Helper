@@ -6,7 +6,7 @@ These are real application screens with test data and no personal files. Overvie
 
 ## 1.2.8: a problem guide on a phone-sized screen
 
-<img src="en/17-phone-problem-guide.png" width="280" alt="A narrow-screen wizard with Understand, Do and Verify steps">
+<img src="phone-problem-guide.png" width="280" alt="A narrow-screen wizard with Understand, Do and Verify steps">
 
 The guide separates explanation, actions and result verification. When current data is insufficient, it says so explicitly. The same steps are available in English and Russian.
 

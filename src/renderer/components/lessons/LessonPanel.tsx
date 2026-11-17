@@ -550,7 +550,7 @@ export default function LessonPanel({ onAsk }: { onAsk: (question: string) => vo
     <div className={`lesson-panel ${styles.panel}`} data-lesson={editing ? 'editor' : lesson?.id ?? 'list'}>
       {view.definition ? <div className={styles.notice} role="note" data-lesson-context={scope}>
         {parentPath ? <p>{parentPath}</p> : null}
-        <strong>{t(instanceId ? 'lessons.instanceContext' : 'lessons.definitionContext', { name: view.definition.name, id: instanceId })}</strong>
+        <strong>{instanceId ? t('lessons.instanceContext', { name: view.definition.name, id: instanceId }) : t('lessons.definitionContext', { name: view.definition.name })}</strong>
         <p>{t('lessons.inSubgraph')}</p>
         {view.external.size > 0 ? <p>{t('lessons.externalValue')}</p> : null}
         <Button size="sm" variant="subtle" onClick={() => useGraphStore.getState().exitSubgraph()}>{t('lessons.rootContext')}</Button>

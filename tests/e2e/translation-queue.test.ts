@@ -1,3 +1,4 @@
+/** Checks translation progress and pause recovery in an isolated Electron profile. */
 import { test, expect } from '@playwright/test';
 import { launchApp, temporaryProfile, removeProfile, type LaunchedApp } from './support/app';
 

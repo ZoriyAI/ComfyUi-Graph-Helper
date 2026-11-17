@@ -13,6 +13,7 @@ import { migrate } from '../../src/main/settings/migrate';
 import { parseObjectInfo } from '../../src/shared/catalog/objectInfo';
 import { DESKTOP_PROJECT_ID } from '../../src/shared/project';
 import { denseWorkflow } from '../e2e/fixtures/denseWorkflow';
+import { exportWorkflow, type GraphSnapshot } from '../../src/shared/workflow/codec';
 
 /** A trimmed object_info of three core classes, enough for ranges, combos and an upload field. */
 const CORE = {
@@ -127,9 +128,9 @@ describe('graph validation', () => {
 
   it('checks numeric ranges and combo choices against object_info', () => {
     const db = openDb(true);
-    expect(commit(db, 'import', { type: 'import-workflow', document: structuredClone(denseWorkflow) }).status).toBe('applied');
-    expect(commit(db, 'steps', { type: 'set-parameter', nodeId: '4', key: 'steps', value: -1 }).status).toBe('applied');
-    expect(commit(db, 'sampler', { type: 'set-parameter', nodeId: '4', key: 'sampler_name', value: 'not-a-sampler' }).status).toBe('applied');
+    expect(commit(db, 'import', { type: 'import-workflow', document: withSamplerValues(-1, 'not-a-sampler') }).status).toBe('applied');
+    // Explicit edits reject invalid numeric values; imported workflows still need diagnostic findings.
+    expect(commit(db, 'steps', { type: 'set-parameter', nodeId: '4', key: 'steps', value: -2 }).status).toBe('rejected');
     const report = checkGraph(db, DESKTOP_PROJECT_ID);
     expect(report.valuesOutOfRange).toContainEqual(expect.objectContaining({ nodeId: '4', input: 'steps', value: -1, min: 1 }));
     expect(report.valuesNotInList).toContainEqual(expect.objectContaining({ nodeId: '4', input: 'sampler_name', value: 'not-a-sampler' }));
@@ -149,15 +150,15 @@ describe('graph validation', () => {
 
   it('applies the same parameter checks inside a subgraph', () => {
     const db = openDb(true);
-    expect(commit(db, 'import', { type: 'import-workflow', document: structuredClone(denseWorkflow) }).status).toBe('applied');
+    expect(commit(db, 'import', { type: 'import-workflow', document: withSamplerValues(-1) }).status).toBe('applied');
     const created = commit(db, 'sg', { type: 'create-subgraph', name: 'Sampler block', nodeIds: ['4'], inputs: [], outputs: [] });
     expect(created.status).toBe('applied');
     const definitionId = (created.result as { definitionId: string }).definitionId;
     expect(commit(db, 'inner', {
       type: 'edit-in-subgraph',
       definitionId,
-      edit: { type: 'set-parameter', nodeId: '4', key: 'steps', value: -1 },
-    }).status).toBe('applied');
+      edit: { type: 'set-parameter', nodeId: '4', key: 'steps', value: -2 },
+    }).status).toBe('rejected');
     expect(checkGraph(db, DESKTOP_PROJECT_ID).valuesOutOfRange).toEqual(expect.arrayContaining([
       expect.objectContaining({ nodeId: '4', input: 'steps', value: -1, subgraphId: definitionId }),
     ]));
@@ -193,7 +194,12 @@ describe('integrated graph-check regressions', () => {
     const db = openDb();
     upsertObjectInfo(db, parseObjectInfo({ ValueNode: { input: { required: { amount: ['FLOAT', { default: 1, min: 0, max: 10 }], choice: [['a', 'b']] } }, input_order: { required: ['amount', 'choice'] }, output: ['FLOAT', 'COMBO'] } }));
     commit(db, 'a', { type: 'add-node', nodeType: 'ValueNode' });
-    commit(db, 'b', { type: 'add-node', nodeType: 'ValueNode', parameters: { amount: -100, choice: 'missing' } });
+    commit(db, 'b', { type: 'add-node', nodeType: 'ValueNode' });
+    const exported = exportWorkflow(readProjection(db, DESKTOP_PROJECT_ID)!.snapshot as GraphSnapshot, '2026-11-17');
+    if (!exported.ok) throw Error(exported.error);
+    const imported = exported.workflow.nodes as Array<{ id: number; widgets_values: unknown[] }>;
+    imported.find(node => String(node.id) === '2')!.widgets_values = [-100, 'missing'];
+    expect(commit(db, 'stale-values', { type: 'import-workflow', document: exported.workflow }).status).toBe('applied');
     expect(commit(db, 'link-a', { type: 'connect', source: '1', sourceHandle: 'out-0', target: '2', targetHandle: 'in-0' }).status).toBe('applied');
     expect(commit(db, 'link-b', { type: 'connect', source: '1', sourceHandle: 'out-1', target: '2', targetHandle: 'in-1' }).status).toBe('applied');
     const linked = checkGraph(db, DESKTOP_PROJECT_ID);
@@ -208,12 +214,18 @@ describe('integrated graph-check regressions', () => {
     expect(unlinked.invalidParameters).toEqual([]);
   });
 
-  it('reports residual type errors without duplicating range and choice findings, and respects parameter precedence', () => {
+  it('reports imported type errors without duplicating range findings and rejects invalid explicit edits', () => {
     const db = openDb(true);
-    commit(db, 'import', { type: 'import-workflow', document: denseWorkflow });
-    commit(db, 'bad-type', { type: 'set-parameter', nodeId: '4', key: 'steps', value: 'twenty' });
+    commit(db, 'import', { type: 'import-workflow', document: withSamplerValues('twenty') });
+    expect(commit(db, 'bad-type', { type: 'set-parameter', nodeId: '4', key: 'steps', value: 'thirty' }).status).toBe('rejected');
     const report = checkGraph(db, DESKTOP_PROJECT_ID);
     expect(report.invalidParameters).toContainEqual(expect.objectContaining({ nodeId: '4', name: 'steps', reason: 'type' }));
     expect(report.valuesOutOfRange?.filter((item) => item.nodeId === '4' && item.input === 'steps')).toEqual([]);
   });
 });
+
+/** Invalid values may arrive in an external file even though the editor refuses to create them. */
+function withSamplerValues(steps: unknown, sampler = 'euler') {
+  return { ...structuredClone(denseWorkflow), nodes: denseWorkflow.nodes.map(node => node.id === 4
+    ? { ...node, widgets_values: [0, 'fixed', steps, 8, sampler, 'karras', 1] } : structuredClone(node)) };
+}
