@@ -140,5 +140,5 @@
 
 - [Доверие](README.ru.md)
 - [Приватность](Privacy.ru.md)
-- [ComfyUI только читается](Read-Only.ru.md)
+- [Чтение каталога и загрузка выбранных файлов](Read-Only.ru.md)
 - [Ключи](../assistant/Keys.ru.md)

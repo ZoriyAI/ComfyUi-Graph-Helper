@@ -33,14 +33,11 @@ NodeWise is one of these experiments. Two questions drive it.
 
 Each principle below is a promise the app keeps today, and the linked page says how.
 
-- **It only reads your ComfyUI.** It never installs, downloads, deletes, writes or queues anything there, and it never
-  runs a graph. [ComfyUI is only read](Read-Only.md)
+- **Catalog reads preserve your ComfyUI.** Models, extensions and the queue stay unchanged. Uploading media requires you to select a file; generation runs in ComfyUI. [Access details](Read-Only.md)
 - **It explains instead of hiding.** Every node, input, output and link has an explanation that says where it comes
   from, and when the assistant builds, it writes next to each node why it is there.
   [The assistant](../assistant/Assistant.md)
-- **Your own work changes only when you agree.** In Ask mode the assistant only suggests grey drafts, and only what
-  you accept goes into the graph. In Build mode it changes only what it placed itself; a change to your own nodes,
-  values, notes or links comes as a draft for you to decide. [Grey drafts](../assistant/Drafts.md)
+- **Requested edits stay under your control.** Assistant and Build modes can carry out requested changes to existing graphs. Explain mode offers answers and drafts without graph edits. History records changes so you can undo them. [Assistant modes](../assistant/Assistant.md)
 - **Your keys stay with you.** There is no account, no telemetry and no crash reporting. Keys are kept on your
   computer, and each one goes only to the address it was pasted for. Every place the app can contact, and what goes
   there, is listed. [Privacy](Privacy.md), [Security](Security.md)

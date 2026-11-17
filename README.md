@@ -2,22 +2,23 @@
 
 # NodeWise Studio
 
-**A desktop tutor for ComfyUI graphs**
+**Build ComfyUI workflows, understand them and learn by doing**
 
 [![Checks](https://github.com/ZoriyAI/nodewise-studio/actions/workflows/ci.yml/badge.svg)](https://github.com/ZoriyAI/nodewise-studio/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/ZoriyAI/nodewise-studio)](https://github.com/ZoriyAI/nodewise-studio/releases/latest)
 [![License: MIT with Commons Clause](https://img.shields.io/badge/license-MIT%20%2B%20Commons%20Clause-blue)](LICENSE)
 
-![The app building a graph step by step, with the reason for every step](docs/screenshots/hero.png)
+NodeWise Studio is a visual workspace for ComfyUI. Choose a task, start from a template or your own workflow, configure its nodes, and save the result to run in ComfyUI. Wizards and explanations guide you through each step; a configured AI assistant can build and edit the graph when you ask.
 
-NodeWise Studio helps you learn ComfyUI and understand its graphs: it reads a running ComfyUI, explains every node and
-link, teaches with lessons you do by hand, and has an assistant that explains and builds step by step. It is for
-people new to ComfyUI and for anyone who wants to know why a graph works. Catalog reads do not change ComfyUI. Choosing a file in a media loader uploads only that file to its input folder.
+Work on the desktop or open its interface in a phone or tablet browser over Wi-Fi. No separate mobile app is needed. Lessons, manual editing and wizards work without an AI model.
 
-NodeWise is an independent, experimental learning tool. It is not affiliated with or endorsed by Comfy Org. It
-contains no ComfyUI code. It reads a running ComfyUI and uploads media only when you choose a file.
+**[Download the latest release](https://github.com/ZoriyAI/nodewise-studio/releases/latest)** · **[Quick start](docs/wiki/start/Quick-Start.md)** · **[New in 1.2.8](docs/releases/v1.2.8.md)** · **[Phone and tablet access](docs/wiki/start/Browser-Access.md)**
+
+NodeWise is an independent, experimental project, unaffiliated with Comfy Org. It reads the running ComfyUI catalog and uploads media you explicitly select to its input folder. Generation runs in ComfyUI after workflow export.
 
 ## Screenshots
+
+![The app building a graph step by step, with the reason for every step](docs/screenshots/hero.png)
 
 | | |
 | --- | --- |
@@ -27,32 +28,37 @@ contains no ComfyUI code. It reads a running ComfyUI and uploads media only when
 
 [All screenshots](docs/screenshots/README.md)
 
-## What it does
+## What you can do
 
-- **Reads your ComfyUI** at its address: nodes, packs and model files, with an optional MCP server for more.
-  [Connecting](docs/wiki/connect/README.md)
-- **A canvas for ComfyUI graphs**: real fields, typed links, subgraphs, groups, copy and paste, undo and redo.
-  [Working with a graph](docs/wiki/graph/README.md)
-- **Explains** every node, input, output and link, and says where each explanation comes from.
-  [The window](docs/wiki/interface/README.md)
-- **95 lessons** in sixteen groups you do by hand on the real canvas, checked step by step, no AI model
-  needed.
-  [Lessons](docs/wiki/lessons/README.md)
-- **An assistant** that asks, builds or teaches, with a cloud model and your key or a model on your own computer.
-  [The assistant](docs/wiki/assistant/README.md)
-- **Checks a graph** before you save it, and saves an ordinary workflow you run in ComfyUI.
-  [Checking a graph](docs/wiki/graph/Checking-A-Graph.md)
+| Your goal | How NodeWise helps |
+| --- | --- |
+| Start with an image, video, audio, 3D or text task | [Task wizards](docs/wiki/graph/Task-Wizards.md) and 115 bundled official blueprints from a pinned ComfyUI catalog revision, with required models and extensions listed. |
+| Understand an existing workflow | Import nodes, links and settings; inspect node, port and connection explanations; check before exporting. [Working with a graph](docs/wiki/graph/README.md) |
+| Make a reusable node | The [subgraph constructor](docs/wiki/graph/Subgraphs.md) lets you choose inputs, outputs and exposed controls, then edit the graph inside. |
+| Ask AI for help | The [assistant](docs/wiki/assistant/Assistant.md) carries out ordinary requests: build variants, edit an existing graph or clear the canvas with undo. Explain mode leaves the graph unchanged. |
+| Work through a problem | 50 guided routes with preparation, concrete actions and result checks; [the problem list and coverage](docs/research/2026-11-16-fifty-user-problems.md) are documented in Russian. |
+| Understand installed models | A model and LoRA catalog, metadata, trigger words and descriptions; [Sync → Problems and repair](docs/wiki/interface/Sync-Menu.md). Russian description translation uses your configured assistant. |
+| Use a phone or tablet | [Wi-Fi browser access](docs/wiki/start/Browser-Access.md), the device's own file picker, touch node menus, panel switching and undo. |
+| Learn or teach | [95 lessons](docs/wiki/lessons/README.md) in 16 groups with step checks, your own lessons and files to share with students. |
+| Prepare a ComfyUI run | Graph and dependency checks, resource estimates, workflow export and [releasing assistant model memory](docs/wiki/graph/Running-In-ComfyUI.md). |
+
+Choose a local model through Ollama, LM Studio, llama.cpp or a compatible server, or connect a cloud provider with your own key. [Choosing an assistant](docs/wiki/assistant/Choosing-Who-Answers.md).
+
+Structure checks and memory estimates help prepare a run; you assess the actual image or video in ComfyUI. Review assistant-generated extension code before installing it.
 
 ## Install
 
 ### Linux
 
-64-bit x86. Download from the [Releases](../../releases) page the format that suits your system:
+On Ubuntu, Debian or Mint, download the `.deb` and open it with the software installer. To update, install the new package; saved projects and settings stay in the data folder. Other formats and terminal commands are below.
+
+64-bit x86. Download from the [Releases](https://github.com/ZoriyAI/nodewise-studio/releases/latest) page the format that suits your system:
 
 | Format | Install |
 | --- | --- |
 | `.deb` (Ubuntu, Debian, Mint) | `sudo apt install ./nodewise-studio_*_amd64.deb` |
-| `.rpm` (Fedora, openSUSE) | `sudo dnf install ./nodewise-studio-*.rpm` |
+| `.rpm` (Fedora) | `sudo dnf install ./nodewise-studio-*.rpm` |
+| `.rpm` (openSUSE) | `sudo zypper install ./nodewise-studio-*.rpm` |
 | AppImage | `chmod +x` the file, then open it |
 | `.tar.gz` | unpack, then `./install.sh` (for your user, no root) or `./run.sh` (in place) |
 
@@ -60,8 +66,6 @@ Each release has a `SHA256SUMS` file: `sha256sum -c SHA256SUMS --ignore-missing`
 where: [Installing](docs/wiki/start/Installing.md).
 
 ### Windows 10 22H2 and 11 (x64)
-
-> **Not yet tried on a range of real computers:** see the note under the macOS lines below.
 
 There is no Windows package yet. A script from the release builds the app on your computer from this project's source
 and installs it for your user, without administrator rights. In PowerShell:
@@ -97,11 +101,14 @@ The app is not signed by a publisher on Windows or macOS.
 
 ## First steps
 
-1. Start ComfyUI. No ComfyUI yet? [ComfyUI and where to get it](docs/wiki/start/ComfyUI.md).
-2. In NodeWise: Settings ▸ Connection, enter the address you open ComfyUI at in the browser (for example
-   `http://127.0.0.1:8188`) or choose Find on this computer, save, and read it.
-   [Connecting to ComfyUI](docs/wiki/connect/Connecting.md)
-3. Open the right panel, choose Learn and take the first lesson. [Quick start](docs/wiki/start/Quick-Start.md)
+1. Install NodeWise from the [latest release](https://github.com/ZoriyAI/nodewise-studio/releases/latest) and start ComfyUI. [Getting ComfyUI](docs/wiki/start/ComfyUI.md).
+2. In **Settings → Connection**, choose **Find on this computer** or enter the ComfyUI address, save it and synchronize. [Connecting](docs/wiki/connect/Connecting.md).
+3. Choose **Task wizards** for a result of your own, **Learn** for a lesson, or open an existing workflow. You can configure an assistant later.
+4. Check the graph and choose **Save workflow for ComfyUI**. Open the saved file in ComfyUI and run it there. [A first result, step by step](docs/wiki/start/Quick-Start.md).
+
+### From a phone or tablet
+
+On the computer, open **Settings → Browser access**, enable access and save the address and port. On a device in the same network, open the displayed address or QR code and enter the code from **Connect a device**. Keep the desktop app running. [Full instructions](docs/wiki/start/Browser-Access.md).
 
 ## Documentation
 
@@ -111,7 +118,7 @@ The app is not signed by a publisher on Windows or macOS.
 | [Connecting](docs/wiki/connect/README.md) | Connecting the app to ComfyUI, on this computer or another. |
 | [The window](docs/wiki/interface/README.md) | One page per part of the window. |
 | [Working with a graph](docs/wiki/graph/README.md) | Building, checking, saving and running a graph. |
-| [The assistant](docs/wiki/assistant/README.md) | Ask, Build, Learn, who answers and what is sent. |
+| [The assistant](docs/wiki/assistant/README.md) | Assistant, Explain, Build and Learn; model choice and sent data. |
 | [Lessons](docs/wiki/lessons/README.md) | The built-in lessons, grouped by topic. |
 | [ComfyUI concepts](docs/wiki/concepts/README.md) | An encyclopedia of ComfyUI for a newcomer. |
 | [Reference](docs/wiki/reference/README.md) | Settings, shortcuts, messages, file formats, the glossary, troubleshooting. |
@@ -122,6 +129,8 @@ The same documentation is in the app: Help ▸ User guide.
 
 ## Build from source
 
+For **1.2.8** source, use [tag v1.2.8](https://github.com/ZoriyAI/nodewise-studio/tree/v1.2.8) or the source archive on the release page. The `main` branch can differ from the published application; this documentation describes the release.
+
 On Linux: [Building from source](docs/wiki/dev/Building-From-Source.md). On Windows and macOS, the steps the install
 scripts take, by hand: [Windows](docs/wiki/dev/Building-On-Windows.md), [macOS](docs/wiki/dev/Building-On-macOS.md).
 
@@ -130,14 +139,12 @@ scripts take, by hand: [Windows](docs/wiki/dev/Building-On-Windows.md), [macOS](
 NodeWise is experimental: things change between versions and some parts are unfinished. What it does not do yet:
 [Known limitations](docs/wiki/reference/Known-Limits.md). What changed: [CHANGELOG.md](CHANGELOG.md).
 
-It never installs, downloads, deletes, writes or queues anything in ComfyUI, has no telemetry and no crash
-reporting, and asks about new versions only if you switch that on. Every place it can contact:
-[Privacy](docs/wiki/trust/Privacy.md).
+Catalog reads leave ComfyUI files unchanged. Media you select is uploaded to input; models and extensions are not installed automatically, and you run the graph in ComfyUI. There is no telemetry or automatic crash reporting. External connections and data handling are described in [Privacy](docs/wiki/trust/Privacy.md).
 
 ## Wishes, questions, problems
 
-- Ideas, wishes and questions: [Discussions](../../discussions).
-- Problems: [Issues](../../issues) (Help ▸ Report a problem in the app fills in the versions).
+- Ideas, wishes and questions: [Discussions](https://github.com/ZoriyAI/nodewise-studio/discussions).
+- Problems: [Issues](https://github.com/ZoriyAI/nodewise-studio/issues) (Help ▸ Report a problem in the app fills in the versions).
 - A security problem: privately, see [SECURITY.md](SECURITY.md).
 - Taking part: the project welcomes ideas, reports and tests, but does not merge pull requests with code; why, and
   what helps most: [CONTRIBUTING.md](CONTRIBUTING.md). Everyone follows the [Code of Conduct](CODE_OF_CONDUCT.md).

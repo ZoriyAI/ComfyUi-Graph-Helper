@@ -1,7 +1,7 @@
 [Русский](Read-Only.ru.md)
 [Home](../Home.md) › [Trust](README.md)
 
-# ComfyUI is only read
+# Catalog reads and selected-file uploads
 
 NodeWise Studio reads the ComfyUI catalog without changing models, packs or the queue. Choosing **Choose file…** in a media loader explicitly uploads one selected file to ComfyUI input. Existing files are not overwritten. The assistant cannot select files or initiate uploads.
 
@@ -45,7 +45,7 @@ From an MCP server, only if you added one:
 
 ## What this means for you
 
-- Your ComfyUI, its models, its node packs and its queue stay exactly as they were.
+- Catalog reads preserve your ComfyUI models, node packs and queue. Only a file you explicitly select is uploaded to input.
 - Missing nodes or models are named, never installed. Install them in ComfyUI.
 - The graph you build lives in NodeWise until you save it as a workflow and open it in ComfyUI.
 

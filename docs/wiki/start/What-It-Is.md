@@ -3,73 +3,42 @@
 
 # What the app is
 
-NodeWise Studio is a desktop app for people who are learning ComfyUI. It shows what is in your ComfyUI, explains how a
-graph works, and lets you build one by hand or with an assistant. It is a tutor, not a runner: it never runs a graph
-and never changes your ComfyUI.
+NodeWise Studio is a workspace for creating ComfyUI graphs and learning how they work. Choose a result, build a graph manually, through a wizard or with an assistant, then save an ordinary workflow for ComfyUI.
 
 ## Who it is for
 
-- You installed ComfyUI and the screen full of nodes and wires means little to you yet.
-- You found a workflow on the internet and want to know what each node does before you run it.
-- You know the basics and want to try something new (video, LoRA, two models) with someone explaining each step.
+- Beginners: plain explanations, ready starting tasks and lessons with step checks.
+- Workflow authors: import settings and connections, create subgraphs and processing variants, check dependencies and export.
+- Teachers: create lessons and student materials, distinguishing structural checks from assessment of the resulting image.
 
-You do not need to know programming. You do need a ComfyUI to learn on: on this computer or on another one at home.
-See [ComfyUI and where to get it](ComfyUI.md).
+Ordinary use does not require programming. Generation requires a running [ComfyUI](ComfyUI.md) with suitable models; the assistant requires a chosen local or cloud model.
 
-## What it does
+## Getting started
 
-- **Reads your ComfyUI**: the node classes, the node packs, the model files and what is written next to them
-  (trigger words, the base model, example pictures). The library on the left shows all of it.
-- **A canvas** where you build a graph with the nodes you really have. Fields offer the values your ComfyUI accepts;
-  a link only joins outputs and inputs of the same data type.
-- **Explains** every node, input, output and link, and says where each explanation comes from.
-- **Lessons** you do by hand on the real canvas: built-in ones in groups by topic and by level, and your own in My lessons. The
-  app checks each step on the graph itself; no model is needed. File ▸ Examples opens the finished graph of a lesson.
-- **An assistant** that answers questions (Ask), builds step by step and says why (Build), or leads a lesson
-  (Learn). It answers with a cloud model or a model on your own computer.
-- **A check** before saving: missing nodes and models, LoRAs that do not fit, empty fields, advice on prompts.
-- **Workflows in and out**: open a workflow saved in ComfyUI, also from the pictures and videos ComfyUI saves; save
-  one that ComfyUI opens as it was, except for what you changed.
+1. [Install the app](Installing.md) and [connect ComfyUI](../connect/Connecting.md).
+2. Choose a [task wizard](../graph/Task-Wizards.md), a first [lesson](../lessons/README.md), or open your own workflow.
+3. Configure nodes, connections and models. The [assistant](../assistant/Assistant.md) can explain or carry out a request; history lets you undo its edits.
+4. [Check the graph](../graph/Checking-A-Graph.md), save a workflow and [run it in ComfyUI](../graph/Running-In-ComfyUI.md).
 
-## What it never does
+For phone access, enable [Wi-Fi browser access](Browser-Access.md) on the computer. No separate mobile app is needed; keep the computer and NodeWise running.
 
-- It never installs, downloads, deletes, writes or queues anything in ComfyUI. See
-  [ComfyUI is only read](../trust/Read-Only.md).
-- It never runs a graph. You open the saved workflow in ComfyUI and run it there:
-  [Running the result in ComfyUI](../graph/Running-In-ComfyUI.md).
-- It never sends a key to an address other than the one you pasted it for, and has no telemetry and no crash reports;
-  it asks about new versions only if you switch that on: [Privacy](../trust/Privacy.md).
+## What is included
 
-## How it fits together
+- 115 official blueprints from a pinned catalog revision: images, video, audio, 3D, text and combined stages.
+- A subgraph constructor with inputs, outputs, exposed settings and editable inner nodes.
+- 95 lessons in 16 groups and 50 guided routes through common difficulties.
+- A model catalog, LoRA metadata and descriptions, rereading and synchronization repair explanations. Russian description translation uses the configured assistant.
+- Help in node menus, touch controls, selected-file uploads, undo and edit history.
+- Dependency checks and resource estimates, workflow export and releasing assistant model memory before a ComfyUI run.
 
-```
-Your ComfyUI  ──(read only)──>  NodeWise  ──(you save a workflow)──>  a .json file  ──(you open it)──>  ComfyUI runs it
-                                    │
-                                    └── an assistant: a cloud model or a model on your own computer (optional)
-```
+## How the app accesses data
 
-## What you need
+Catalog reads preserve ComfyUI models, extensions and queue. Selecting media explicitly uploads it to input without overwriting existing files. NodeWise does not install generated extensions or execute workflows: you review code and run the result in ComfyUI. [Access details](../trust/Read-Only.md).
 
-- A computer with Linux, 64-bit x86: a `.deb` (Ubuntu 22.04 or newer, Debian 12 or newer, Linux Mint 21 or newer),
-  an `.rpm`, an AppImage or a `.tar.gz`. Or Windows 10 22H2 or 11 (x64), or macOS 13 or newer: there a script builds
-  the app from source and installs it ([Installing](Installing.md)); it is checked on GitHub's machines on
-  every change, not yet on a range of real computers.
-- ComfyUI, running on this computer or on another one you can reach.
-- For the assistant (optional): a key for a cloud model, which costs money per question, or a model server on your
-  own computer such as Ollama. Lessons need neither.
-- For saved keys (optional): a system keychain such as GNOME Keyring or KWallet.
+Lessons, the manual canvas and wizards work without an AI model. The assistant contacts the server you choose; cloud providers may charge for requests. [Privacy](../trust/Privacy.md) describes sent data.
 
-## An experimental project
+## What checks establish
 
-NodeWise is young. Things change between versions, some parts are unfinished, and there is no promise of support.
-What is not done yet is listed in [Known limitations](../reference/Known-Limits.md). Ideas and wishes are welcome in
-the project's Discussions; problems go to Issues (Help ▸ Report a problem in the app). Who makes the app and why:
-[The author and the experiment](../trust/Author.md).
+Graph checks find structural problems and missing dependencies. They do not establish image quality, compatibility with every third-party extension or exact peak GPU usage. Those require a real run. [Known limitations](../reference/Known-Limits.md).
 
-## See also
-
-- [Start](README.md)
-- [Quick start](Quick-Start.md)
-- [The window at a glance](../interface/Window.md)
-- [The assistant](../assistant/Assistant.md)
-- [How lessons work](../lessons/How-Lessons-Work.md)
+Linux x64 packages are available; Windows and macOS use scripts that build and install a specific release's source. [Installing](Installing.md). NodeWise is an independent, experimental project; [the author and principles](../trust/Author.md).

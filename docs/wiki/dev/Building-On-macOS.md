@@ -18,8 +18,10 @@ change, not yet on a range of real Macs; when it fails, these steps are the fall
 
 ## Get the source
 
+The command below selects the source for release **1.2.8**. For another release, use the tag shown on its Releases page. To edit the code, create your own branch after cloning: `git switch -c my-change`.
+
 ```bash
-git clone https://github.com/ZoriyAI/nodewise-studio.git nodewise-studio
+git clone --branch v1.2.8 --depth 1 https://github.com/ZoriyAI/nodewise-studio.git nodewise-studio
 cd nodewise-studio
 npm ci
 ```
@@ -62,8 +64,11 @@ keeps in your login Keychain, under "nodewise-studio Safe Storage".
 
 ## Update the source
 
+Use the tag from the new release page in place of `v1.2.8` below. Save your edits on a branch before switching versions.
+
 ```bash
-git pull
+git fetch origin tag v1.2.8
+git switch --detach v1.2.8
 npm ci
 npm run build
 ```

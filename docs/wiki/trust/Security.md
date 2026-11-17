@@ -137,5 +137,5 @@ Copy details). What is in scope is listed in the project's `SECURITY.md`.
 
 - [Trust](README.md)
 - [Privacy](Privacy.md)
-- [ComfyUI is only read](Read-Only.md)
+- [Catalog reads and selected-file uploads](Read-Only.md)
 - [Keys](../assistant/Keys.md)

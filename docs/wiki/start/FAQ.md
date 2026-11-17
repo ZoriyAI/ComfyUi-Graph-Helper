@@ -12,8 +12,7 @@ No. It builds and explains graphs; ComfyUI runs them. You save a workflow and op
 
 ## Can it change or break my ComfyUI?
 
-No. It only reads: it never installs, downloads, deletes, writes or queues anything in ComfyUI.
-[ComfyUI is only read](../trust/Read-Only.md)
+Catalog reads preserve models, extensions and the queue. When you choose a media file, the app uploads it to input without overwriting existing files. Extensions and models are not installed automatically. [Access details](../trust/Read-Only.md)
 
 ## Do I need an AI model or the internet?
 
@@ -117,6 +116,18 @@ does not allow selling the app. [License and third-party notices](../trust/Licen
 
 This is an experimental project without promised support. Ideas, wishes and questions go to the project's
 Discussions; problems to Issues (Help ▸ Report a problem fills in the versions).
+
+## Can I work from a phone?
+
+Yes. Enable Settings → Browser access on the computer, open the displayed address in a phone browser on the same network and pair using the code. Keep the computer and desktop app running. [Wi-Fi access](Browser-Access.md).
+
+## Why do some models have no description after synchronization?
+
+An absent description, a pending read, a connection error and an excluded file are different states. Open Sync → Problems and repair, read the reason and retry reading. A file may contain no description; that does not establish that the model is damaged. [Synchronization](../interface/Sync-Menu.md).
+
+## How do I free memory for ComfyUI?
+
+After export choose Make room for ComfyUI. With native Ollama, the app pauses its requests and translation, unloads the models it used and verifies the result. This also runs by default when the desktop app closes. Closing a phone tab leaves the desktop app running. [Assistant and memory](../assistant/Assistant.md).
 
 ## See also
 

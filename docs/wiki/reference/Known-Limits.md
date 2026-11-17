@@ -10,7 +10,7 @@ what to expect. Wishes go to the project's Discussions, problems to its Issues.
 
 - **It never runs a workflow.** It builds and explains; ComfyUI runs. [Running the result in ComfyUI](../graph/Running-In-ComfyUI.md)
 - **It does not install nodes or models or queue prompts.** Explicit image uploads and supported local service controls are available.
-  [ComfyUI is only read](../trust/Read-Only.md)
+  [Catalog reads and selected-file uploads](../trust/Read-Only.md)
 - **Two languages:** English and Russian.
 
 ## Systems and packages

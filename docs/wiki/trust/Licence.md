@@ -6,7 +6,7 @@
 **NodeWise Studio: a desktop tutor for ComfyUI graphs**
 
 NodeWise is an independent, experimental learning tool. It is not affiliated with or endorsed by Comfy Org. It
-contains no ComfyUI code and only reads a running ComfyUI; it never changes it.
+contains no ComfyUI code. It reads the ComfyUI catalog and uploads media only when you explicitly choose a file.
 
 This page explains the license in plain words. It is an explanation, not the license: the text that counts is the
 `LICENSE` file at the top of the project, also shown in the app under Help ▸ About ▸ License.
@@ -65,7 +65,7 @@ Chromium has its own list: About ▸ Third-party components ▸ Chromium license
 | Does NodeWise contain ComfyUI code? | No. |
 | Why does it follow the ComfyUI frontend? | So that a saved workflow opens in ComfyUI as it is: the order of widget values, slot numbers, subgraph definitions. |
 | Was anything taken from the frontend? | One table of facts: which core loader node reads which model folder (from `modelNodeMappings.ts` of `Comfy-Org/ComfyUI_frontend`, GPL-3.0). It is credited in `src/shared/catalog/modelFolders.ts`. |
-| Does the app change ComfyUI? | No. It only reads a running ComfyUI. [ComfyUI is only read](Read-Only.md) |
+| Does the app change ComfyUI? | Catalog reads preserve models, packs and the queue. Choosing media explicitly uploads it to input. [Access details](Read-Only.md) |
 
 ComfyUI and the ComfyUI frontend are projects of their own authors, under their own licenses.
 

@@ -26,8 +26,10 @@ sudo apt-get install -y --no-install-recommends fakeroot dpkg xvfb libnss3 libat
 
 ## Get the source and install
 
+The command below selects the source for release **1.2.8**. For another release, use the tag shown on its Releases page. To edit the code, create your own branch after cloning: `git switch -c my-change`.
+
 ```bash
-git clone https://github.com/ZoriyAI/nodewise-studio.git nodewise-studio
+git clone --branch v1.2.8 --depth 1 https://github.com/ZoriyAI/nodewise-studio.git nodewise-studio
 cd nodewise-studio
 npm ci
 ```
@@ -65,8 +67,11 @@ More: [Package formats](Package-Formats.md).
 
 ## Keep it up to date
 
+Select the tag from the new release page; replace `v1.2.8` below with that tag. Save your own edits on a branch before switching versions.
+
 ```bash
-git pull
+git fetch origin tag v1.2.8
+git switch --detach v1.2.8
 npm ci
 npm run build
 ```

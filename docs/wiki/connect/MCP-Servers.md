@@ -38,7 +38,7 @@ The official `comfy-mcp` of Comfy Org runs as a local command, not at an address
 ## Safety
 
 - Only the read tools on the app's list are called; a tool that is not on it, or a call with an extra argument, is
-  refused before it leaves the app. [ComfyUI is only read](../trust/Read-Only.md)
+  refused before it leaves the app. [Catalog reads and selected-file uploads](../trust/Read-Only.md)
 - A ComfyUI address the server names is read only when the server runs on this computer too, or when it is the
   address you saved.
 

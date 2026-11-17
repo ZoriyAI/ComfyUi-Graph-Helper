@@ -66,5 +66,5 @@ their fields (`src/shared/catalog/fieldSpec.ts`), models with their family and k
 ## See also
 
 - [For developers](README.md)
-- [ComfyUI is only read](../trust/Read-Only.md)
+- [Catalog reads and selected-file uploads](../trust/Read-Only.md)
 - [Connecting to ComfyUI](../connect/Connecting.md)

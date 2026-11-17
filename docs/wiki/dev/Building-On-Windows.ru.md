@@ -22,8 +22,10 @@ Windows при каждом изменении, на разных настоящ
 
 В PowerShell или в окне Git Bash:
 
+Команда ниже выбирает исходники выпуска **1.2.8**. Для другого выпуска замените тег на указанный на его странице Releases. Чтобы менять код, после клонирования создайте свою ветку: `git switch -c my-change`.
+
 ```powershell
-git clone https://github.com/ZoriyAI/nodewise-studio.git nodewise-studio
+git clone --branch v1.2.8 --depth 1 https://github.com/ZoriyAI/nodewise-studio.git nodewise-studio
 cd nodewise-studio
 npm ci
 ```
@@ -63,8 +65,11 @@ npx electron-forge package --platform win32 --arch x64
 
 ## Обновите исходники
 
+Возьмите тег со страницы нового выпуска и подставьте его вместо `v1.2.8` ниже. Сохраните свои правки в отдельной ветке перед переключением версии.
+
 ```powershell
-git pull
+git fetch origin tag v1.2.8
+git switch --detach v1.2.8
 npm ci
 npm run build
 ```

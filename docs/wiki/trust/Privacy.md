@@ -162,6 +162,6 @@ Where each file lies: [The data folder](../reference/Data-Folder.md). How to rem
 
 - [Trust](README.md)
 - [Security](Security.md)
-- [ComfyUI is only read](Read-Only.md)
+- [Catalog reads and selected-file uploads](Read-Only.md)
 - [What is sent to the model](../assistant/What-Is-Sent.md)
 - [Settings: Privacy](../interface/Settings-Privacy.md)

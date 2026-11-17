@@ -161,6 +161,6 @@ DuckDuckGo) остаются названы по имени.
 
 - [Доверие](README.ru.md)
 - [Безопасность](Security.ru.md)
-- [ComfyUI только читается](Read-Only.ru.md)
+- [Чтение каталога и загрузка выбранных файлов](Read-Only.ru.md)
 - [Что отправляется модели](../assistant/What-Is-Sent.ru.md)
 - [Настройки: приватность](../interface/Settings-Privacy.ru.md)

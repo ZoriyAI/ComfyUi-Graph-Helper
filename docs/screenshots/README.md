@@ -2,8 +2,13 @@
 
 # Screenshots
 
-Every picture below is taken from the app itself by `npm run shots:public`, with test data only: a test ComfyUI
-server and a scripted assistant, no real person's files. Window 1440 x 900.
+These are real application screens with test data and no personal files. Overview images 01–16 show the 1.1.0 appearance; current features are described in the user guide.
+
+## 1.2.8: a problem guide on a phone-sized screen
+
+<img src="en/17-phone-problem-guide.png" width="280" alt="A narrow-screen wizard with Understand, Do and Verify steps">
+
+The guide separates explanation, actions and result verification. When current data is insufficient, it says so explicitly. The same steps are available in English and Russian.
 
 ## 01 First start
 
@@ -27,7 +32,7 @@ The library lists the nodes and models your ComfyUI really has; a card explains 
 
 ![An answer with three grey drafts on the canvas](en/04-assistant-ask.png)
 
-The assistant suggests nodes as grey drafts; nothing enters the graph until you accept it.
+In Explain mode the assistant can suggest grey drafts for you to accept. In the default Assistant mode it can also carry out requested edits directly.
 
 ## 05 Build with the assistant
 
@@ -70,7 +75,7 @@ A large workflow is shown from above in readable blocks; zoom in to see every fi
 
 ![Settings, the connection to ComfyUI](en/11-settings-connection.png)
 
-The app connects to ComfyUI read-only: nothing is installed, queued or changed there.
+Catalog synchronization reads ComfyUI without changing models, extensions or the queue. Selecting a media file explicitly uploads it to input.
 
 ## 12 Settings: assistant
 

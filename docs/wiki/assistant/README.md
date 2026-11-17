@@ -3,10 +3,10 @@
 
 # The assistant
 
-Ask, Build, Learn, choosing who answers and what is sent.
+Assistant, Explain, Build and Learn; model choice, memory and sent data.
 
 - [The assistant](Assistant.md): What the assistant does and what it never does.
-- [Ask](Ask.md): Questions, answers and grey drafts.
+- [Explain](Ask.md): Questions, answers and drafts without editing the graph.
 - [Build](Build.md): The assistant builds on the canvas step by step.
 - [Learn](Learn.md): Lessons you build yourself.
 - [Grey drafts](Drafts.md): Suggestions on the canvas and accepting them.

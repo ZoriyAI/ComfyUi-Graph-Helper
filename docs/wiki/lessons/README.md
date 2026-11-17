@@ -14,8 +14,7 @@ A lesson card may say that the lesson goes on from another one. That is a hint, 
 
 ### Start and a reliable setup
 Level 0, before everything else: choose how to run ComfyUI, install it and prove it with a first picture, keep a model
-library, install a first pack safely, and update with a way back. The app reads ComfyUI and never changes it: what you
-do in ComfyUI is your own word.
+library, install a first pack safely, and update with a way back. The app checks the catalog and graph. Installation steps and generation results in ComfyUI still require your own confirmation.
 
 - [Desktop, Portable, a manual install or Cloud](Choose-Setup.md): lesson "choose-setup". A written choice of how you run ComfyUI, with its limits, made before anything is installed.
 - [Install and a first run without errors](First-Run.md): lesson "first-run". A working install proven by a first picture, and an environment card: system, graphics card, version, way of install and folders.
