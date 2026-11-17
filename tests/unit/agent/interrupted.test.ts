@@ -73,7 +73,9 @@ describe('a run cut off by closing the app', () => {
 
   it('closes the interrupted run without writing a courtesy message when history storage is off', async () => {
     const db = openDb();
-    expect(saveSettings(db, { ...readSettings(db).values, preferences: { privacy: { saveChatHistory: false } } })).toMatchObject({ ok: true });
+    const settings = readSettings(db);
+    if (settings.source === 'corrupt') throw new Error('Fresh settings were corrupt');
+    expect(saveSettings(db, { ...settings.values, preferences: { privacy: { saveChatHistory: false } } })).toMatchObject({ ok: true });
     const run = startRun(db, P);
     const tools = createBuildTools(BUILD_TOOL_SPECS, { db, run: { projectId: P, runId: run.runId, expectedRevisionId: run.expectedRevisionId } });
     await tools.addNode.execute({ nodeType: 'KSampler' }, { toolCallId: 'privacy-node' });
