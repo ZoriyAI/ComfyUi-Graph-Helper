@@ -12,6 +12,8 @@ export const IPC_CHANNELS = {
   // Graph operations
   GRAPH_LOAD_REVISION: 'graph:load-revision',
   GRAPH_LIST_REVISIONS: 'graph:list-revisions',
+  GRAPH_HISTORY_USAGE: 'graph:history-usage',
+  GRAPH_HISTORY_TRIM: 'graph:history-trim',
   
   // Chat operations
   CHAT_SAVE_MESSAGE: 'chat:save-message',

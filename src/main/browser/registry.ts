@@ -37,7 +37,8 @@ export async function invokeBrowserMethod(method: string, args: unknown[], peer:
   if (special.has(method)) return special.get(method)!(args, peer);
   if (!Object.hasOwn(BROWSER_METHODS, method)) throw new Error('Operation is unavailable.');
   const projectFirst = ['readProjection', 'startRun', 'resumeRun', 'pauseRun', 'cancelRun', 'closeRun', 'listRevisions', 'loadChatHistory', 'clearChatHistory', 'checkGraph', 'listProposals'];
-  if (projectFirst.includes(method) && args[0] !== DESKTOP_PROJECT_ID) throw new Error('Unknown project.');
+  if ((projectFirst.includes(method) || method === 'historyUsage') && args[0] !== DESKTOP_PROJECT_ID) throw new Error('Unknown project.');
+  if (method === 'trimHistory' && (args[0] as { projectId?: unknown } | null)?.projectId !== DESKTOP_PROJECT_ID) throw new Error('Unknown project.');
   if (method === 'commitCommand' && (args[0] as { projectId?: unknown } | null)?.projectId !== DESKTOP_PROJECT_ID) throw new Error('Unknown project.');
   if (method === 'llmSetConfig') {
     const value = args[0] as Record<string, unknown> | null;

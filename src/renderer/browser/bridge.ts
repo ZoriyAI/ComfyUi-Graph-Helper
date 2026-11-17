@@ -81,7 +81,7 @@ export async function installBrowserBridge(bootstrap: { platform?: string; versi
     setInterfaceScale: () => undefined,
     onSyncEvent: (listener: (payload: unknown) => void) => subscribe(IPC_CHANNELS.SYNC_EVENT, listener),
     onProposalsEvent: (listener: (payload: unknown) => void) => subscribe(IPC_CHANNELS.PROPOSALS_EVENT, listener),
-    onBrowserRefresh: (listener: (notice?: { knowledgeChanged?: boolean }) => void) => subscribe(IPC_CHANNELS.BROWSER_REFRESH, listener),
+    onBrowserRefresh: (listener: (notice?: { knowledgeChanged?: boolean; historyChanged?: boolean }) => void) => subscribe(IPC_CHANNELS.BROWSER_REFRESH, listener),
     onOpenRequest: () => () => undefined,
     startState: async () => ({ unfinished: false, emptied: false }), graphDrawn: async () => ({ ok: true }),
     pendingOpen: async () => null, openPending: async () => ({ status: 'cancelled', projection: null, result: null }),

@@ -31,7 +31,11 @@ While the replay shows, the graph does not change: an edit says "History replay 
 
 ## How much is kept
 
-Up to 2000 versions per project; for very large graphs fewer, never fewer than 200. Older versions are removed by themselves.
+Automatic cleanup aims for up to 2000 recent versions per project and a soft 256 MiB budget based on the current graph size. It keeps at least the latest 200 versions, plus older versions needed by the current graph, open assistant runs, paused tasks or suggestions. Protected versions can put the total above the target. A new project with fewer versions keeps all of them.
+
+**Settings → Privacy → Graph history storage** shows measured graph and command data, the available date range and the current retention target. **Review old-version cleanup** previews how many older versions can be removed and how much data they occupy. Confirming keeps the newest 200 and every protected version. If the graph or protected work changes, cleanup stops and the figures update.
+
+Removed versions cannot be restored with Undo. Save a project copy first if you need the older history. Cleanup keeps the current graph, other projects, chat and saved files. The database file may retain its size on disk: later saves reuse the space. The displayed data size is not the size of the whole profile.
 
 ## Limits
 

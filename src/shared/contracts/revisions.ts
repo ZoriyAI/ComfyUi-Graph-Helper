@@ -35,3 +35,28 @@ export type RevisionSnapshot = Projection['snapshot'];
 
 /** graph:list-revisions returns at most this many rows, oldest first. */
 export const REVISION_LIST_LIMIT = 2000;
+
+/** Logical stored JSON sizes; SQLite file allocation can stay larger and be reused after cleanup. */
+export interface HistoryUsage {
+  revisions: number;
+  snapshotBytes: number;
+  commandBytes: number;
+  protectedRevisions: number;
+  availableRevisions: number;
+  oldestAvailableAt: number | null;
+  newestAt: number | null;
+  automaticKeep: number;
+  minimumKeep: number;
+  softBudgetBytes: number;
+  databaseBytes: number;
+  reusableDatabaseBytes: number;
+  trim: { token: string; count: number; bytes: number; remaining: number };
+}
+
+export interface HistoryTrimResult {
+  ok: boolean;
+  removed: number;
+  releasedBytes: number;
+  reason?: 'changed' | 'storage';
+  usage: HistoryUsage;
+}

@@ -12,6 +12,7 @@ import { guardedHandle } from './guard';
 import type { Proposal, ProposalResolution } from '../../shared/contracts/proposals';
 import { REVISION_LIST_LIMIT, type RevisionSnapshot, type RevisionSummary } from '../../shared/contracts/revisions';
 import { listRevisions, loadRevision } from '../commands/commit';
+import { historyUsage, trimHistoryExplicitly } from '../commands/historyUsage';
 import { listProposals, resolveProposal, setProposalsNotifier } from '../proposals/repository';
 
 const projectIdSchema = z.string().min(1).max(200);
@@ -51,6 +52,11 @@ export function engineHandlers(getDb: () => Database.Database) {
     listRevisions(projectId: unknown): RevisionSummary[] {
       return listRevisions(getDb(), parse(projectIdSchema, projectId), REVISION_LIST_LIMIT);
     },
+    historyUsage(projectId: unknown) { return historyUsage(getDb(), parse(projectIdSchema, projectId)); },
+    trimHistory(request: unknown) {
+      const input = parse(z.object({ projectId: projectIdSchema, token: z.string().regex(/^[a-f0-9]{64}$/) }).strict(), request);
+      return trimHistoryExplicitly(getDb(), input.projectId, input.token);
+    },
     loadRevision(request: unknown): RevisionSnapshot | null {
       const { projectId, revisionId } = parse(loadRevisionSchema, request);
       return loadRevision(getDb(), projectId, revisionId);
@@ -78,5 +84,11 @@ export function registerEngineIpc(ipcMain: IpcMain, getDb?: () => Database.Datab
   guardedHandle(ipcMain, IPC_CHANNELS.PROPOSALS_LIST, (_event, projectId: unknown) => handlers.listProposals(projectId));
   guardedHandle(ipcMain, IPC_CHANNELS.PROPOSALS_RESOLVE, (_event, request: unknown) => handlers.resolveProposal(request));
   guardedHandle(ipcMain, IPC_CHANNELS.GRAPH_LIST_REVISIONS, (_event, projectId: unknown) => handlers.listRevisions(projectId));
+  guardedHandle(ipcMain, IPC_CHANNELS.GRAPH_HISTORY_USAGE, (_event, projectId: unknown) => handlers.historyUsage(projectId));
+  guardedHandle(ipcMain, IPC_CHANNELS.GRAPH_HISTORY_TRIM, async (_event, request: unknown) => {
+    const result = await handlers.trimHistory(request);
+    if (result.removed) broadcast(IPC_CHANNELS.BROWSER_REFRESH, { historyChanged: true });
+    return result;
+  });
   guardedHandle(ipcMain, IPC_CHANNELS.GRAPH_LOAD_REVISION, (_event, request: unknown) => handlers.loadRevision(request));
 }

@@ -48,7 +48,7 @@ function currentRevisionBytes(db: Database.Database, projectId: string): number 
 }
 
 /** Revisions that must survive a trim: the one on screen, those of open runs and those of open suggestions. */
-function protectedRevisions(db: Database.Database, projectId: string): Set<string> {
+export function protectedRevisions(db: Database.Database, projectId: string): Set<string> {
   const kept = new Set<string>();
   const current = db.prepare('SELECT current_revision_id FROM projects WHERE id = ?').get(projectId) as { current_revision_id: string | null } | undefined;
   if (current?.current_revision_id) kept.add(current.current_revision_id);
@@ -64,6 +64,12 @@ function protectedRevisions(db: Database.Database, projectId: string): Set<strin
   if (hasProposals) {
     const open = db.prepare(`SELECT revision_id FROM proposals WHERE project_id = ? AND status IN ('proposed', 'open')`).all(projectId) as Array<{ revision_id: string }>;
     for (const proposal of open) kept.add(proposal.revision_id);
+  }
+  const chatColumns = db.pragma('table_info(chat_messages)') as Array<{ name: string }>;
+  if (chatColumns.some(column => column.name === 'checkpoint')) {
+    const tasks = db.prepare(`SELECT json_extract(CASE WHEN json_valid(checkpoint) THEN checkpoint END, '$.revisionId') AS revision_id FROM chat_messages
+      WHERE project_id = ? AND json_extract(CASE WHEN json_valid(checkpoint) THEN checkpoint END, '$.state') = 'open'`).all(projectId) as Array<{ revision_id: unknown }>;
+    for (const task of tasks) if (typeof task.revision_id === 'string') kept.add(task.revision_id);
   }
   return kept;
 }

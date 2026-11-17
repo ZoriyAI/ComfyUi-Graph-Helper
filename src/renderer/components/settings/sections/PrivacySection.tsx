@@ -43,6 +43,7 @@ import styles from '../SettingsPanel.module.css';
 import { errorSummary, Group, hintClass, patchSection, rowClass, SectionHead, type DraftProps } from './common';
 import ConfirmDialog from './ConfirmDialog';
 import PreviewCacheRow from './PreviewCacheRow';
+import HistoryStorage from './HistoryStorage';
 import type { SecretInventoryReport } from '../../../../preload';
 
 /** Settings ▸ Privacy: what the model sees, whether chat is kept, and a plain account of where secrets live. */
@@ -320,6 +321,7 @@ export default function PrivacySection({ prefs, setPrefs, container }: DraftProp
       />
       {note ? <p className={hintClass} role="status">{note}</p> : null}
       <PreviewCacheRow />
+      <HistoryStorage />
     </>
   );
 }

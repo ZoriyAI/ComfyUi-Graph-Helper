@@ -7,6 +7,7 @@ import { useChatStore } from '../state/chatState';
 import { messageFromChatRecord } from '../services/llm/chatModel';
 import { useKnowledgeStore } from '../state/knowledgeState';
 import { BROWSER_CONNECTION, isBrowserClient } from './bridge';
+import { refreshUndoHistory } from '../commands/undo';
 import Button from '../ui/Button';
 import styles from './Browser.module.css';
 
@@ -40,7 +41,10 @@ export function installSharedSession(): () => void {
     } catch { /* The connection banner reports outages; no write is retried. */ }
     finally { running = false; }
   };
-  const off = window.electronAPI.onBrowserRefresh?.((notice) => { void refresh(notice?.knowledgeChanged); });
+  const off = window.electronAPI.onBrowserRefresh?.((notice) => {
+    if (notice?.historyChanged) void refreshUndoHistory();
+    void refresh(notice?.knowledgeChanged);
+  });
   return () => { disposed = true; off?.(); };
 }
 /** A visible reconnect action retains drafts until the user chooses to reload. */

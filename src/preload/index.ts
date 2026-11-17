@@ -179,6 +179,8 @@ const IPC_CHANNELS = {
   PROPOSALS_RESOLVE: 'proposals:resolve',
   PROPOSALS_EVENT: 'proposals:event',
   GRAPH_LIST_REVISIONS: 'graph:list-revisions',
+  GRAPH_HISTORY_USAGE: 'graph:history-usage',
+  GRAPH_HISTORY_TRIM: 'graph:history-trim',
   GRAPH_LOAD_REVISION: 'graph:load-revision',
   DIAGNOSTICS_COLLECT: 'diagnostics:collect',
   DIAGNOSTICS_OPEN_LOGS: 'diagnostics:open-logs',
@@ -308,8 +310,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   browserAccessStatus: () => ipcRenderer.invoke(IPC_CHANNELS.BROWSER_STATUS),
   browserPairingCode: () => ipcRenderer.invoke(IPC_CHANNELS.BROWSER_PAIR_CODE),
   browserRevoke: (id: string) => ipcRenderer.invoke(IPC_CHANNELS.BROWSER_REVOKE, id),
-  onBrowserRefresh: (listener: (notice?: { knowledgeChanged?: boolean }) => void) => {
-    const handler = (_event: unknown, notice?: { knowledgeChanged?: boolean }) => listener(notice);
+  onBrowserRefresh: (listener: (notice?: { knowledgeChanged?: boolean; historyChanged?: boolean }) => void) => {
+    const handler = (_event: unknown, notice?: { knowledgeChanged?: boolean; historyChanged?: boolean }) => listener(notice);
     ipcRenderer.on(IPC_CHANNELS.BROWSER_REFRESH, handler);
     return () => ipcRenderer.removeListener(IPC_CHANNELS.BROWSER_REFRESH, handler);
   },
@@ -466,6 +468,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Version history for the replay player (handlers in main/ipc/engineIpc.ts)
   listRevisions: (projectId: string) => ipcRenderer.invoke(IPC_CHANNELS.GRAPH_LIST_REVISIONS, projectId) as Promise<RevisionSummary[]>,
+  historyUsage: (projectId: string) => ipcRenderer.invoke(IPC_CHANNELS.GRAPH_HISTORY_USAGE, projectId),
+  trimHistory: (request: { projectId: string; token: string }) => ipcRenderer.invoke(IPC_CHANNELS.GRAPH_HISTORY_TRIM, request),
   loadRevision: (projectId: string, revisionId: string) => ipcRenderer.invoke(IPC_CHANNELS.GRAPH_LOAD_REVISION, { projectId, revisionId }) as Promise<RevisionSnapshot | null>,
 
   // Diagnostics (Help menu, error boundary, renderer error reports)
@@ -587,7 +591,7 @@ export interface ElectronAPI {
   browserAccessStatus: () => Promise<import('../shared/browser/contracts').BrowserAccessStatus>;
   browserPairingCode: () => Promise<{ code: string; expiresAt: number }>;
   browserRevoke: (id: string) => Promise<{ ok: boolean }>;
-  onBrowserRefresh: (listener: (notice?: { knowledgeChanged?: boolean }) => void) => () => void;
+  onBrowserRefresh: (listener: (notice?: { knowledgeChanged?: boolean; historyChanged?: boolean }) => void) => () => void;
   platform: string;
   /** Sets the size of the whole interface (1 = normal, 2 = twice as large). */
   setInterfaceScale: (factor: number) => void;
@@ -763,6 +767,8 @@ export interface ElectronAPI {
   onProposalsEvent: (listener: (proposals: Proposal[]) => void) => () => void;
   /** Revision rows of a project, oldest first (at most REVISION_LIST_LIMIT). */
   listRevisions: (projectId: string) => Promise<RevisionSummary[]>;
+  historyUsage: (projectId: string) => Promise<import('../shared/contracts/revisions').HistoryUsage>;
+  trimHistory: (request: { projectId: string; token: string }) => Promise<import('../shared/contracts/revisions').HistoryTrimResult>;
   /** Snapshot of one revision, read-only; null when it does not exist. Never changes the current revision. */
   loadRevision: (projectId: string, revisionId: string) => Promise<RevisionSnapshot | null>;
   /** Help ▸ Copy diagnostics: a redacted text report (versions, settings without secrets, log tail). */
