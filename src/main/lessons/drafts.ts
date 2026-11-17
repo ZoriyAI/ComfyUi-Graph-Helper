@@ -1,7 +1,7 @@
 /**
  * Lesson drafts of the assistant, waiting for the person. The draftLesson tool puts a checked draft here and the
  * chat shows it as a card; the person accepts it (it becomes one of "My lessons") or rejects it (it is gone).
- * Nothing is written to the profile before the person says so, the same rule as grey drafts on the canvas.
+ * Chat-history preferences control draft storage; accepting it separately adds it to My lessons.
  *
  * Who uses it: the assistant's draftLesson tool (src/main/agent/lessonDraftTool.ts) and the lessons IPC.
  *

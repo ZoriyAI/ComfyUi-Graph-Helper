@@ -183,6 +183,15 @@ export async function startFakeLlm(initialWindow = 32768): Promise<FakeLlm> {
         if (results.length === 0) delete (lesson.texts.en.steps as Record<string, unknown>).sampler;
         return toolCall([{ name: 'draftLesson', args: { lesson } }]);
       }
+      if (/draft a recovery extension/.test(text)) {
+        if (results.length) return say('Source draft prepared for review; nothing was installed.');
+        return toolCall([{ name: 'draftExtension', args: {
+          slug: 'recovery_fixture', name: 'Recovery fixture', purpose: 'Check source draft recovery after app restart.',
+          inputs: [{ name: 'text', type: 'STRING' }], outputs: [{ name: 'text', type: 'STRING' }], dependencies: [],
+          files: [{ path: '__init__.py', content: 'class Echo:\n    @classmethod\n    def INPUT_TYPES(cls): return {"required": {"text": ("STRING",)}}\n    RETURN_TYPES = ("STRING",)\n    FUNCTION = "echo"\n    CATEGORY = "test"\n    def echo(self, text): return (text,)\nNODE_CLASS_MAPPINGS = {"RecoveryEcho": Echo}\n' },
+            { path: 'README.md', content: '# Recovery fixture\nSource-only fixture. STRING text input and output. No dependencies. Review before installing under custom_nodes, then restart and synchronize. Python was not executed by this test.' }],
+        } }]);
+      }
       if (/propose nodes/.test(text) && results.length === 0) {
         return toolCall([
           { name: 'proposeNode', args: { nodeType: 'KSampler', title: 'Sampler', x: 420, y: 200, note: 'Turns noise into a picture.' } },
