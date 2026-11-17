@@ -30,7 +30,7 @@ describe('lesson navigation', () => {
     expect(lessonDependencies('image')).toEqual(['comfy-basics']);
     // prompt (level 1) before sdxl (level 3), whatever order the registry names them in.
     expect(lessonDependencies('tags')).toEqual(['prompt', 'sdxl']);
-    expect(lessonDependencies('gguf')).toEqual(['flux', 'zimage-turbo']);
+    expect(lessonDependencies('gguf')).toEqual(['loaders', 'flux', 'zimage-turbo']);
     expect(lessonDependencies('one-factor')).toEqual(['sampler-fields', 'image']);
     for (const lesson of LESSONS) {
       const dependencies = lessonDependencies(lesson.id);

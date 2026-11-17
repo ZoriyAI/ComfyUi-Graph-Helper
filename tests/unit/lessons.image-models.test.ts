@@ -266,7 +266,8 @@ describe('what the lessons on picture models check', () => {
     canvas.connect(gguf.id, canvas.port(gguf.id, 'MODEL', 'out'), z.shift, canvas.port(z.shift, 'model'));
     canvas.remove(z.unet);
     const lesson = lessonById('gguf')!;
-    expect(lessonProgress(lesson, canvas, {}, readIds(lesson)).current).toBe(lesson.steps.length);
+    const answers = Object.fromEntries(lesson.steps.filter(isPersonStep).map((step) => [step.id, answerAll(step)]));
+    expect(lessonProgress(lesson, canvas, {}, readIds(lesson), answers).current).toBe(lesson.steps.length);
   });
 
   it('GGUF: without the pack the lesson names it as the pack to install', () => {

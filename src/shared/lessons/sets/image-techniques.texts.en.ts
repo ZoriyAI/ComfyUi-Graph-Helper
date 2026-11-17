@@ -35,7 +35,7 @@ export const IMAGE_TECHNIQUES_EN: Record<string, LessonWords> = {
     steps: {
       intro: {
         title: 'What image-to-image is',
-        body: 'Image-to-image starts not from empty noise but from your picture. The picture is turned into the compressed form the model works in, the latent; some noise is added to it, and the sampler removes that noise by your prompt.\n\nHow much noise is added is set by `denoise`. At 1 nothing of your picture is left. At 0.3 only fine detail changes. In between, the composition stays and the rest is drawn again.\n\nThe lesson adds three nodes to the graph of "A first picture from text".',
+        body: 'Image-to-image starts not from empty noise but from your picture. The picture is turned into the compressed form the model works in, the latent; some noise is added to it, and the sampler removes that noise by your prompt.\n\nThe `denoise` setting selects how much of the noise-removal schedule is used. Larger values generally allow greater changes; smaller ones tend to preserve more. No value guarantees a particular amount of visible change, and it is not a percentage of replaced pixels.\n\nThe lesson adds three nodes to the graph of "A first picture from text".',
       },
       graph: PICTURE_GRAPH,
       picture: {
@@ -56,7 +56,7 @@ export const IMAGE_TECHNIQUES_EN: Record<string, LessonWords> = {
       },
       denoise: {
         title: 'Set how much to draw again',
-        body: 'Set `denoise` of {sampler} to 0.6.\n\nAt 0.6 the composition and the large shapes stay, while textures, faces and the style follow the prompt. Lower it to 0.4 when the result must stay close to the original. Raise it to 0.8 when only the layout matters.\n\nDescribe what should be in the picture, not what to change: the model does not compare, it draws.',
+        body: 'Set `denoise` of {sampler} to 0.6.\n\nThe lesson starts at 0.6; compare whether this preserves enough composition for your particular model and image. Lower it to 0.4 when the result must stay close to the original. Raise it to 0.8 when only the layout matters.\n\nDescribe what should be in the picture, not what to change: the model does not compare, it draws.',
       },
       compare: {
         title: 'Compare variants fairly',
@@ -74,7 +74,7 @@ export const IMAGE_TECHNIQUES_EN: Record<string, LessonWords> = {
     steps: {
       intro: {
         title: 'What inpainting is',
-        body: 'Inpainting draws again the part of a picture under a mask and leaves the rest as it was. The mask is painted by hand in ComfyUI or made by a node that finds an object; that is the lesson "A mask by words".\n\nThis lesson goes on from "A picture from a picture" and puts the inpainting node where the plain encoding was.',
+        body: 'Inpainting targets the region under a mask. Check the rest too: VAE encoding and decoding can change it. Use a masked composite with the original when outside pixels must remain exact. The mask is painted by hand in ComfyUI or made by a node that finds an object; that is the lesson "A mask by words".\n\nThis lesson goes on from "A picture from a picture" and puts the inpainting node where the plain encoding was.',
       },
       graph: {
         title: 'The graph of a picture from a picture is needed',
@@ -278,7 +278,7 @@ export const IMAGE_TECHNIQUES_EN: Record<string, LessonWords> = {
       },
       denoise: {
         title: 'Set how much to draw again',
-        body: 'Set `denoise` of {samplerB} to 0.5.\n\nAt 0.5 the composition stays and every detail is drawn again at the large size. At 0.3 the change is slight. Above 0.6 the model starts to draw new objects, and at a size it was not trained at it repeats them: two heads, extra windows.',
+        body: 'Set `denoise` of {samplerB} to 0.5.\n\nThis is a starting value for the exercise, not a preservation guarantee. Compare lower denoise if composition drifts. Larger changes and unfamiliar resolutions can create repeated objects or anatomy errors; inspect the actual output.',
       },
       out: {
         title: 'Save the result',
@@ -329,7 +329,7 @@ export const IMAGE_TECHNIQUES_EN: Record<string, LessonWords> = {
       },
       strength: {
         title: 'Set the strength',
-        body: 'Leave `strength` of {apply} at 1 for the first run.\n\nAt 1 the model keeps strictly to the edges. When the result looks traced and stiff, lower it to 0.6: the outlines stay, and the model draws more freely inside them.',
+        body: 'Leave `strength` of {apply} at 1 for the first run.\n\nThis is a starting strength, not a guarantee of exact outlines. If the result looks traced or stiff, compare 0.6 at the same seed and inspect both shape preservation and freedom of detail.',
       },
       timing: {
         title: 'When it acts: start and end',
@@ -458,7 +458,7 @@ export const IMAGE_TECHNIQUES_EN: Record<string, LessonWords> = {
       },
       face: {
         title: 'Why a body LoRA changes the face, and how to keep it',
-        body: 'A body or clothing LoRA was trained on pictures of people, with their faces. It learnt the faces too, and it pulls every face towards them.\n\nWhat holds the face:\n- a lower `strength_model` of the body or clothing LoRA;\n- `strength_clip` of that LoRA lower than its `strength_model`, so its words pull less;\n- the character LoRA a little stronger than the rest;\n- a pass over the face afterwards with the character LoRA in the model: see "Fixing faces and hands with a detailer".',
+        body: 'A body or clothing LoRA may also learn faces or other traits present in its training images. Compare it on its own to find whether it changes the intended identity.\n\nWhat holds the face:\n- a lower `strength_model` of the body or clothing LoRA;\n- `strength_clip` of that LoRA lower than its `strength_model`, so its words pull less;\n- the character LoRA a little stronger than the rest;\n- a pass over the face afterwards with the character LoRA in the model: see "Fixing faces and hands with a detailer".',
       },
       pose: {
         title: 'Body and pose together',
@@ -480,7 +480,7 @@ export const IMAGE_TECHNIQUES_EN: Record<string, LessonWords> = {
     steps: {
       intro: {
         title: 'What an editing model does',
-        body: 'An editing model gets a picture and an instruction and changes only what the instruction is about. Unlike inpainting there is no mask: the model understands itself what to change.\n\nThis lesson builds Qwen-Image-Edit 2511 the way ComfyUI\'s official template does, from an empty canvas: "File ▸ New project". The model is large: the bf16 file is about 40 GB, the fp8 one about 20 GB.',
+        body: 'An editing model receives a picture and an instruction and attempts the requested change without a hand-painted mask. Compare the before and after images: unrelated content may change too.\n\nThis lesson builds Qwen-Image-Edit 2511 the way ComfyUI\'s official template does, from an empty canvas: "File ▸ New project". The model is large: the bf16 file is about 40 GB, the fp8 one about 20 GB.',
       },
       models: {
         title: 'Load the three parts',
@@ -633,7 +633,7 @@ export const IMAGE_TECHNIQUES_EN: Record<string, LessonWords> = {
       },
       settings: {
         title: 'Set how much to draw again',
-        body: 'Leave `denoise` of {detailer} at 0.5.\n\nAt 0.5 the face keeps its features and gets sharp eyes and skin. Above 0.6 it may turn into another face. `guide_size` is the size a face is enlarged to before drawing: 512 for SD 1.5, 1024 for SDXL.',
+        body: 'Leave `denoise` of {detailer} at 0.5.\n\nThis is a starting value, not an identity guarantee. Compare the face before and after, and lower denoise if its distinctive features drift. `guide_size` is the size a face is enlarged to before drawing: 512 for SD 1.5, 1024 for SDXL.',
       },
       save: {
         title: 'Save the fixed picture',

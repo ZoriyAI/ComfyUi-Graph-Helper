@@ -4,8 +4,10 @@ import type { LessonLanguage, LessonWords } from '../texts';
 import type { LessonCycle } from './types';
 import { BASICS_CYCLES } from './basics';
 import { MODEL_CHAIN_CYCLES } from './modelChains';
+import { IMAGE_MODEL_CYCLES } from './imageModels';
+import { EDITING_CYCLES } from './editing';
 
-export const LESSON_CYCLES: Readonly<Record<string, LessonCycle>> = { ...BASICS_CYCLES, ...MODEL_CHAIN_CYCLES };
+export const LESSON_CYCLES: Readonly<Record<string, LessonCycle>> = { ...BASICS_CYCLES, ...MODEL_CHAIN_CYCLES, ...IMAGE_MODEL_CYCLES, ...EDITING_CYCLES };
 const REVIEWED = '2026-11-17'; // Editorial/source review, not a claim of GPU execution on every model.
 const ids = { run: 'practice-run', assess: 'practice-assess', recall: 'practice-recall', transfer: 'practice-transfer' };
 
