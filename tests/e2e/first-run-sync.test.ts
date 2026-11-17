@@ -172,6 +172,8 @@ test('first run: connect, sync from MCP, browse the library, build, check and ex
     // sampler is null, because new nodes start with the catalog defaults.
     await window.getByRole('tab', { name: 'Assistant' }).click();
     const composer = window.locator('textarea[aria-label="Chat message"]');
+    await expect(composer).toHaveAttribute('placeholder', 'Ask for a graph change');
+    await window.getByRole('group', { name: 'Mode' }).getByRole('button', { name: 'Explain', exact: true }).click();
     await expect(composer).toHaveAttribute('placeholder', 'Ask about the graph');
     await window.getByRole('group', { name: 'Mode' }).getByRole('button', { name: 'Build', exact: true }).click();
     await expect(composer).toHaveAttribute('placeholder', 'Ask for a graph change');

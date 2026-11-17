@@ -136,7 +136,7 @@ test('a local model with a small context window: Settings, the chat and the log 
     const chat = state.bodies.map((body) => JSON.parse(body) as { stream?: boolean; tools?: Array<{ function: { name: string } }>; messages: Array<{ role: string; content: string }> }).filter((body) => body.stream);
     expect(chat).toHaveLength(1);
     const names = (chat[0].tools ?? []).map((tool) => tool.function.name).sort();
-    expect(names).toEqual(['assessResources', 'checkGraph', 'describeModel', 'describeNodeType', 'explain', 'findInstalledModels', 'getGraph', 'proposeConnection', 'proposeNode', 'proposeParameter', 'searchNodeTypes']);
+    expect(names).toEqual(['addNode', 'assessResources', 'checkGraph', 'clearCanvas', 'configureSubgraph', 'connectNodes', 'createGraphSet', 'createSubgraph', 'describeNodeType', 'findInstalledModels', 'getGraph', 'insertSubgraph', 'removeNode', 'searchNodeTypes', 'setParameter']);
     expect(chat[0].messages[0].content).toContain('small context window here (4096 tokens)');
     expect(state.ps).toBeGreaterThan(0);
 

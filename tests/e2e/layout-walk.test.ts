@@ -130,6 +130,7 @@ async function shot(page: Page, stop: string, size: Size): Promise<void> {
 async function auditNow(page: Page, stop: string, size: Size, extra: LayoutIssue[] = []): Promise<void> {
   const issues = [...await auditLayout(page, AUDIT), ...await attachmentIssues(page), ...extra];
   visited.push(`${stop} @ ${size.width}x${size.height}`);
+  if (visited.length % 25 === 0) console.log(`LAYOUT_PROGRESS states=${visited.length} stop=${stop} size=${size.width}x${size.height}`);
   if (issues.length > 0) findings.push({ stop, size: `${size.width}x${size.height}`, issues });
   if (issues.length > 0 || ALL_SHOTS) await shot(page, stop, size);
 }
@@ -148,6 +149,7 @@ async function visit(page: Page, stop: string, reach: (size: Size) => Promise<vo
       await auditNow(page, stop, size);
     } catch (error) {
       unreached.push(`${stop} at ${size.width}x${size.height}: ${String((error as Error).message).split('\n')[0]}`);
+      console.warn(`LAYOUT_UNREACHED ${unreached.at(-1)}`);
       await shot(page, `unreached ${stop}`, size);
     } finally {
       await leave().catch(() => undefined);
@@ -177,6 +179,7 @@ async function visitScrolling(page: Page, stop: string, reach: (size: Size) => P
       await target.evaluate((el) => { el.scrollTop = 0; }).catch(() => undefined);
     } catch (error) {
       unreached.push(`${stop} at ${size.width}x${size.height}: ${String((error as Error).message).split('\n')[0]}`);
+      console.warn(`LAYOUT_UNREACHED ${unreached.at(-1)}`);
       await shot(page, `unreached ${stop}`, size);
     } finally {
       await leave().catch(() => undefined);
@@ -374,7 +377,9 @@ test('nothing sticks out, is cut or overlaps on any screen at any window size', 
   // With ComfyUI's video nodes, so every lesson fits and is walked.
   const fake: FakeMcp = await startFakeMcp({ extraLoras: 300, video: true, wideNames: WIDE_NAMES });
   const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'layout-walk-'));
+  console.log('LAYOUT_START launching the isolated app');
   const { app, page } = await launch(userData);
+  console.log('LAYOUT_START app window ready');
   const api = bridge(page);
   const started = Date.now();
   try {

@@ -46,7 +46,7 @@ test('failed secret files give a partial result and a retry removes the remainde
     await forget.click();
     const confirm = window.locator('[role="dialog"].forget-all-dialog');
     await confirm.getByRole('button', { name: 'Forget', exact: true }).click();
-    await expect(dialog.getByText('Some keys or tokens remain:', { exact: false })).toBeVisible();
+    await expect(dialog.getByText('Some keys or storage copies remain unverified:', { exact: false })).toBeVisible();
     await expect(forget).toBeEnabled();
     expect(await call('secretInventory')).toEqual({ providers: ['google'], serverTokens: 1, signIns: 0 });
     await app.evaluate(() => (globalThis as unknown as { restoreSecretFs: () => void }).restoreSecretFs());

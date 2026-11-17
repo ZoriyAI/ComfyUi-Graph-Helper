@@ -60,7 +60,7 @@ test('service settings: verified actions, confirmation, phone layout and named s
     await settings.getByRole('tab', { name: 'Sync', exact: true }).click();
     const speed = settings.getByRole('combobox', { name: 'Model reading speed' });
     await speed.click();
-    await window.getByRole('option', { name: 'Gentle — keep the computer responsive' }).click();
+    await window.getByRole('option', { name: 'Gentle: keep the computer responsive' }).click();
     await expect(settings.getByText('Read small batches with longer pauses.', { exact: false })).toBeVisible();
     await settings.locator('.sync-advanced summary').click();
     await window.screenshot({ path: 'test-results/sync-profiles-phone.png' });

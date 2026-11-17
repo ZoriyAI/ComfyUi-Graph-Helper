@@ -117,6 +117,9 @@ jobs:
       - run: npm run build
       - name: Chromium for the paired browser journeys
         run: npx playwright install --with-deps chromium
+      - name: Prepare Electron before starting fixture servers
+        timeout-minutes: 5
+        run: node -p "require('electron')"
       # The unpackaged build has no fuses: Playwright attaches through the inspector here, never to a release binary.
       - name: End-to-end tests (Electron under Xvfb)
         run: xvfb-run -a npx playwright test --trace off --grep-invert "live-local|layout-walk" --retries=1
@@ -166,6 +169,9 @@ jobs:
           sudo apt-get install -y --no-install-recommends xvfb libnss3 libatk-bridge2.0-0 libgtk-3-0 libgbm1 libasound2t64 libxss1
       - run: npm ci
       - run: npm run build
+      - name: Prepare Electron before starting fixture servers
+        timeout-minutes: 5
+        run: node -p "require('electron')"
       # On its own runner: the walk opens menus and lists for minutes, and a second window taking the focus closes them.
       # An empty LAYOUT_* value means the walk's default.
       - name: Walk
