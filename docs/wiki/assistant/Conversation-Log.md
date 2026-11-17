@@ -14,7 +14,7 @@ The conversation log records, for every question, what the app sent to the model
 
 ## What a record holds
 
-The question and its time, the mode (question, build, chat), the kind of assistant and the model, how it ended (**Answered**, **Error**, **Paused at the step limit**, **Stopped by you**, **Not finished**), every step and tool call, the time it took, and the tokens in and out. Inside the saved file: what was sent and what came back.
+The question and its time, the mode (question, build, chat), the kind of assistant and the model, how it ended (**Answered**, **Error**, **Paused; the task can be resumed**, **Stopped by you**, **Not finished**), every step and tool call, the time it took, and the tokens in and out. Inside the saved file: what was sent and what came back.
 
 ## Privacy
 
@@ -25,3 +25,5 @@ The log holds your questions, the graph and the answers, as they were sent. It h
 - [The conversation log window](../interface/Conversation-Log.md)
 - [Failed answers](Failed-Answers.md)
 - [What is sent to the model](What-Is-Sent.md)
+
+When a request exceeds the context window, it pauses before sending. The log explains why; the pause card lets you configure model capacity automatically and continue the task.

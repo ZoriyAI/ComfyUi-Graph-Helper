@@ -21,7 +21,7 @@ import { AddImageButton } from './imageSource';
 import { openGuidance, resumeGuidance, useGuidanceStore } from '../guidance/guidanceState';
 import { useJourneyStore } from '../../state/journeyState';
 import { useGraphStore } from '../../state/graphState';
-import { canvasControlsTop } from './lib/followCamera';
+import { canvasControlsBottom, canvasControlsTop } from './lib/followCamera';
 
 const zoomOf = (state: ReactFlowState) => state.transform[2];
 
@@ -37,7 +37,8 @@ export const FIT_PADDING = {
   get top(): `${number}px` {
     return `${canvasControlsTop(76) + (useGraphStore.getState().groups.length ? 72 : 0)}px`;
   },
-  right: '32px', bottom: '128px', left: '32px',
+  get bottom(): `${number}px` { return `${canvasControlsBottom(128)}px`; },
+  right: '32px', left: '32px',
 } as const;
 
 /** Accept every open proposal, one at a time so each commit sees the revision the previous one made. */

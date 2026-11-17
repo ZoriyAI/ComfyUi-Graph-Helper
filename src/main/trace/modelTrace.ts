@@ -686,7 +686,7 @@ function reportWords(language: ReportLanguage) {
 }
 
 /** Every key under modelLog.report in the catalog that the report uses. */
-const REPORT_KEYS = ['turn', 'model', 'mode', 'language', 'stepLimit', 'app', 'system', 'started', 'outcome', 'steps', 'toolCalls', 'tokensIn', 'out', 'time', 'ms', 'error', 'unfinished', 'given', 'systemText', 'chars', 'messages', 'tools', 'toolList', 'systemStart', 'dialog', 'stepsTitle', 'step', 'reasoning', 'modelText', 'call', 'result', 'failed', 'ok', 'toolError', 'stepEnd', 'tokensStep', 'firstToken', 'served', 'errorBold', 'network', 'request', 'counted', 'compact', 'noWindow', 'need', 'tokens', 'window', 'cut', 'tight', 'fits', 'truncated', 'abort', 'requests', 'answer', 'footer'] as const;
+const REPORT_KEYS = ['turn', 'model', 'mode', 'language', 'stepLimit', 'app', 'system', 'started', 'outcome', 'steps', 'toolCalls', 'tokensIn', 'out', 'time', 'ms', 'error', 'unfinished', 'given', 'systemText', 'chars', 'messages', 'tools', 'toolList', 'systemStart', 'dialog', 'stepsTitle', 'step', 'reasoning', 'modelText', 'call', 'result', 'failed', 'ok', 'toolError', 'stepEnd', 'tokensStep', 'firstToken', 'served', 'errorBold', 'network', 'request', 'counted', 'compact', 'budgetPaused', 'budgetTrimmed', 'noWindow', 'need', 'tokens', 'window', 'cut', 'tight', 'fits', 'truncated', 'abort', 'requests', 'answer', 'footer'] as const;
 
 /** A value as text cut to `cap` characters, with a note of how many more there were. */
 function cut(value: unknown, cap: number, w: ReturnType<typeof reportWords> = reportWords('ru')): string {
@@ -764,6 +764,8 @@ export function turnReport(events: TraceEvent[], language: ReportLanguage = 'ru'
         const state = event.state === 'cut' ? w.cut : event.state === 'tight' ? w.tight : w.fits;
         lines.push(`- **${w.window}: ${String(event.window)} ${w.tokens}**; ${size}${w.need} ${String(event.needed)} ${w.tokens}${counted}: ${state}${mode}`);
       }
+    } else if (event.type === 'context-budget') {
+      lines.push(`- **${event.state === 'paused' ? w.budgetPaused : w.budgetTrimmed}**; ${w.window}: ${String(event.window ?? '—')} ${w.tokens}`);
     } else if (event.type === 'truncated') lines.push(`- _${w.truncated}: ${String(event.reason)}_`);
     else if (event.type === 'abort') lines.push(w.abort);
   }

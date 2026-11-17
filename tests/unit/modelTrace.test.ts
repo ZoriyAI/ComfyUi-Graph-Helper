@@ -222,6 +222,7 @@ describe('the model conversation log', () => {
     trace.part({ type: 'tool-call', toolCallId: 'c1', toolName: 'addNode', input: { nodeType: 'KSampler' } });
     trace.part({ type: 'tool-result', toolCallId: 'c1', toolName: 'addNode', output: { success: false, error: 'Unknown node class.' } });
     trace.part({ type: 'finish-step', finishReason: 'tool-calls', usage: { inputTokens: 10, outputTokens: 5 } });
+    trace.note('context-budget', { state: 'paused', window: 4096 });
     await trace.finish('paused');
     const report = turnReport(readTurnTrace(trace.id)!);
     expect(report).toContain('Модель: local / example-model:9b (http://127.0.0.1:21434)');
@@ -231,7 +232,9 @@ describe('the model conversation log', () => {
     expect(report).toContain('### Шаг 1');
     expect(report).toContain('вызов `addNode`');
     expect(report).toContain('результат С ОШИБКОЙ');
-    expect(report).toContain('Итог: Пауза по лимиту шагов');
+    expect(report).toContain('Итог: Приостановлено; задачу можно продолжить');
+    expect(report).toContain('Запрос остановлен до отправки: он превышает окно контекста');
+    expect(report).toContain('окно контекста на сервере: 4096');
     expect(report.length).toBeLessThan(20000);
     const english = turnReport(readTurnTrace(trace.id)!, 'en');
     expect(english).toContain('Model: local / example-model:9b (http://127.0.0.1:21434)');
@@ -239,7 +242,8 @@ describe('the model conversation log', () => {
     expect(english).toContain('[2,000 more chars]');
     expect(english).toContain('### Step 1');
     expect(english).toContain('result FAILED');
-    expect(english).toContain('Outcome: Paused at the step limit');
+    expect(english).toContain('Outcome: Paused; the task can be resumed');
+    expect(english).toContain('Request held before sending because it exceeded the context window');
     expect(english).not.toMatch(/Итог|Шаг|Модель/);
   });
 

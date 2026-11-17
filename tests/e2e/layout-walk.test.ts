@@ -25,6 +25,7 @@
  */
 import { test, expect, _electron as electron, type CDPSession, type ElectronApplication, type Locator, type Page } from '@playwright/test';
 import { pseudoText } from '../../src/shared/i18n/pseudo';
+import { answerPracticeStep } from './lessonPractice';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
@@ -638,6 +639,7 @@ test('nothing sticks out, is cut or overlaps on any screen at any window size', 
           await startLesson('image');
           continue;
         }
+        if (await answerPracticeStep(page, T('lessons.doIt'))) continue;
         if (await doIt.count() > 0) {
           const before = await revision();
           await doIt.click();
@@ -790,6 +792,7 @@ test('nothing sticks out, is cut or overlaps on any screen at any window size', 
           }
           const doIt = lessons.getByRole('button', { name: T('lessons.doIt'), exact: true });
           const read = lessons.getByRole('button', { name: T('lessons.understood'), exact: true });
+          if (await answerPracticeStep(page, T('lessons.doIt'))) continue;
           if (lesson.steps.find((item) => item.id === stepId)?.read) {
             await read.click();
             await expect.poll(stepNow).not.toBe(stepId);

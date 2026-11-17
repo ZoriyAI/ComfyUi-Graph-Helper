@@ -66,7 +66,7 @@ describe('manual placement', () => {
   it('gives a new node the size its class is drawn at', () => {
     // The heights the canvas draws these two at (tests/e2e/node-size.test.ts measures them).
     expect(newNodeSize('KSampler', SAMPLER)).toEqual({ width: 240, height: 370 });
-    expect(newNodeSize('CLIPTextEncode', PROMPT)).toEqual({ width: 240, height: 177 });
+    expect(newNodeSize('CLIPTextEncode', PROMPT)).toEqual({ width: 240, height: 181 });
     // Before ComfyUI is read a core class is a name without ports; main then gives the node the ports the app
     // ships for it (four link inputs and an output for the sampler: 181 px on the canvas).
     const unread: NodeClassDetail = { ...SAMPLER, detailed: false, inputs: [], outputs: [], widgetOrder: [] };
@@ -147,7 +147,7 @@ describe('a suggested node', () => {
     expect(insertRoom(undefined, undefined, false)).toEqual(GHOST_SIZE);
     const definition = { name: 'Upscale', inputs: [{ name: 'image', type: 'IMAGE' }], outputs: [{ name: 'IMAGE', type: 'IMAGE' }] } as Parameters<typeof insertRoom>[0];
     // The card: header, one input, one output, bottom; over it the flag, under it the buttons.
-    const card = 55 + (4 + 28) + 10;
+    const card = 55 + 6 + (4 + 28) + 10;
     expect(insertRoom(definition, undefined, false)).toEqual({ width: 240, height: 26 + card + 30 });
     // A title of its own adds the line that names the subgraph; a note adds its block.
     expect(insertRoom(definition, 'Second upscale', true).height).toBe(26 + card + 26 + 65 + 30);

@@ -7,6 +7,9 @@
 import { getViewportForBounds, type Node, type ReactFlowInstance, type Rect, type Viewport } from '@xyflow/react';
 import { moveCamera, paneSize, viewForBounds, type FitPadding, type Pane } from '../../../motion/camera';
 import { OVERVIEW_EXIT } from './nodeSizes';
+import { boundsOf, groupRect } from './geometry';
+import { useGraphStore } from '../../../state/graphState';
+import { liftGroups } from '../../../../shared/workflow/codec';
 
 /**
  * Fits the app makes on its own: a workflow or project opened, a build ended, a level (subgraph, replay) came on
@@ -63,6 +66,15 @@ export function autoFitView(input: { bounds: Rect; focus: Rect | null; count: nu
   return centreAt(focus ?? bounds, floor);
 }
 
+/** Native group frames can extend above their nodes; fitting must keep their titles reachable too. */
+function graphBounds(flow: ReactFlowInstance, nodes: Node[]): Rect {
+  const state = useGraphStore.getState();
+  const definition = state.subgraphs.find(item => item.id === state.activeSubgraphId);
+  const groups = definition ? definition.groups ?? liftGroups(definition.raw.groups, definition.nodes) : state.groups;
+  const frames = groups.map(group => groupRect(group, nodes)).filter((box): box is Rect => box !== null);
+  return boundsOf([flow.getNodesBounds(nodes), ...frames])!;
+}
+
 /** Runs an automatic fit on the canvas now, by the camera rule (motion/camera.ts). */
 export function autoFit(flow: ReactFlowInstance, options: FitOptions): void {
   const nodes = flow.getNodes().filter((node) => !node.hidden);
@@ -76,12 +88,12 @@ export function autoFit(flow: ReactFlowInstance, options: FitOptions): void {
     width: focus.measured?.width ?? focus.width ?? 240,
     height: focus.measured?.height ?? focus.height ?? 120,
   } : null;
-  void moveCamera(flow, autoFitView({ bounds: flow.getNodesBounds(nodes), focus: focusBox, count: nodes.length, pane, options }));
+  void moveCamera(flow, autoFitView({ bounds: graphBounds(flow, nodes), focus: focusBox, count: nodes.length, pane, options }));
 }
 
 /** The explicit fit: the whole graph, whatever its size. */
 export function fitWhole(flow: ReactFlowInstance, options: FitOptions & { nodes?: Node[] } = {}): void {
   const nodes = (options.nodes ?? flow.getNodes()).filter((node) => !node.hidden);
   if (nodes.length === 0) return;
-  void moveCamera(flow, viewForBounds(flow.getNodesBounds(nodes), { padding: options.padding, maxZoom: options.maxZoom }));
+  void moveCamera(flow, viewForBounds(graphBounds(flow, nodes), { padding: options.padding, maxZoom: options.maxZoom }));
 }

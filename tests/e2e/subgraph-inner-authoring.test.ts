@@ -137,7 +137,7 @@ test('a subgraph is edited from the inside like the main canvas, and the saved w
     // Open it.
     await window.locator(`.react-flow__node[data-id="${instanceId}"]`).dblclick();
     await expect(window.locator('[data-canvas-mode="definition"]')).toBeVisible();
-    await expect(window.getByText('Inside a subgraph: changes apply to every copy of it.', { exact: false })).toBeVisible();
+    await expect(window.getByText('Inside a subgraph: structure and ordinary fields are shared; promoted settings belong to the selected copy.', { exact: false })).toBeVisible();
     const innerNodes = window.locator('.react-flow__node-comfy');
     await expect(innerNodes).toHaveCount(2);
 

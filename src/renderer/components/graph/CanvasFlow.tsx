@@ -16,6 +16,7 @@ import {
   applyEdgeChanges,
   applyNodeChanges,
   useReactFlow,
+  useNodesInitialized,
   useStore,
   useViewport,
   type Connection,
@@ -317,11 +318,18 @@ export default function CanvasFlow() {
 
   useFitAfterBuild(useCallback(() => autoFit(flow, { padding: FIT_PADDING, maxZoom: AUTO_FIT_MAX_ZOOM }), [flow]));
 
-  // A new level gets a fresh camera.
+  // A new level gets one fresh camera after its cards have been measured.
+  const nodesInitialized = useNodesInitialized();
+  const fittedLevel = useRef<string | null>(null);
+  const cameraLevel = `${mode}:${inner?.id ?? activeSubgraphId ?? ''}`;
   useEffect(() => {
-    const frame = window.requestAnimationFrame(() => autoFit(flow, { padding: FIT_PADDING, maxZoom: AUTO_FIT_MAX_ZOOM }));
+    if (!nodesInitialized || fittedLevel.current === cameraLevel) return;
+    const frame = window.requestAnimationFrame(() => {
+      autoFit(flow, { padding: FIT_PADDING, maxZoom: AUTO_FIT_MAX_ZOOM });
+      fittedLevel.current = cameraLevel;
+    });
     return () => window.cancelAnimationFrame(frame);
-  }, [mode, activeSubgraphId, flow]);
+  }, [nodesInitialized, cameraLevel, flow]);
 
   const cameraSignals = useCameraSignals();
   const signalMoveStart = cameraSignals.onMoveStart;

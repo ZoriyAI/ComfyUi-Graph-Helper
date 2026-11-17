@@ -1,8 +1,8 @@
 /**
  * E2E spec for a model on the person's own server that was loaded with a small context window (a labelled fixture
  * server on 127.0.0.1 that speaks like Ollama; not a live model). The connection check in Settings reports the window,
- * a question shows what happened in the chat in plain words, the record of the answer holds the numbers, and the
- * next question goes out with the reduced tool set. A small local model must degrade with an explanation, not fail.
+ * a question pauses before an oversized request is sent, the record explains why, and the person
+ * repairs capacity and resumes from the same conversation. A small local model must degrade with an explanation, not fail.
  */
 import { test, expect, _electron as electron } from '@playwright/test';
 import * as fs from 'fs';
@@ -119,29 +119,19 @@ test('a local model with a small context window: Settings, the chat and the log 
     const input = window.locator('textarea[aria-label="Chat message"]');
     await input.fill('What does KSampler do?');
     await input.press('Enter');
-    const notice = window.locator('.turn-notice');
-    await expect(notice).toBeVisible({ timeout: 30_000 });
-    // Even the essential resource tool needs space: the fixture honestly reports truncation at 4k.
-    await expect(notice).toHaveAttribute('data-state', 'cut');
-    await expect(notice).toContainText('model read only part of the request');
-    await expect(notice).toContainText(MODEL);
-    await expect(notice).toContainText('4,096');
-    await expect(notice.getByRole('button', { name: 'Configure automatically' })).toBeVisible();
-    // The model's own words are still shown: the notice explains the answer, it does not replace it.
-    await expect(window.getByText('A fixture answer.')).toBeVisible();
+    const checkpoint = window.locator('.turn-checkpoint');
+    await expect(checkpoint).toHaveAttribute('data-reason', 'context-limit', { timeout: 30_000 });
+    await expect(checkpoint).toHaveAttribute('data-state', 'open');
+    await expect(checkpoint).toContainText('Your changes and task are saved.');
+    await expect(checkpoint.getByRole('button', { name: 'Configure automatically' })).toBeVisible();
     await expect(input).toBeEnabled();
-    await expectSoundLayout(window, 'chat with the context-window notice');
-    await expect(notice).not.toContainText('systemctl');
-
-    const chat = state.bodies.map((body) => JSON.parse(body) as { stream?: boolean; tools?: Array<{ function: { name: string } }>; messages: Array<{ role: string; content: string }> }).filter((body) => body.stream);
-    expect(chat).toHaveLength(1);
-    const names = (chat[0].tools ?? []).map((tool) => tool.function.name).sort();
-    expect(names).toEqual(['addNode', 'assessResources', 'checkGraph', 'clearCanvas', 'configureSubgraph', 'connectNodes', 'createGraphSet', 'createSubgraph', 'describeNodeType', 'findInstalledModels', 'getGraph', 'insertSubgraph', 'removeNode', 'searchNodeTypes', 'setParameter']);
-    expect(chat[0].messages[0].content).toContain('small context window here (4096 tokens)');
+    await expectSoundLayout(window, 'chat with a recoverable context pause');
+    await expect(checkpoint).not.toContainText('systemctl');
+    // The budget guard prevents truncation: no streaming request reached this 4k fixture.
+    expect(state.bodies.filter(body => JSON.parse(body).stream)).toHaveLength(0);
     expect(state.ps).toBeGreaterThan(0);
 
-    // The record of this answer holds the numbers a reader needs first.
-    await notice.getByRole('button', { name: 'The log of this answer' }).click();
+    await window.getByRole('button', { name: 'The log of this answer: what was sent to the model and what it answered', exact: true }).click();
     const log = window.locator('.model-log-dialog');
     await expect(log).toBeVisible();
     const row = log.locator('.model-log-turn').first();
@@ -151,14 +141,13 @@ test('a local model with a small context window: Settings, the chat and the log 
     await expect(log.locator('.model-log-notice')).toContainText('Report copied');
     const report = await app.evaluate(({ clipboard }) => clipboard.readText());
     // The report follows the language of the interface, which is English in this test.
+    expect(report).toContain('Request held before sending because it exceeded the context window');
     expect(report).toContain('context window on the server: 4096');
-    expect(report).toContain('THE REQUEST DID NOT FIT');
-    expect(report).toContain('compact mode');
     await log.getByRole('button', { name: 'Close' }).click();
 
     // Apply from the notice: native settings are verified, saved, and the next request uses the new model.
-    await notice.getByRole('button', { name: 'Configure automatically' }).click();
-    await expect(notice).toContainText('Applied and saved.', { timeout: 20_000 });
+    await checkpoint.getByRole('button', { name: 'Configure automatically' }).click();
+    await expect(checkpoint).toContainText('Applied and saved.', { timeout: 20_000 });
     expect(state.variant?.window).toBeGreaterThanOrEqual(16384);
     const savedModel = await window.evaluate(async () => {
       const api = (window as unknown as { electronAPI: { getSettings: () => Promise<{ values: { model: string } }> } }).electronAPI;
@@ -167,11 +156,11 @@ test('a local model with a small context window: Settings, the chat and the log 
     expect(savedModel).toBe(state.variant?.name);
     state.window = state.variant!.window;
     if (process.env.NODEWISE_UI_EVIDENCE) await window.screenshot({ path: path.join(process.env.NODEWISE_UI_EVIDENCE, 'context-repaired-chat.png') });
-    await input.fill('And the scheduler?');
-    await input.press('Enter');
+    await checkpoint.getByRole('button', { name: 'Continue', exact: true }).click();
+    await expect(window.getByText('A fixture answer.', { exact: true })).toBeVisible({ timeout: 30_000 });
     await expect(window.locator('.message-row[data-role="assistant"]')).toHaveCount(2, { timeout: 30_000 });
     await expect(input).toBeEnabled();
-    await expect(window.locator('.turn-notice')).toHaveCount(1);
+    await expect(checkpoint).toHaveAttribute('data-state', 'continued');
     const nextRequest = JSON.parse(state.bodies.filter(body => JSON.parse(body).stream).at(-1)!);
     expect(nextRequest.model).toBe(state.variant!.name);
     await expect(window.locator('#chat-provider')).toContainText(state.variant!.name);

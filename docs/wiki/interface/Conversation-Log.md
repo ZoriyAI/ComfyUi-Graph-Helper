@@ -11,7 +11,7 @@
 
 - **Keep the log** switch, and the size: "1 record, 26.2 KB". While off: "The log is off: new questions are not recorded. Switch it on before you repeat the question you want looked into."
 - **Select:** **the last one**, **today**, **with an error (2)**, **all**, **none**.
-- One row per question: when ("Today, 05:48 PM", "Yesterday, …"), how it ended (**Answered**, **Error**, **Paused at the step limit**, **Stopped by you**, **Not finished**), the mode (question, build, chat), your question, and a line with the model, the kind of assistant, the number of steps and tool calls, the time and the tokens ("tokens: 170 in, 340 out").
+- One row per question: when ("Today, 05:48 PM", "Yesterday, …"), how it ended (**Answered**, **Error**, **Paused; the task can be resumed**, **Stopped by you**, **Not finished**), the mode (question, build, chat), your question, and a line with the model, the kind of assistant, the number of steps and tool calls, the time and the tokens ("tokens: 170 in, 340 out").
 - **Copy report** on the row under the pointer or the ticked one: "A short text about this question: what was asked, each step, errors. Paste it into a message."
 
 The window opens with the focus on the list of records, and the ticks are drawn checkboxes.
@@ -39,3 +39,5 @@ The window opens with the focus on the list of records, and the ticks are drawn 
 - [Help menu](Help-Menu.md)
 - [Settings: Privacy](Settings-Privacy.md)
 - [The data folder](../reference/Data-Folder.md)
+
+When a request exceeds the context window, it pauses before sending. The log explains why; the pause card lets you configure model capacity automatically and continue the task.

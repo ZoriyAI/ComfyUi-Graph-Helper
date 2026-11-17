@@ -23,13 +23,27 @@ const BOTTOM_ROOM_PX = 24;
 export function canvasControlsTop(fallback = TOOLBAR_ROOM_PX): number {
   const root = typeof document === 'undefined' ? null : document.querySelector('.graph-canvas');
   if (!root) return fallback;
-  const top = root.getBoundingClientRect().top;
-  const bottom = Array.from(root.querySelectorAll('[data-canvas-toolbar], [data-live-build]'))
+  const canvas = root.getBoundingClientRect();
+  const top = canvas.top;
+  const bottom = Array.from(root.querySelectorAll('[data-canvas-toolbar], [data-live-build], [data-canvas-breadcrumb]'))
     .reduce((value, element) => {
       const box = element.getBoundingClientRect();
+      // On a phone the breadcrumb is docked at the bottom instead.
+      if (element.hasAttribute('data-canvas-breadcrumb') && box.top > top + canvas.height / 2) return value;
       return box.width > 0 && box.height > 0 ? Math.max(value, box.bottom - top + 16) : value;
     }, fallback);
   return Math.ceil(bottom);
+}
+
+/** Bottom-docked navigation on a narrow screen also needs room when fitting the graph. */
+export function canvasControlsBottom(fallback: number): number {
+  const root = typeof document === 'undefined' ? null : document.querySelector('.graph-canvas');
+  const crumb = root?.querySelector('[data-canvas-breadcrumb]');
+  if (!root || !crumb) return fallback;
+  const canvas = root.getBoundingClientRect();
+  const box = crumb.getBoundingClientRect();
+  return box.width > 0 && box.top > canvas.top + canvas.height / 2
+    ? Math.max(fallback, Math.ceil(canvas.bottom - box.top + 16)) : fallback;
 }
 
 /** A node's box in flow coordinates. */

@@ -66,6 +66,8 @@ test('a group is renamed in place on the canvas, and undo brings the old title b
   await window.reload();
   await window.locator('#chat-provider').waitFor();
 
+  // The fixture intentionally saves a camera with its group title above the canvas; fit restores the whole frame.
+  await window.keyboard.press('Shift+1');
   const title = window.locator('[data-group-id="1"] > div[data-group-id="1"]');
   await expect(title).toHaveText('Generation');
   // Escape leaves the title as it was.

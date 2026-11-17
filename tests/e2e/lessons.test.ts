@@ -19,6 +19,7 @@ import { lessonDependencies, lessonGroups } from '../../src/shared/lessons/navig
 import { LESSONS, ordinaryLessons } from '../../src/shared/lessons/lessons';
 import { expectSoundLayout } from './layoutProfile';
 import { useEnglish } from './locale';
+import { answerPracticeStep } from './lessonPractice';
 
 type Bridge = (name: string, args?: unknown[]) => Promise<any>;
 
@@ -71,6 +72,7 @@ function said(template: string, values: Record<string, string | string[]>): stri
   });
 }
 const stepIs = (page: Page, id: string) => expect(panel(page).locator('[data-lesson-step]')).toHaveAttribute('data-lesson-step', id, { timeout: 15_000 });
+
 
 let action = 0;
 /** A change made past the page (a file chosen, a value set); the page reads the project again after it. */
@@ -152,7 +154,7 @@ test('lessons: the list fits ComfyUI, a lesson is followed by hand, and the grap
     await expect(panel(page)).toHaveAttribute('data-lesson', 'image');
     await stepIs(page, 'intro');
     // The visible progress; a screen reader hears the same words with the step's title from a live region.
-    await expect(panel(page).getByText(said(en.lessons.progress, { current: '1', total: '11' }), { exact: true })).toBeVisible();
+    await expect(panel(page).getByText(said(en.lessons.progress, { current: '1', total: String(LESSONS.find((item) => item.id === 'image')!.steps.length) }), { exact: true })).toBeVisible();
     await panel(page).getByRole('button', { name: 'Got it, next', exact: true }).click();
 
     // A step to do: it names the node the way this ComfyUI's library does, and says what is lacking.
@@ -205,6 +207,10 @@ test('lessons: the list fits ComfyUI, a lesson is followed by hand, and the grap
     }
     await stepIs(page, 'run');
     await panel(page).getByRole('button', { name: 'Got it, next', exact: true }).click();
+    for (const id of ['practice-run', 'practice-assess', 'practice-recall', 'practice-transfer']) {
+      await stepIs(page, id);
+      expect(await answerPracticeStep(page)).toBe(true);
+    }
     await stepIs(page, 'end');
     await expect(panel(page).getByRole('heading', { name: 'The lesson is done' })).toBeVisible();
     await expect(page.locator('.react-flow__node')).toHaveCount(7);
@@ -212,6 +218,7 @@ test('lessons: the list fits ComfyUI, a lesson is followed by hand, and the grap
     await shot(page, '3-done');
     await expectSoundLayout(page, 'lessons, a lesson done');
     // A step that is done can be read again, and the way back is one press.
+    await panel(page).getByRole('button', { name: /^All steps \(/ }).click();
     await panel(page).locator('[data-step="sampler"] button').click();
     await expect(panel(page).getByText('This step is done.')).toBeVisible();
     await panel(page).getByRole('button', { name: 'To the current step', exact: true }).click();
@@ -322,6 +329,7 @@ test('lessons: a video lesson is carried through, the choices that are the perso
       const id = await current();
       if (id === 'end') break;
       const step = lesson.steps.find((item) => item.id === id)!;
+      if (await answerPracticeStep(page)) continue;
       if (step.read) {
         await panel(page).getByRole('button', { name: 'Got it, next', exact: true }).click();
         await expect.poll(current).not.toBe(id);
@@ -397,6 +405,7 @@ test('lessons: a video lesson is carried through, the choices that are the perso
       for (let guard = 0; guard < 20; guard += 1) {
         const id = (await current())!;
         if (id === until) return shown;
+        if (await answerPracticeStep(page)) continue;
         expect(adult.steps.find((item) => item.id === id)?.read, `the lesson on adult content waits at "${id}"`).toBe(true);
         shown.push(id);
         if (id === 'rules') await expect(panel(page)).toContainText('sexual violence and coercion;');
@@ -477,6 +486,7 @@ async function carry(page: Page, api: Bridge, id: string, each?: (stepId: string
       await each?.(seen);
     }
     const step = lesson.steps.find((item) => item.id === stepId)!;
+    if (await answerPracticeStep(page)) continue;
     if (step.read) {
       await panel(page).getByRole('button', { name: 'Got it, next', exact: true }).click();
       await expect.poll(current).not.toBe(stepId);
@@ -942,6 +952,7 @@ test('lessons: the graph a lesson built is checked, and its description is read 
       const id = await current();
       if (id === 'end') break;
       const step = lesson.steps.find((item) => item.id === id)!;
+      if (await answerPracticeStep(page)) continue;
       if (step.read) {
         await panel(page).getByRole('button', { name: 'Got it, next', exact: true }).click();
         await expect.poll(current).not.toBe(id);

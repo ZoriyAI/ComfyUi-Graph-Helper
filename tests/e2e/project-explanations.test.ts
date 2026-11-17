@@ -157,7 +157,9 @@ test('inside a subgraph definition a description is written on the inner node, n
     await window.locator('.react-flow__node[data-id="1"]').dblclick();
     await expect(window.locator('.react-flow__node[data-id="1"]')).toContainText('CLIPTextEncode', { timeout: 20000 });
     const encodeCard = window.getByRole('region', { name: 'Description of CLIPTextEncode', exact: true });
-    await window.getByRole('button', { name: 'Read the description: CLIPTextEncode', exact: true }).click();
+    // The camera can make room for the full card while this node's description is loading.
+    await window.getByRole('button', { name: 'Read the description: CLIPTextEncode', exact: true })
+      .or(encodeCard.getByRole('button', { expanded: false })).click();
     await expect(encodeCard).toHaveAttribute('data-expanded', 'true');
     await encodeCard.getByRole('button', { name: 'Edit the description' }).focus();
     await window.keyboard.press('Enter');

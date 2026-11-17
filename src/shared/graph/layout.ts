@@ -128,7 +128,7 @@ export const NODE_BOX = {
    * at most `textGrowth` and then scrolls (fields/FieldControl.module.css); the gap kept under a node is larger
    * than that, so a description written later never brings a node onto the one below.
    */
-  textBox: 41,
+  textBox: 45,
   textGrowth: 38,
   /** The card's bottom padding and its border. */
   bottom: 10,
@@ -138,6 +138,8 @@ export const NODE_BOX = {
   noteChars: 30,
   /** The line under a subgraph card's ports that names the subgraph, when the card has a title of its own. */
   subgraphName: 26,
+  /** The 28px Open button makes a subgraph's title row 6px taller than the ordinary 22px row. */
+  subgraphHeader: 6,
   /** The text box of a Note / MarkdownNote node (fixed height, it scrolls): its top margin and its height. */
   noteText: 6 + 92,
   /** The line of a Set / Get that names its constant. */
@@ -293,6 +295,7 @@ function estimateCardSize(data: SizedData | null | undefined, hints?: SizeHints 
   if (noteTextOf(data) || NOTE_TYPES.has(String(data?.comfyType ?? ''))) height += NODE_BOX.noteText;
   if (data?.kind === 'subgraph-instance') {
     // A card with a title of its own names its subgraph under the ports (nodes/SubgraphNode.tsx).
+    height += NODE_BOX.subgraphHeader;
     const title = typeof data.title === 'string' ? data.title : '';
     const own = title !== '' && title !== data.comfyType && title !== data.subgraphId;
     if (own && title !== hints?.subgraphName) height += NODE_BOX.subgraphName;

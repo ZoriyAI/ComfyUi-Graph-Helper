@@ -91,9 +91,8 @@ describe('the help reader', () => {
 
   it('reads the bundled wiki: tree, pages in the interface language, search, and the version notes', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'help-bundle-'));
-    // The bundle npm run build writes, from this repository's docs.
-    execFileSync(process.execPath, [path.join(root, 'scripts', 'build-assets.js')], { cwd: root, stdio: 'ignore' });
-    fs.cpSync(path.join(root, 'dist', 'help'), dir, { recursive: true });
+    // Use the production help builder without requiring compiled application data or changing dist during tests.
+    execFileSync(process.execPath, ['-e', 'require(process.argv[1]).writeHelp(process.argv[2])', path.join(root, 'scripts', 'build-assets.js'), dir], { cwd: root, stdio: 'pipe' });
     const tree = helpTree('ru', dir);
     expect(tree.home.ref).toBe('Home');
     expect(tree.folders.map((folder) => folder.folder)).toEqual(expect.arrayContaining(['start', 'reference', 'trust', 'dev']));

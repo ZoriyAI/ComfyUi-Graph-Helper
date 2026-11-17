@@ -134,7 +134,7 @@ test('journey: welcome ways, tour, example, a dropped picture, run card, a Comfy
 
     // A picture saved by ComfyUI, dropped on the window: asked first (the example is in no file), then opened.
     await dropFile(page, picture);
-    await page.getByRole('button', { name: 'Open workflow', exact: false }).last().click();
+    await page.getByRole('dialog').getByRole('button', { name: 'Open workflow', exact: false }).click();
     await expect(page.locator('.react-flow__node')).toHaveCount(2, { timeout: 15_000 });
     await expect(page.getByText('Read from the picture')).toBeVisible();
     await expect(page.locator('.project-chip')).toContainText('from-comfy');
@@ -182,7 +182,7 @@ test('journey: welcome ways, tour, example, a dropped picture, run card, a Comfy
   // A file named on the command line opens at start (the graph on screen is in no file: asked first).
   ({ app, page } = await launch(userData, [picture]));
   try {
-    await page.getByRole('button', { name: 'Open workflow', exact: false }).last().click({ timeout: 15_000 });
+    await page.getByRole('dialog').getByRole('button', { name: 'Open workflow', exact: false }).click({ timeout: 15_000 });
     await expect(page.locator('.react-flow__node')).toHaveCount(2, { timeout: 15_000 });
   } finally {
     await app.close();

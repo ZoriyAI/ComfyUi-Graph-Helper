@@ -19,7 +19,7 @@ export default function SubgraphBreadcrumb() {
   if (path.length === 0) return null;
   const crumbs = breadcrumb(path, subgraphs).map((crumb, index) => ({ ...crumb, name: instances[index] ? String(t('lessons.instanceContext', { name: crumb.name, id: instances[index] })) : crumb.name }));
   return (
-    <div className={styles.crumbBar}>
+    <div className={styles.crumbBar} data-canvas-breadcrumb="">
       <nav className={styles.crumbs} aria-label={String(t('canvas.breadcrumb'))}>
         <button type="button" className={styles.crumb} onClick={() => exit(0)}>{t('canvas.root')}</button>
         {crumbs.map((crumb, index) => (

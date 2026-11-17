@@ -67,14 +67,20 @@ function useFirstView(mode: 'root' | 'definition' | 'replay') {
     if (seen.current === graphKey && !spread) return;
     seen.current = graphKey;
     running.current = true;
+    const stillAtRoot = () => useGraphStore.getState().activeSubgraphId === null && useProjectionStore.getState().graphKey === graphKey;
     void (async () => {
       try {
         if (spread) {
           useImportLookStore.getState().done('spread');
-          await spreadCoveredNodes(await settledNodes(flow));
+          const measured = await settledNodes(flow);
+          if (!stillAtRoot()) return;
+          await spreadCoveredNodes(measured);
         }
         // One frame, so the spread nodes are drawn before the view is chosen.
         await new Promise((resolve) => window.requestAnimationFrame(resolve));
+        // The person may enter a subgraph while the imported root is still being measured.
+        // Its saved camera must not overwrite the camera of that newly opened level.
+        if (!stillAtRoot()) return;
         const pane = document.querySelector<HTMLElement>('.react-flow');
         const view = savedView(useGraphStore.getState().document?.raw);
         const shown = flow.getNodes();

@@ -146,7 +146,7 @@ test('the size the app works out for a node is the size the canvas draws it at',
         const grown = real.height - worked.height;
         lines.push(`a description of many lines: drawn ${real.height}, worked out ${worked.height}, grown by ${grown}`);
         expect(grown, 'a long description makes its node taller').toBeGreaterThan(16);
-        expect(grown, 'and by no more than the layout counts on').toBeLessThanOrEqual(NODE_BOX.textGrowth + 2);
+        if (grown > NODE_BOX.textGrowth + 2) wrong.push(lines[lines.length - 1]);
         continue;
       }
       const over = worked.height - real.height;

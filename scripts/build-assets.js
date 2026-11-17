@@ -176,8 +176,7 @@ function plainText(text) {
  * indexes list them, and every page's titles) and a search corpus per language. The notes of the running version
  * become dist/help/whatsnew.md and whatsnew.ru.md.
  */
-function writeHelp() {
-  const out = path.join(root, 'dist', 'help');
+function writeHelp(out = path.join(root, 'dist', 'help')) {
   fs.rmSync(out, { recursive: true, force: true });
   fs.mkdirSync(path.join(out, 'wiki'), { recursive: true });
   const wiki = path.join(root, 'docs', 'wiki');
@@ -222,8 +221,12 @@ function writeHelp() {
   return count;
 }
 
-const components = writeNotices();
-const help = writeHelp();
-const { productManifest } = require('./lib/product-manifest');
-fs.writeFileSync(path.join(root, 'dist', 'product-manifest.json'), `${JSON.stringify(productManifest(root))}\n`);
-console.log(`build-assets: ${components} third-party components, ${help} help pages`);
+if (require.main === module) {
+  const components = writeNotices();
+  const help = writeHelp();
+  const { productManifest } = require('./lib/product-manifest');
+  fs.writeFileSync(path.join(root, 'dist', 'product-manifest.json'), `${JSON.stringify(productManifest(root))}\n`);
+  console.log(`build-assets: ${components} third-party components, ${help} help pages`);
+}
+
+module.exports = { writeHelp };
