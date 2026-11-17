@@ -20,7 +20,7 @@
 .lead { margin: 4px 0 0; color: var(--text-dim); font-size: var(--text-xs); line-height: 18px; }
 .layout { display: flex; flex: 1 1 auto; min-height: 0; overflow: hidden; }
 .nav {
-  /* Wide enough for the longest section name on one line in both languages. */
+  /* Long translated labels wrap inside the navigation column. */
   flex: 0 0 224px;
   display: flex;
   flex-direction: column;
@@ -41,9 +41,9 @@
   padding: 6px 10px;
   text-align: left;
   color: var(--text-dim);
-  white-space: nowrap;
+  white-space: normal;
 }
-.tab > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.tab > span { min-width: 0; overflow-wrap: anywhere; }
 .tabIcon { flex: 0 0 auto; color: var(--text-faint); }
 .tab[data-state="active"] .tabIcon { color: var(--accent); }
 .tab[data-state="active"] { color: var(--text); background: var(--surface-active); border-color: var(--border-strong); box-shadow: inset 2px 0 0 var(--accent); }

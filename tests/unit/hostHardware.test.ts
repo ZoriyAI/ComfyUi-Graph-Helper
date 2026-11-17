@@ -1,3 +1,4 @@
+/** Verifies measured hardware parsing, per-card recommendations and fixed official installation links. */
 import { describe, expect, it } from 'vitest';
 import { availableRam, nvidiaGpus, systemGpus } from '../../src/main/knowledge/hostHardware';
 import { hostReadiness } from '../../src/shared/knowledge/hostReadiness';

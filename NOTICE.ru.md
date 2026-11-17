@@ -148,7 +148,8 @@ LICENSE это лицензия MIT с условием «Commons Clause» Licen
 | 1.2.6 | `v1.2.6` | `465350ec3fdd` | 2026-11-16 05:02:06 | [notes](docs/releases/v1.2.6.ru.md) |
 | 1.2.7 | `v1.2.7` | `1e63b7997637` | 2026-11-16 15:40:00 | [notes](docs/releases/v1.2.7.ru.md) |
 | 1.2.8 | `v1.2.8` | release tag | see release page | [notes](docs/releases/v1.2.8.ru.md) |
-| 1.3.1 | `v1.3.1` | release tag | see release page | [notes](docs/releases/v1.3.1.ru.md) |
+| 1.4.0 | `v1.4.0` | release tag | see release page | [notes](docs/releases/v1.4.0.ru.md) |
+| 1.3.1 | `v1.3.1` | not published; included in 1.4.0 | not published | [notes](docs/releases/v1.3.1.ru.md) |
 | 1.3.0 | `v1.3.0` | release tag | see release page | [notes](docs/releases/v1.3.0.ru.md) |
 
 Версия не может содержать время своей же публикации, поэтому каждую строку заполняет первый коммит после выхода этой

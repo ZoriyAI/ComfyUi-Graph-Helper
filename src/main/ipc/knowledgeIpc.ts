@@ -47,10 +47,6 @@ function broadcast(status: SyncStatus): void {
 /** Knowledge (knowledge:*) and sync (sync:*) handlers. Called once from setupIPC, after the database is open. */
 export function registerKnowledgeIpc(ipcMain: IpcMain): void {
   let hostHardware: ReturnType<typeof createHostHardwareReader> | null = null;
-  guardedHandle(ipcMain, IPC_CHANNELS.KNOWLEDGE_HOST_HARDWARE, () => {
-    hostHardware ??= createHostHardwareReader(app.getPath('userData'), () => app.getGPUInfo('complete'));
-    return hostHardware();
-  });
   // Previews are kept in the app's own folder once read, so a card opens at once the second time.
   let cacheDir: string | null = null;
   try {
@@ -86,6 +82,10 @@ export function registerKnowledgeIpc(ipcMain: IpcMain): void {
   const handlers = knowledgeHandlers({
     db: getDatabase,
     sync: syncService,
+    hostHardware: () => {
+      hostHardware ??= createHostHardwareReader(app.getPath('userData'), () => app.getGPUInfo('complete'));
+      return hostHardware();
+    },
     resources: async (projectId, refresh) => { if (refresh) await refreshResourceHardware(getDatabase(), globalThis.fetch); return graphResources(getDatabase(), projectId); },
     modelText: (detail) => translations.decorate(detail),
     fetchImpl: globalThis.fetch,

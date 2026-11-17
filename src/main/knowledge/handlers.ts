@@ -82,6 +82,7 @@ export function knowledgeHandlers(deps: {
   sync: SyncService;
   fetchImpl?: typeof fetch;
   resources?: (projectId: string, refresh: boolean) => Promise<import('../../shared/contracts/resources').GraphResources>;
+  hostHardware?: () => Promise<import('../../shared/contracts/resources').HostHardwareSnapshot>;
   modelText?: (detail: import('../../shared/contracts/knowledge').ModelDetail | null) => import('../../shared/contracts/knowledge').ModelDetail | null;
   /** Reads the preview that lies next to a model file; without it no model has one. */
   preview?: (directory: string, name: string) => Promise<ModelPreview | null>;
@@ -93,6 +94,10 @@ export function knowledgeHandlers(deps: {
 }): Record<string, KnowledgeHandler> {
   const { db, sync } = deps;
   const table: Record<string, KnowledgeHandler> = {
+    [IPC_CHANNELS.KNOWLEDGE_HOST_HARDWARE]: () => {
+      if (!deps.hostHardware) throw new Error('Hardware reader is unavailable.');
+      return deps.hostHardware();
+    },
     [IPC_CHANNELS.KNOWLEDGE_SEARCH_NODES]: (request) => searchNodeClasses(db(), searchNodesSchema.parse(request) as SearchNodesRequest),
     [IPC_CHANNELS.KNOWLEDGE_NODE_DETAIL]: (classType) => nodeClassDetail(db(), classTypeSchema.parse(classType)),
     [IPC_CHANNELS.KNOWLEDGE_SEARCH_MODELS]: (request) => searchModels(db(), searchModelsSchema.parse(request) as SearchModelsRequest),

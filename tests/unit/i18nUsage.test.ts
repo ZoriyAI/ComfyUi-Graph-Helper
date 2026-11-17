@@ -66,7 +66,8 @@ describe('every translated text in the app', () => {
     // The audit really read the app: a change that makes it see nothing must not pass as "no findings".
     expect(stats.calls).toBeGreaterThan(900);
     expect(stats.followed).toBeGreaterThan(60);
-  }, 120_000);
+  // The whole-source TypeScript audit shares CPU with the full suite on small CI runners.
+  }, 180_000);
 
   it('never prints a placeholder, even if a call forgot its values', () => {
     // The static check above keeps this from happening; this is what a person would see if it happened anyway.

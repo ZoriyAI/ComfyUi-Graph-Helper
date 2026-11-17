@@ -1,5 +1,3 @@
-import { setupPage } from '../../shared/journeyLinks';
-export { DOWNLOAD_PAGES } from '../../shared/journeyLinks';
 /**
  * Every way a file, an example or a remembered file reaches the canvas, and the bridge back to ComfyUI after a save.
  *
@@ -11,6 +9,9 @@ export { DOWNLOAD_PAGES } from '../../shared/journeyLinks';
  * one import or open, marks the drawing for the safe start, and remembers the file. The renderer then runs the same
  * `finishOpen` for all of them (commands/actions.ts): the camera, the one merged import message, the check.
  */
+import { setupPage } from '../../shared/journeyLinks';
+export { DOWNLOAD_PAGES } from '../../shared/journeyLinks';
+
 import * as fs from 'fs';
 import * as path from 'path';
 import { app, BrowserWindow, shell, type IpcMain } from 'electron';

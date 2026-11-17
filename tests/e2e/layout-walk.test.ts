@@ -305,7 +305,7 @@ async function dockTab(page: Page, index: number): Promise<void> {
   await page.waitForTimeout(380);
 }
 
-async function openSettings(page: Page, section: number): Promise<Locator> {
+async function openSettings(page: Page, section: number | string): Promise<Locator> {
   const dialog = settingsDialog(page);
   if (await dialog.count() === 0) {
     // Ctrl+, is not for a text field (commands/hotkeys.ts), and the message field may hold the focus (it does
@@ -314,7 +314,8 @@ async function openSettings(page: Page, section: number): Promise<Locator> {
     await page.keyboard.press('Control+,');
     await dialog.waitFor({ timeout: 10_000 });
   }
-  await dialog.locator('.settings-tab').nth(section).click();
+  if (typeof section === 'number') await dialog.locator('.settings-tab').nth(section).click();
+  else await dialog.getByRole('tab', { name: T(section), exact: true }).click();
   await page.waitForTimeout(220);
   return dialog;
 }
@@ -459,21 +460,23 @@ test('nothing sticks out, is cut or overlaps on any screen at any window size', 
 
     // ---------- Settings, every section as a newcomer finds it ----------
     if (wants('settings')) {
-      for (let section = 0; section < 10; section += 1) {
+      await openSettings(page, 'preferences.nav.assistant');
+      const settingsSectionCount = await settingsDialog(page).getByRole('tab').count();
+      for (let section = 0; section < settingsSectionCount; section += 1) {
         await visitScrolling(page, `settings section ${section + 1}, default`, async () => { await openSettings(page, section); }, () => settingsPanel(page));
       }
       // Helper: every choice, with and without a key.
-      const assistant = await openSettings(page, 0);
+      const assistant = await openSettings(page, 'preferences.nav.assistant');
       const providerCount = await assistant.getByRole('radio').count();
       for (let index = 0; index < providerCount; index += 1) {
         await assistant.getByRole('radio').nth(index).click();
         await page.waitForTimeout(450);
-        await visitScrolling(page, `settings helper, choice ${index + 1}`, async () => { await openSettings(page, 0); }, () => settingsPanel(page));
+        await visitScrolling(page, `settings helper, choice ${index + 1}`, async () => { await openSettings(page, 'preferences.nav.assistant'); }, () => settingsPanel(page));
         const key = assistant.locator('input[type="password"]').first();
         if (await key.count() > 0 && await key.isVisible() && await key.isEnabled()) {
           await key.fill('sk-layout-walk-not-a-real-key-0123456789abcdef');
           await page.waitForTimeout(2500);
-          await visitScrolling(page, `settings helper, choice ${index + 1}, key pasted`, async () => { await openSettings(page, 0); }, () => settingsPanel(page));
+          await visitScrolling(page, `settings helper, choice ${index + 1}, key pasted`, async () => { await openSettings(page, 'preferences.nav.assistant'); }, () => settingsPanel(page));
         }
       }
       // The settings window is resized by its corner: at its smallest and at its largest every section still fits it.
@@ -482,27 +485,27 @@ test('nothing sticks out, is cut or overlaps on any screen at any window size', 
         await page.waitForTimeout(200);
       };
       for (const [label, width, height] of [['smallest', '1px', '1px'], ['largest', '4000px', '4000px']] as const) {
-        for (let section = 0; section < 10; section += 1) {
+        for (let section = 0; section < settingsSectionCount; section += 1) {
           await visitScrolling(page, `settings section ${section + 1}, window at its ${label}`, async () => { await openSettings(page, section); await resizeSettings(width, height); }, () => settingsPanel(page));
         }
       }
       await resizeSettings('', '');
       await closeSettings(page);
       // Connection: a real address typed in, every way in.
-      const connection = await openSettings(page, 2);
+      const connection = await openSettings(page, 'preferences.nav.connection');
       await connection.getByRole('textbox', { name: T('settings.mcpUrl'), exact: true }).fill(fake.url);
       await page.waitForTimeout(300);
       const accessCount = await connection.getByRole('radio').count();
       for (let index = 0; index < accessCount; index += 1) {
         await connection.getByRole('radio').nth(index).click();
         await page.waitForTimeout(320);
-        await visitScrolling(page, `settings connection, access ${index + 1}`, async () => { await openSettings(page, 2); }, () => settingsPanel(page));
+        await visitScrolling(page, `settings connection, access ${index + 1}`, async () => { await openSettings(page, 'preferences.nav.connection'); }, () => settingsPanel(page));
       }
       await closeSettings(page);
       // Privacy: turning on adult content first shows the rules and asks for one word; Escape leaves it off.
       const adultDialog = page.locator('[role="dialog"].adult-content-dialog');
       await visit(page, 'settings privacy, the rules before adult content', async () => {
-        const privacy = await openSettings(page, 8);
+        const privacy = await openSettings(page, 'preferences.nav.privacy');
         if (await adultDialog.count() === 0) await privacy.getByRole('switch', { name: T('preferences.adultContent') }).click();
         await adultDialog.waitFor();
       }, async () => { await escape(page); });
@@ -516,10 +519,10 @@ test('nothing sticks out, is cut or overlaps on any screen at any window size', 
     if (wants('reading')) {
       await visit(page, 'top bar while ComfyUI is read');
       await visitScrolling(page, 'sync indicator while ComfyUI is read', async () => { await page.locator('.sync-indicator').click(); await page.getByRole('dialog').first().waitFor(); }, () => page.getByRole('dialog', { name: T('settings.sync'), exact: true }).locator(':scope > div').first(), async () => { await escape(page); });
-      await visitScrolling(page, 'settings connection while model metadata is read', async () => { await openSettings(page, 2); }, () => settingsPanel(page));
+      await visitScrolling(page, 'settings connection while model metadata is read', async () => { await openSettings(page, 'preferences.nav.connection'); }, () => settingsPanel(page));
       // The line a person reported: the state must read with its numbers, never with a placeholder.
       expect(await settingsPanel(page).innerText()).not.toContain('{{');
-      await visitScrolling(page, 'settings sync while model metadata is read', async () => { await openSettings(page, 4); }, () => settingsPanel(page));
+      await visitScrolling(page, 'settings sync while model metadata is read', async () => { await openSettings(page, 'preferences.nav.sync'); }, () => settingsPanel(page));
       await closeSettings(page);
     }
     await sync.catch(() => undefined);
@@ -899,7 +902,7 @@ test('nothing sticks out, is cut or overlaps on any screen at any window size', 
       await visit(page, 'top bar with long names');
       await visit(page, 'helper choice with a long model name', async () => { await page.locator('#chat-provider').click(); await page.getByRole('listbox').waitFor(); }, async () => { await escape(page); });
       await visit(page, 'first screen, everything set up');
-      await visitScrolling(page, 'settings helper, own model with a long name', async () => { await openSettings(page, 0); }, () => settingsPanel(page));
+      await visitScrolling(page, 'settings helper, own model with a long name', async () => { await openSettings(page, 'preferences.nav.assistant'); }, () => settingsPanel(page));
       await closeSettings(page);
     }
 
