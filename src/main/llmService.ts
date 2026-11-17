@@ -121,6 +121,8 @@ export interface StreamOptions {
   allowFetchPage?: boolean;
   /** The turn already offers the reduced tool set for a small context window; said in the notice and the log. */
   compact?: boolean;
+  /** A bounded editable draft: spend the local model's output budget on content rather than hidden thinking. */
+  quickDraft?: boolean;
   /**
    * Called with each address a provider-run web search cited (a `source` part). agent/turn.ts passes none: cited
    * addresses are not added to what the page reader may open (see links.ts).
@@ -871,6 +873,8 @@ class MainLLMService {
 
     const result = streamText({
       model,
+      // A reported local context confirms the Ollama API. Other compatible servers keep their own defaults.
+      ...(options.quickDraft && local && requestWindow() ? { providerOptions: { openai: { reasoningEffort: 'none' } } } : {}),
       instructions,
       messages: dialog,
       tools: stepTools,

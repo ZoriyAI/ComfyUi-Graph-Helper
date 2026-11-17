@@ -56,6 +56,7 @@ import { installViewMemory } from '../state/viewMemory';
 import { installCatalogWatch } from '../services/catalogWatch';
 import { buildEditingCommands } from './editingCommands';
 import { openGuidance } from '../components/guidance/guidanceState';
+import { openClassroom } from '../components/classroom/classroomState';
 
 const always = () => true;
 
@@ -328,6 +329,7 @@ export function buildAppCommands(): Command[] {
     { id: 'sync.settings', group: 'sync', labelKey: 'menu.syncSettings', icon: Settings, enabled: always, run: () => useUiStore.getState().openSettings('sync') },
 
     // Help
+    { id: 'help.classroom', group: 'help', labelKey: 'classroom.open', icon: GraduationCap, enabled: always, run: () => openClassroom() },
     { id: 'help.solve', group: 'help', labelKey: 'guidance.open', icon: LifeBuoy, enabled: always, run: () => openGuidance() },
     { id: 'help.guide', group: 'help', labelKey: 'helpReader.guide', icon: BookOpen, enabled: always, run: () => openHelp('home') },
     { id: 'help.glossary', group: 'help', labelKey: 'helpReader.glossary', icon: BookA, enabled: always, run: () => openHelp('glossary') },

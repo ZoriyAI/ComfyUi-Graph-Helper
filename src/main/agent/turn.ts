@@ -4,6 +4,7 @@
  * to the renderer and closes or pauses the run. ipc/agentIpc.ts runs it for every llm:stream-chat request.
  * It lives in main because the renderer cannot see the catalog, the action log or the held keys.
  */
+import { classroomRequestSummary } from '../../shared/education/material';
 import type Database from 'better-sqlite3';
 import { turnLinesAllowed, turnLog } from '../trace/modelTrace';
 import { closeRun, listRecentCommands, pauseRun, readProjection } from '../commands/commit';
@@ -118,6 +119,8 @@ const TOOL_CHARS = 700;
 
 /** The tools a compact turn offers: the build set in a build turn, the ask set otherwise. */
 export function compactToolNames(buildAllowed: boolean, question = ''): readonly string[] {
+  // The classroom wizard requests a text resource explicitly; a small model needs that schema, not graph tools.
+  if (!buildAllowed && question.includes('draftClassroomMaterial')) return ['draftClassroomMaterial'];
   const names = new Set<string>(buildAllowed ? COMPACT_BUILD : COMPACT_ASK);
   if (/blueprint|template|шаблон|темплейт|блюпринт|визард|wizard/i.test(question)) {
     names.add('searchBlueprints'); names.add('inspectBlueprint');
@@ -380,6 +383,7 @@ export async function runAgentTurn(options: AgentTurnOptions): Promise<void> {
     turnLog(`[Agent] Turn with ${messages.length} messages, ${Object.keys(tools).length} tools, intent=${context.intent}${compact ? `, compact for a ${compact.window}-token window` : ''}`);
     const streamOptions = {
       maxSteps: assistant.maxStepsPerTurn,
+      quickDraft: !buildAllowed && classroomRequestSummary(question) !== null,
       allowWebSearch: assistant.allowWebSearch,
       allowFetchPage: assistant.allowFetchPage,
       abortSignal: signal,

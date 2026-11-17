@@ -5,6 +5,7 @@
  */
 import { z } from 'zod';
 import { extensionSchema } from '../extensions/drafts';
+import { classroomMaterialSchema } from '../../shared/education/material';
 import type { AgentKnowledgeTool, AgentProposalTool, AgentReadTool } from '../../shared/contracts/agentTools';
 import { FETCH_PAGE_BYTE_CAP, FETCH_PAGE_TEXT_CAP, GRAPH_PAGE_DEFAULT, megabytes } from '../../shared/agent/limits';
 
@@ -46,6 +47,7 @@ export const OBJECT_REF_SCHEMA = {
 
 /** Every main-process tool by name. The descriptions are the model's only manual, so they state limits and paging. */
 export const MAIN_TOOL_SPECS: Record<AgentReadTool | AgentKnowledgeTool | AgentProposalTool, AgentToolSpec> = {
+  draftClassroomMaterial: { description: 'Create editable school classroom material, not a lesson about node graphs. Return the complete material in the requested language: plain pupil text in blocks, answers only in answer, teacher instructions only in teacherNotes. Use cards, worksheet, quiz, explanation, storyboard or variants. Keep one learning goal and age-appropriate wording. Use stable unique block ids. Cite only actual supplied or checked sources; never claim curriculum or pedagogical approval. A storyboard is text planning, not generated images. The teacher reviews and exports the draft; the tool does not change graphs or publish anything.', parameters: z.toJSONSchema(classroomMaterialSchema) },
   draftExtension: { description: 'Create a reviewable source-only native ComfyUI custom-node package for ZIP download. The person must review and install it separately; this tool never executes Python or installs dependencies. Use for NEW algorithms, not for grouping existing nodes (use native subgraphs instead). Include __init__.py, README.md and sources with V1 NODE_CLASS_MAPPINGS or V3 comfy_entrypoint; no network, installers or GPU work at import/INPUT_TYPES. README describes exact typed ports, dependencies, usage, install/restart/sync and verification limitations. No credentials, absolute paths or traversal. slug is a lower-case Python package name. Maximum32 files,40k characters/file,256KB total.', parameters: z.toJSONSchema(extensionSchema) },
   assessResources: { description: 'Assess graph dependencies, combined model file sizes, staged models, dimensions and cached hardware measurements. This is a conservative planning reference with explicit unknowns, not measured VRAM usage or a guarantee of execution. Does not execute, install or contact ComfyUI.', parameters: { type: 'object', properties: {} } },
   searchBlueprints: {

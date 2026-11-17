@@ -7,6 +7,7 @@ import RunInComfyDialog from './RunInComfyDialog';
 import ComfyErrorDialog from './ComfyErrorDialog';
 import NoComfyDialog from './NoComfyDialog';
 import WindowTour from './WindowTour';
+import ClassroomWizard from '../classroom/ClassroomWizard';
 
 /** All journey cards and the tour, side by side; each renders null while closed. */
 export default function JourneyHost() {
@@ -16,6 +17,7 @@ export default function JourneyHost() {
       <ComfyErrorDialog />
       <NoComfyDialog />
       <WindowTour />
+      <ClassroomWizard />
     </>
   );
 }

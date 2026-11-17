@@ -24,6 +24,7 @@ import { LANGUAGE_CHOICES } from '../../commands/appCommands';
 import { explainError, type Translator } from '../../../shared/i18n';
 import styles from './Onboarding.module.css';
 import { openTaskWizard } from './subgraphWizardState';
+import { openClassroom } from '../classroom/classroomState';
 import { openGuidance } from '../guidance/guidanceState';
 
 /** Where a row stands: still to do, in progress, done, or stuck with a reason. */
@@ -176,6 +177,7 @@ export default function Onboarding({ onImport }: { onImport?: () => void }) {
             </li>
           ))}
         </ol>
+        <Button icon={<GraduationCap size={16} aria-hidden="true" />} onClick={() => openClassroom()}>{t('classroom.open')}</Button>
         {/* What the ways need: ComfyUI read and an assistant. Each row says where it stands and offers its one button. */}
         <ul className={styles.setup} aria-label={String(t('journey.welcome.setup'))}>
           {setup.map((step) => (

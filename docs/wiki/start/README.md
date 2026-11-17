@@ -17,6 +17,8 @@ What the app is, getting ComfyUI and the app, the first hour, updating and remov
 - [Questions and answers](FAQ.md): Short answers to common questions.
 - [Browser access over Wi-Fi](Browser-Access.md): Open the running app from a phone or tablet.
 
+- [Materials for a classroom lesson](Classroom-Materials.md): cards, tasks, teacher answers and editable files.
+
 ## See also
 
 - [Home](../Home.md)

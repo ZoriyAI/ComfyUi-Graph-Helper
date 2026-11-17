@@ -13,6 +13,8 @@ NodeWise — независимый экспериментальный прое�
 
 **[Скачать](https://github.com/ZoriyAI/nodewise-studio/releases/latest)** · **[Мастера задач](graph/Task-Wizards.ru.md)** · **[Телефон и планшет](start/Browser-Access.ru.md)** · **[Проблемы синхронизации](interface/Sync-Menu.ru.md)**
 
+[Материалы к школьному уроку](start/Classroom-Materials.ru.md): подготовьте и сохраните карточки или задания без ComfyUI.
+
 ## С чего начать
 
 1. [Что это за приложение](start/What-It-Is.ru.md): что оно делает и чего не делает никогда.

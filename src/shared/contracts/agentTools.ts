@@ -7,7 +7,7 @@
 /** Tools that only read: the graph, the catalog, the models, the check, and the web when allowed. */
 export const AGENT_READ_TOOLS = ['assessResources', 'searchBlueprints', 'inspectBlueprint', 'getGraph', 'searchNodeTypes', 'describeNodeType', 'findInstalledModels', 'describeModel', 'checkGraph', 'searchWeb', 'fetchPage'] as const;
 /** `draftLesson` writes nothing either: its draft waits for the person (src/main/agent/lessonDraftTool.ts). */
-export const AGENT_KNOWLEDGE_TOOLS = ['explain', 'draftLesson', 'draftExtension'] as const;
+export const AGENT_KNOWLEDGE_TOOLS = ['explain', 'draftLesson', 'draftExtension', 'draftClassroomMaterial'] as const;
 /** Tools that leave a ghost for the person to accept. */
 export const AGENT_PROPOSAL_TOOLS = ['proposeNode', 'proposeConnection', 'proposeParameter', 'proposeSubgraph'] as const;
 /** Tools that change the graph at once (build intent). */

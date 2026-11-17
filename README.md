@@ -41,6 +41,7 @@ NodeWise is an independent, experimental project, unaffiliated with Comfy Org. I
 | Work through a problem | 50 guided routes with preparation, concrete actions and result checks; [the problem list and coverage](docs/research/2026-11-16-fifty-user-problems.md) are documented in Russian. |
 | Understand installed models | A model and LoRA catalog, metadata, trigger words and descriptions; [Sync → Problems and repair](docs/wiki/interface/Sync-Menu.md). Russian description translation uses your configured assistant. |
 | Use a phone or tablet | [Wi-Fi browser access](docs/wiki/start/Browser-Access.md), the device's own file picker, touch node menus, panel switching and undo. |
+| Prepare classroom materials | [Six editable material types](docs/wiki/start/Classroom-Materials.md), optional assistant drafting, pupil/teacher sheets and files to adapt with colleagues. |
 | Learn or teach | [95 lessons](docs/wiki/lessons/README.md) in 16 groups with step checks, your own lessons and files to share with students. |
 | Prepare a ComfyUI run | Graph and dependency checks, resource estimates, workflow export and [releasing assistant model memory](docs/wiki/graph/Running-In-ComfyUI.md). |
 

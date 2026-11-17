@@ -13,6 +13,8 @@ NodeWise is an independent, experimental project, unaffiliated with Comfy Org. C
 
 **[Download](https://github.com/ZoriyAI/nodewise-studio/releases/latest)** · **[Task wizards](graph/Task-Wizards.md)** · **[Phone and tablet](start/Browser-Access.md)** · **[Synchronization problems](interface/Sync-Menu.md)**
 
+[Materials for a classroom lesson](start/Classroom-Materials.md): prepare and save cards or tasks without ComfyUI.
+
 ## Start here
 
 1. [What the app is](start/What-It-Is.md): what it does and what it never does.

@@ -3,6 +3,7 @@
  * or a tool the chat does not know (with its arguments). Message.tsx renders it for every call that is neither a
  * build step (BuildCard) nor a quiet read (QuietGroup).
  */
+import ClassroomDraftCard from '../classroom/ClassroomDraftCard';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BookOpen, Hammer, Lightbulb, Search, Sparkles, Wrench, type LucideIcon } from 'lucide-react';
@@ -123,6 +124,7 @@ export default function ToolCard({ call }: { call: ToolCall }) {
         </div>
       )}
       {isExplain ? <ExplainBody call={call} /> : null}
+      {call.toolName === 'draftClassroomMaterial' && call.status === 'success' && isRecord(call.result) ? <ClassroomDraftCard value={call.result.classroomMaterial} /> : null}
       {call.toolName === 'draftExtension' && call.status === 'success' && isRecord(call.result) && typeof call.result.extensionDraftId === 'string' ? <ExtensionDraftCard draftId={call.result.extensionDraftId} /> : null}
       {call.toolName === 'draftLesson' && call.status === 'success' && isRecord(call.result) && typeof call.result.lessonDraftId === 'string' ? <LessonDraftCard draftId={call.result.lessonDraftId} /> : null}
       {error ? (

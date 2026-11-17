@@ -18,6 +18,7 @@ import { getChatService } from '../../services/llm/chatService';
 import { openModelLog } from '../../state/modelLogState';
 import type { ChatMessage, TurnCheckpoint, TurnNotice } from '../../types/chat';
 import { objectKey } from '../../../shared/contracts';
+import { classroomRequestSummary } from '../../../shared/education/material';
 import { RECOMMENDED_WINDOW } from '../../../shared/agent/contextWindow';
 import MarkdownLite from './MarkdownLite';
 import { turnErrorActions } from '../../services/llm/turnErrorText';
@@ -191,7 +192,7 @@ export default function Message({ message, streaming = false }: MessageProps) {
     ) : message.content || (streaming && toolCalls.length === 0) ? (
       <div className={`message-body ${styles.body}`}>
         {isUser ? (
-          <span className={`${styles.userText} chat-words`}>{message.content}</span>
+          <span className={`${styles.userText} chat-words`}>{classroomRequestSummary(message.content) ?? message.content}</span>
         ) : (
           <MarkdownLite text={message.content} className="chat-words" />
         )}

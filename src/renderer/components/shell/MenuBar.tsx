@@ -100,7 +100,7 @@ const MENUS: Array<{ value: string; labelKey: string; entries: Entry[] }> = [
   {
     value: 'help',
     labelKey: 'menu.help',
-    entries: [command('help.solve'), command('help.guide'), command('help.tour'), command('help.glossary'), command('help.troubleshooting'), command('help.whatsNew'), command('help.content'), separator, command('help.site'), command('help.reportProblem'), command('help.releases'), separator, command('help.runInComfy'), command('help.comfyError'), separator, command('help.shortcuts'), separator, command('help.modelLog'), command('help.openLogs'), command('help.copyDiagnostics'), separator, command('help.about')],
+    entries: [command('help.classroom'), command('help.solve'), command('help.guide'), command('help.tour'), command('help.glossary'), command('help.troubleshooting'), command('help.whatsNew'), command('help.content'), separator, command('help.site'), command('help.reportProblem'), command('help.releases'), separator, command('help.runInComfy'), command('help.comfyError'), separator, command('help.shortcuts'), separator, command('help.modelLog'), command('help.openLogs'), command('help.copyDiagnostics'), separator, command('help.about')],
   },
 ];
 
