@@ -29,7 +29,7 @@ export type ShellDialog = 'shortcuts' | 'about' | 'new-project' | 'export-guard'
 export type ReplaceIntent = 'new-project' | 'open-project' | 'import-workflow' | 'open-file';
 
 /** Settings sections, in the order of the Preferences window's navigation. The menu opens it on one. */
-export const SETTINGS_SECTIONS = ['assistant', 'services', 'connection', 'browserAccess', 'sync', 'canvas', 'appearance', 'shortcuts', 'privacy', 'about'] as const;
+export const SETTINGS_SECTIONS = ['assistant', 'computer', 'services', 'connection', 'browserAccess', 'sync', 'canvas', 'appearance', 'shortcuts', 'privacy', 'about'] as const;
 /** One section of the Settings window. */
 export type SettingsSection = typeof SETTINGS_SECTIONS[number];
 

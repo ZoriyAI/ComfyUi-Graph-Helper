@@ -4,6 +4,7 @@
  * The handlers themselves live in knowledge/handlers.ts so tests can drive them without Electron.
  */
 import { graphResources, refreshResourceHardware } from '../knowledge/resources';
+import { createHostHardwareReader } from '../knowledge/hostHardware';
 import { ModelTranslations } from '../knowledge/modelTranslations';
 import { modelTranslationControlSchema } from '../../shared/knowledge/schemas';
 import { translateWithAssistant } from '../knowledge/translateWithAssistant';
@@ -45,6 +46,11 @@ function broadcast(status: SyncStatus): void {
 
 /** Knowledge (knowledge:*) and sync (sync:*) handlers. Called once from setupIPC, after the database is open. */
 export function registerKnowledgeIpc(ipcMain: IpcMain): void {
+  let hostHardware: ReturnType<typeof createHostHardwareReader> | null = null;
+  guardedHandle(ipcMain, IPC_CHANNELS.KNOWLEDGE_HOST_HARDWARE, () => {
+    hostHardware ??= createHostHardwareReader(app.getPath('userData'), () => app.getGPUInfo('complete'));
+    return hostHardware();
+  });
   // Previews are kept in the app's own folder once read, so a card opens at once the second time.
   let cacheDir: string | null = null;
   try {

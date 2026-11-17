@@ -19,6 +19,8 @@ What the app is, getting ComfyUI and the app, the first hour, updating and remov
 
 - [Materials for a classroom lesson](Classroom-Materials.md): cards, tasks, teacher answers and editable files.
 
+- [What can my computer do?](Computer.md): hardware facts and the first steps before installing ComfyUI.
+
 ## See also
 
 - [Home](../Home.md)

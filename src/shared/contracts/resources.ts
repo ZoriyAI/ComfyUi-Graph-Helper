@@ -3,6 +3,17 @@ export interface HardwareSnapshot {
   origin: string; measuredAt: number; ramTotal: number | null; ramFree: number | null;
   devices: Array<{ name: string; type: string; total: number | null; free: number | null }>;
 }
+/** The NodeWise host, read without ComfyUI. Never substitutes for a remote ComfyUI's hardware. */
+export interface HostHardwareSnapshot {
+  measuredAt: number;
+  platform: string;
+  arch: string;
+  cpu: { name: string; logicalCores: number };
+  ram: { total: number; available: number; availableKind: 'available' | 'free' };
+  gpus: Array<{ name: string; total: number | null; free: number | null; memoryKind: 'dedicated' | 'unified' | 'unknown' }>;
+  gpuSource: 'nvidia-smi' | 'system' | 'unavailable';
+  disk: { total: number; available: number } | null;
+}
 export interface GraphResources {
   assessedAt: number; hardware: HardwareSnapshot | null;
   verdict: 'blocked' | 'risk' | 'unknown' | 'within-reference';

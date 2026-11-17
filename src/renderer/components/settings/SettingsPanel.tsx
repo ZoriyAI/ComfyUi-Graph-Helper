@@ -6,7 +6,7 @@
  */
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Bot, Info, Keyboard, LayoutGrid, Palette, Plug, RefreshCw, ShieldCheck, type LucideIcon } from 'lucide-react';
+import { Bot, Cpu, Info, Keyboard, LayoutGrid, Palette, Plug, RefreshCw, ShieldCheck, type LucideIcon } from 'lucide-react';
 import { settingsBaseline, settingsProblemFields, settingsWriteError, type SettingsField } from '../../../shared/config/draft';
 import { nonSecretDefaults, type NonSecretSettings, type SettingsRead } from '../../../shared/config/schema';
 import {
@@ -42,6 +42,7 @@ import ShortcutsSection from './sections/ShortcutsSection';
 import PrivacySection from './sections/PrivacySection';
 import BrowserAccessSection from './sections/BrowserAccessSection';
 import ServicesSection from './sections/ServicesSection';
+import ComputerSection from './sections/ComputerSection';
 import AboutSection from './sections/AboutSection';
 import { fieldClass, hintClass, patchSection, rowClass, SectionHead, type DraftProps } from './sections/common';
 import { SETTINGS_SECTIONS, useUiStore, type SettingsSection } from '../../state/uiState';
@@ -84,6 +85,7 @@ const FIELD_SECTION: Record<SettingsField, SettingsSection> = {
 
 /** The label and icon of each section in the left list; the order comes from SETTINGS_SECTIONS. */
 const SECTION_META: Record<SettingsSection, { labelKey: string; icon: LucideIcon }> = {
+  computer: { labelKey: 'hostHardware.title', icon: Cpu },
   services: { labelKey: 'services.title', icon: Plug },
   assistant: { labelKey: 'preferences.nav.assistant', icon: Bot },
   browserAccess: { labelKey: 'browser.title', icon: Plug },
@@ -461,6 +463,7 @@ export default function SettingsPanel({
             </TabsList>
             {panel('assistant', <AssistantSection {...draft} active={open && section === 'assistant'} onSession={(sources) => onSessionRef.current(sources)} />)}
             {panel('services', <ServicesSection active={open && section === 'services'} />)}
+            {panel('computer', <ComputerSection active={open && section === 'computer'} />)}
             {panel('connection', <ConnectionSection {...draft} />)}
             {panel('browserAccess', <BrowserAccessSection {...draft} />)}
             {panel('sync', (

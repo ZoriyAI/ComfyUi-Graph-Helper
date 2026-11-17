@@ -107,6 +107,21 @@ test('English material moves from desktop to a paired touch browser without Comf
     await phone.screenshot({ path: 'test-results/classroom-touch-en.png', fullPage: true });
     await wizard.getByRole('button', { name: 'Close', exact: true }).last().tap();
     await expect(wizard).toHaveCount(0);
+    // The phone diagnoses the host, not its browser's reported device memory. No model is loaded by this read.
+    const host = await page.evaluate(() => window.electronAPI.hostHardware());
+    const remote = await phone.evaluate(() => window.electronAPI.hostHardware());
+    expect(remote.cpu).toEqual(host.cpu); expect(remote.ram.total).toBe(host.ram.total);
+    expect(remote.platform).toBe(host.platform); expect(remote.gpus.map(gpu => gpu.name)).toEqual(host.gpus.map(gpu => gpu.name));
+    await phone.getByRole('button', { name: 'What can my computer do?', exact: true }).tap();
+    const hardware = phone.locator('[data-host-hardware]');
+    await expect(hardware.getByRole('heading', { name: 'Processor', exact: true })).toBeVisible();
+    await expect(hardware).toContainText(host.cpu.name);
+    expect(await hardware.evaluate(element => element.scrollWidth <= element.clientWidth + 1)).toBe(true);
+    // Qualify the selected official address without making an external website a CI dependency.
+    await context.route('https://www.comfy.org/**', route => route.fulfill({ contentType: 'text/plain', body: 'Official setup link target' }));
+    const popup = phone.waitForEvent('popup');
+    await hardware.getByRole('button', { name: 'ComfyUI downloads', exact: true }).tap();
+    const official = await popup; await official.waitForURL('https://www.comfy.org/download'); await official.close();
     expect(pageErrors).toEqual([]);
   } finally { await browser.close(); await close(); }
 });

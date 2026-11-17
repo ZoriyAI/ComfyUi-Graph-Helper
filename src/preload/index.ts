@@ -113,6 +113,7 @@ const IPC_CHANNELS = {
   EXTENSION_DRAFT_GET: 'extension:draft-get',
   EXTENSION_STARTER: 'extension:starter',
   KNOWLEDGE_GRAPH_RESOURCES: 'knowledge:graph-resources',
+  KNOWLEDGE_HOST_HARDWARE: 'knowledge:host-hardware',
   COMFY_UPLOAD_MEDIA: 'comfy:upload-media',
   COMFY_INPUT_PREVIEW: 'comfy:input-preview',
   MCP_READ: 'mcp:read',
@@ -304,7 +305,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   /** Whether the app knows a ComfyUI address to open (saved, or reported by an MCP server). */
   comfyAddressKnown: () => ipcRenderer.invoke(IPC_CHANNELS.JOURNEY_COMFY_KNOWN),
   /** 'comfyui' (the saved address), 'comfyui-download' or 'ollama-download'; main builds the address. */
-  openJourneyLink: (kind: 'comfyui' | 'comfyui-download' | 'ollama-download') => ipcRenderer.invoke(IPC_CHANNELS.JOURNEY_OPEN_LINK, kind),
+  openJourneyLink: (kind: import('../shared/journeyLinks').JourneyLink) => ipcRenderer.invoke(IPC_CHANNELS.JOURNEY_OPEN_LINK, kind),
 
   // Project operations
   loadProject: (id: string) => ipcRenderer.invoke(IPC_CHANNELS.DB_LOAD_PROJECT, id),
@@ -342,6 +343,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   extensionDraft: (id: string) => ipcRenderer.invoke(IPC_CHANNELS.EXTENSION_DRAFT_GET, id) as Promise<import('../shared/contracts/extensions').ExtensionDraft | null>,
   extensionStarter: () => ipcRenderer.invoke(IPC_CHANNELS.EXTENSION_STARTER) as Promise<import('../shared/contracts/extensions').ExtensionDraft>,
   graphResources: (projectId: string, refresh = false) => ipcRenderer.invoke(IPC_CHANNELS.KNOWLEDGE_GRAPH_RESOURCES, projectId, refresh) as Promise<import('../shared/contracts/resources').GraphResources>,
+  hostHardware: () => ipcRenderer.invoke(IPC_CHANNELS.KNOWLEDGE_HOST_HARDWARE) as Promise<import('../shared/contracts/resources').HostHardwareSnapshot>,
   inputImagePreview: (name: string) => ipcRenderer.invoke(IPC_CHANNELS.COMFY_INPUT_PREVIEW, name) as Promise<string | null>,
   uploadNodeFile: (name: string, data: ArrayBuffer) => ipcRenderer.invoke(IPC_CHANNELS.COMFY_UPLOAD_MEDIA, name, data) as Promise<import('../shared/contracts/media').MediaUploadResult>,
   mcpSetToken: (value: string, forUrl?: string) => ipcRenderer.invoke(IPC_CHANNELS.MCP_SET_TOKEN, value, forUrl) as Promise<{ held: boolean }>,
@@ -636,7 +638,7 @@ export interface ElectronAPI {
   showExported: () => Promise<{ name: string } | null>;
   exportedText: () => Promise<string | null>;
   comfyAddressKnown: () => Promise<boolean>;
-  openJourneyLink: (kind: 'comfyui' | 'comfyui-download' | 'ollama-download') => Promise<{ ok: true } | { ok: false; error: string }>;
+  openJourneyLink: (kind: import('../shared/journeyLinks').JourneyLink) => Promise<{ ok: true } | { ok: false; error: string }>;
   saveProjectFile: (secrets?: 'omit' | 'keep', options?: { saveAs?: boolean }) => Promise<{ ok: true; filePath?: string } | { ok: false; canceled?: boolean; error?: string; secrets?: SecretFieldReport[] }>;
   projectFileState: () => Promise<import('../shared/contracts/projectFile').ProjectFileState>;
   loadProject: (id: string) => Promise<any>;
@@ -662,6 +664,7 @@ export interface ElectronAPI {
   extensionDraft: (id: string) => Promise<import('../shared/contracts/extensions').ExtensionDraft | null>;
   extensionStarter: () => Promise<import('../shared/contracts/extensions').ExtensionDraft>;
   graphResources: (projectId: string, refresh?: boolean) => Promise<import('../shared/contracts/resources').GraphResources>;
+  hostHardware: () => Promise<import('../shared/contracts/resources').HostHardwareSnapshot>;
   inputImagePreview: (name: string) => Promise<string | null>;
   uploadNodeFile: (name: string, data: ArrayBuffer) => Promise<import('../shared/contracts/media').MediaUploadResult>;
   /** `forUrl`: the MCP URL the token is for (e.g. the draft being saved); defaults to the saved URL. */

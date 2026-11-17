@@ -1,3 +1,5 @@
+import { setupPage } from '../../shared/journeyLinks';
+export { DOWNLOAD_PAGES } from '../../shared/journeyLinks';
 /**
  * Every way a file, an example or a remembered file reaches the canvas, and the bridge back to ComfyUI after a save.
  *
@@ -158,12 +160,6 @@ export function noteExported(filePath: string): void {
   rememberRecent(app.getPath('userData'), filePath, 'workflow');
 }
 
-/** The two download pages the "No ComfyUI yet" card offers; the window never names an address itself. */
-export const DOWNLOAD_PAGES = {
-  'comfyui-download': 'https://www.comfy.org/download',
-  'ollama-download': 'https://ollama.com/download',
-} as const;
-
 /**
  * The address for a journey link: the ComfyUI address saved in Settings ▸ Connection (http or https only), or one of
  * DOWNLOAD_PAGES; null for anything else.
@@ -177,7 +173,7 @@ export function journeyLink(kind: unknown, comfyOrigin = savedComfyOrigin()): st
       return null;
     }
   }
-  return typeof kind === 'string' && kind in DOWNLOAD_PAGES ? DOWNLOAD_PAGES[kind as keyof typeof DOWNLOAD_PAGES] : null;
+  return setupPage(kind);
 }
 
 /** The ComfyUI address: the one saved in Settings ▸ Connection, else the one an MCP server reported. */

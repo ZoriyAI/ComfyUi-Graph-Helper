@@ -1,4 +1,5 @@
 /** Adapts the renderer API to the authorized operations of the paired desktop browser server. */
+import { setupPage, type JourneyLink } from '../../shared/journeyLinks';
 import { guideSource } from '../../shared/guidance/catalog';
 /** Browser transport for the existing renderer. Only reviewed operations travel to the running desktop. */
 import type { ElectronAPI } from '../../preload';
@@ -76,6 +77,11 @@ export async function installBrowserBridge(bootstrap: { platform?: string; versi
       if (response.status === 401) window.dispatchEvent(new CustomEvent(BROWSER_CONNECTION, { detail: 'unpaired' }));
       if (!response.ok) return { ok: false, error: response.status === 413 ? 'large' : 'failed' };
       return (await response.json()).value;
+    },
+    openJourneyLink: async (kind: JourneyLink) => {
+      const url = setupPage(kind);
+      if (!url) return { ok: false, error: 'on-computer' };
+      window.open(url, '_blank', 'noopener,noreferrer'); return { ok: true };
     },
     openGuideSource: async (id: string) => { const url = guideSource(id); if (!url) return { ok: false }; window.open(url, '_blank', 'noopener,noreferrer'); return { ok: true }; },
     setInterfaceScale: () => undefined,

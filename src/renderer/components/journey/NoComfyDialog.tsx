@@ -37,6 +37,7 @@ export default function NoComfyDialog() {
           </header>
           <div className={styles.body}>
             <p>{t('journey.noComfy.role')}</p>
+            <Button variant="subtle" onClick={() => { close(); useUiStore.getState().openSettings('computer'); }}>{t('hostHardware.open')}</Button>
             <span className={styles.label}>{t('journey.noComfy.stepsTitle')}</span>
             <ol className={styles.steps}>
               {(['step1', 'step2', 'step3'] as const).map((key, index) => (

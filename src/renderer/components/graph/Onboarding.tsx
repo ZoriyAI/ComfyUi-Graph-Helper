@@ -178,6 +178,7 @@ export default function Onboarding({ onImport }: { onImport?: () => void }) {
           ))}
         </ol>
         <Button icon={<GraduationCap size={16} aria-hidden="true" />} onClick={() => openClassroom()}>{t('classroom.open')}</Button>
+        <Button variant="subtle" onClick={() => openSettings('computer')}>{t('hostHardware.open')}</Button>
         {/* What the ways need: ComfyUI read and an assistant. Each row says where it stands and offers its one button. */}
         <ul className={styles.setup} aria-label={String(t('journey.welcome.setup'))}>
           {setup.map((step) => (

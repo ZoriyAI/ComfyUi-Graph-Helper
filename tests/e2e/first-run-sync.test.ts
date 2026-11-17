@@ -13,7 +13,7 @@ import { exportPastGuard } from './exportGuard';
 import { pickOption } from './pickOption';
 import { isReadOnlyCall } from '../../src/main/mcp/readOnly';
 import { EDITOR_NODE_TYPES } from '../../src/shared/graph/editorNodes';
-import { CLASSES, PACKS, READ_TOOLS, startFakeMcp, WRITE_TOOLS } from '../fixtures/mcp/fakeMcpServer';
+import { CLASSES, MODELS, PACKS, READ_TOOLS, startFakeMcp, WRITE_TOOLS } from '../fixtures/mcp/fakeMcpServer';
 
 const TOKEN = 'first-run-token-marker';
 
@@ -200,15 +200,20 @@ test('first run: connect, sync from MCP, browse the library, build, check and ex
 
     // Only read-only MCP tools with read-only arguments; the token never reached the disk.
     const toolCalls = fake.calls.filter((call) => call.method === 'tools/call');
+    // The fixture has metadata but no model bytes. The separate header reader may probe exactly the
+    // 8-byte prefix of a listed safetensors file before falling back; general file reads stay denied.
+    const headerPaths = new Set(MODELS.filter(model => /\.(safetensors|sft)$/i.test(model.filename)).map(model => `/srv/comfyui/models/${model.category}/${model.filename}`));
+    const isHeaderProbe = (tool: string | undefined, args: Record<string, unknown>) => tool === 'workspace_files' && headerPaths.has(String(args.absolute_path));
     expect(new Set(toolCalls.map((call) => call.tool))).toEqual(new Set(['studio_capabilities', 'models', 'studio_info', 'comfy_api', 'model_metadata', 'workspace_files']));
     for (const call of toolCalls) {
       expect(READ_TOOLS as readonly string[]).toContain(call.tool);
       expect(WRITE_TOOLS as readonly string[]).not.toContain(call.tool);
-      expect(isReadOnlyCall(String(call.tool), call.args ?? {})).toBe(true);
+      if (isHeaderProbe(call.tool, call.args ?? {})) {
+        expect(call.args).toEqual({ action: 'read', absolute_path: call.args?.absolute_path, encoding: 'base64', offset: 0, length: 8 });
+        expect(isReadOnlyCall(String(call.tool), call.args ?? {})).toBe(false);
+      } else expect(isReadOnlyCall(String(call.tool), call.args ?? {})).toBe(true);
     }
-    // The file tool can also write, move and delete. The app uses it for two things only: to read, as bytes, a
-    // description or a preview that lies next to a model file, and the pyproject.toml and README at the top of
-    // a node pack, where the pack says what it is.
+    // Other file reads are sidecars/previews or the top-level documentation of a node pack.
     const fileCalls = toolCalls.filter((call) => call.tool === 'workspace_files').map((call) => (call.args ?? {}) as Record<string, unknown>);
     expect(fileCalls.length).toBeGreaterThan(0);
     const sideFile = /^\/srv\/comfyui\/models\/[^/]+\/[^/]+\.(metadata\.json|civitai\.info|webp|png|jpe?g|gif|mp4|webm)$/;
@@ -217,7 +222,7 @@ test('first run: connect, sync from MCP, browse the library, build, check and ex
       expect(args.action).toBe('read');
       expect(args.encoding).toBe('base64');
       const target = String(args.absolute_path);
-      expect(sideFile.test(target) || packFile.test(target), target).toBe(true);
+      expect(sideFile.test(target) || packFile.test(target) || isHeaderProbe('workspace_files', args), target).toBe(true);
       expect(target.split('/')).not.toContain('..');
       expect(Object.keys(args).sort()).toEqual(['absolute_path', 'action', 'encoding', 'length', 'offset']);
     }

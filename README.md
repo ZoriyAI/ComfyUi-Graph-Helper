@@ -14,7 +14,7 @@ NodeWise teaches, recommends and explains. It helps you choose a starting workfl
 
 Work on the desktop or open its interface in a phone or tablet browser over Wi-Fi. No separate mobile app is needed. Lessons, manual editing and wizards work without an AI model.
 
-**[Download the latest release](https://github.com/ZoriyAI/nodewise-studio/releases/latest)** · **[Quick start](docs/wiki/start/Quick-Start.md)** · **[New in 1.3.1](docs/releases/v1.3.1.md)** · **[Phone and tablet access](docs/wiki/start/Browser-Access.md)**
+**[Download the latest release](https://github.com/ZoriyAI/nodewise-studio/releases/latest)** · **[Quick start](docs/wiki/start/Quick-Start.md)** · **[New in 1.4.0](docs/releases/v1.4.0.md)** · **[Phone and tablet access](docs/wiki/start/Browser-Access.md)**
 
 NodeWise is an independent, experimental project, unaffiliated with Comfy Org. It reads the running ComfyUI catalog and uploads media you explicitly select to its input folder. Generation runs in ComfyUI after workflow export.
 
@@ -42,6 +42,7 @@ NodeWise is an independent, experimental project, unaffiliated with Comfy Org. I
 | Understand installed models | A model and LoRA catalog, metadata, trigger words and descriptions; [Sync → Problems and repair](docs/wiki/interface/Sync-Menu.md). Russian description translation uses your configured assistant. |
 | Use a phone or tablet | [Wi-Fi browser access](docs/wiki/start/Browser-Access.md), the device's own file picker, touch node menus, panel switching and undo. |
 | Prepare classroom materials | [Six editable material types](docs/wiki/start/Classroom-Materials.md), optional assistant drafting, pupil/teacher sheets and files to adapt with colleagues. |
+| Check this computer before ComfyUI | [Processor, RAM, graphics memory and disk space](docs/wiki/start/Computer.md), explained starting points and official setup guides. |
 | Learn or teach | [95 lessons](docs/wiki/lessons/README.md) in 16 groups with step checks, your own lessons and files to share with students. |
 | Prepare a ComfyUI run | Graph and dependency checks, resource estimates, workflow export and [releasing assistant model memory](docs/wiki/graph/Running-In-ComfyUI.md). |
 
@@ -132,7 +133,7 @@ The same documentation is in the app: Help ▸ User guide.
 
 ## Build from source
 
-For **1.3.1** source, use [tag v1.3.1](https://github.com/ZoriyAI/nodewise-studio/tree/v1.3.1) or the source archive on the release page. The `main` branch can differ from the published application; this documentation describes the release.
+For **1.4.0** source, use [tag v1.4.0](https://github.com/ZoriyAI/nodewise-studio/tree/v1.4.0) or the source archive on the release page. The `main` branch can differ from the published application; this documentation describes the release.
 
 On Linux: [Building from source](docs/wiki/dev/Building-From-Source.md). On Windows and macOS, the steps the install
 scripts take, by hand: [Windows](docs/wiki/dev/Building-On-Windows.md), [macOS](docs/wiki/dev/Building-On-macOS.md).

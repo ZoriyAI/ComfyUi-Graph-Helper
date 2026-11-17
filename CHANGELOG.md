@@ -5,9 +5,15 @@
 Releases, newest first. Each release has full notes in `docs/releases/`.
 This file is written by `node scripts/changelog.js`: change the notes, not this file.
 
+## 1.4.0
+
+Prepare editable classroom materials with or without an assistant, check the computer before installing ComfyUI, and recover model synchronization without repeating oversized header requests.
+
+Notes: [docs/releases/v1.4.0.md](docs/releases/v1.4.0.md)
+
 ## 1.3.1
 
-Model synchronization now reads large safetensors headers in small portions before asking the legacy metadata reader. This fixes a reproducible MCP disconnect caused by a 14 MB embedded header and a separate server response limit that rejected larger portions.
+**Delivery note:** these fixes are included in [1.4.0](v1.4.0.md); 1.3.1 was not published separately. Model synchronization now reads large safetensors headers in small portions before asking the legacy metadata reader. This fixes a reproducible MCP disconnect caused by a 14 MB embedded header and a separate server response limit that rejected larger portions.
 
 Notes: [docs/releases/v1.3.1.md](docs/releases/v1.3.1.md)
 
