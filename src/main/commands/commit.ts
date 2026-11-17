@@ -1,5 +1,7 @@
 import { hasDynamicInputs, resolvedNode } from '../../shared/catalog/dynamicInputs';
 import { DynamicInputError, reconcileDynamicConnections, setDynamicParameter } from './dynamicInputs';
+import { ParameterValueError, parameterInput, parameterValue } from './parameterValues';
+import { NOTE_NODE_TYPES } from '../../shared/graph/editorNodes';
 /**
  * The graph engine: every change to a project's graph is a command committed here as one new revision in SQLite.
  * Callers: ipc.ts (the canvas, via preload commitCommand, and the run controls), agent/buildTools.ts and
@@ -580,7 +582,7 @@ function applyMutation(snapshot: Snapshot, actionId: string, payload: GraphMutat
     }
     return applied;
   } catch (error) {
-    if (error instanceof DynamicInputError) throw new CommandSignal('rejected', { error: error.message });
+    if (error instanceof DynamicInputError || error instanceof ParameterValueError) throw new CommandSignal('rejected', { error: error.message });
     throw error;
   }
 }
@@ -617,12 +619,25 @@ function applyMutationCore(snapshot: Snapshot, actionId: string, payload: GraphM
     // Editing: a Note, Reroute or Primitive is built from its own template (editOps.ts), not from the catalog.
     const editor = editorNode(payload.nodeType, nodeId, payload.title, payload.x ?? 300, payload.y ?? 200);
     if (editor) {
+      const entries = Object.entries(payload.parameters ?? {});
+      if (entries.length) {
+        if (!NOTE_NODE_TYPES.has(payload.nodeType) || entries.some(([key]) => key !== 'text' && key !== 'widget[0]')) {
+          throw new CommandSignal('rejected', { error: 'This editor node has no such initial field. Notes accept text; connect a Primitive before setting its value.' });
+        }
+        const text = parameterValue({ name: 'text', type: 'STRING', widget: true }, entries[0][1]);
+        if (entries.some(([, value]) => value !== text)) throw new CommandSignal('rejected', { error: 'Note text and widget[0] must contain the same text.' });
+        editor.data.comfy.widgets_values = [text];
+      }
       nodes.push(editor);
       return { snapshot: { nodes, edges, document: work.document }, result: { nodeId, nodeType: payload.nodeType } };
     }
     const spec = catalog.nodes.find((item) => item.classType === payload.nodeType);
     // A new node starts with the widget values ComfyUI would give it; values the caller passed win.
     const initial = { ...defaultParameters(spec), ...(payload.parameters ?? {}) };
+    if (spec) {
+      const layout = resolvedNode(spec, { parameters: initial });
+      for (const key of Object.keys(payload.parameters ?? {})) initial[key] = parameterValue(layout.inputs.find(input => input.widget && input.name === key), initial[key]);
+    }
     const parameters = spec && hasDynamicInputs(spec) ? { ...resolvedNode(spec, { parameters: initial }).values } : initial;
     const ports = portsForClassType(payload.nodeType, catalog, { parameters });
     const placed = widgetsFromParameters(payload.nodeType, parameters, catalog);
@@ -683,12 +698,20 @@ function applyMutationCore(snapshot: Snapshot, actionId: string, payload: GraphM
     return { snapshot: { nodes, edges, document: snapshot.document }, result: { nodeId: payload.nodeId } };
   }
   if (payload.type === 'set-parameter') {
-    const dynamic = setDynamicParameter(snapshot, payload.nodeId, payload.key, payload.value, catalog, payload.widgetIndex);
-    if (dynamic) return { snapshot: dynamic, result: { nodeId: payload.nodeId, key: payload.key } };
     const node = nodes.find((item) => item.id === payload.nodeId);
     if (!node) throw new CommandSignal('rejected');
     const classType = String(node.data?.comfyType ?? '');
-    const parameters = { ...(node.data.parameters ?? {}), [payload.key]: payload.value };
+    if (NOTE_NODE_TYPES.has(classType)) {
+      if (!['text', 'widget[0]'].includes(payload.key) || (payload.widgetIndex !== undefined && payload.widgetIndex !== 0)) {
+        throw new CommandSignal('rejected', { error: 'A note has one text field: text (widget[0]).' });
+      }
+      const text = parameterValue({ name: 'text', type: 'STRING', widget: true }, payload.value) as string;
+      return applyMutation(snapshot, actionId, { type: 'set-note-text', nodeId: payload.nodeId, text }, catalog, context);
+    }
+    const value = parameterValue(parameterInput(node, payload.key, catalog, context?.definitions ?? snapshot.subgraphs ?? [], payload.widgetIndex), payload.value);
+    const dynamic = setDynamicParameter(snapshot, payload.nodeId, payload.key, value, catalog, payload.widgetIndex);
+    if (dynamic) return { snapshot: dynamic, result: { nodeId: payload.nodeId, key: payload.key } };
+    const parameters = { ...(node.data.parameters ?? {}), [payload.key]: value };
     // A node without a native record (an old project) gets a minimal one, so its value can be written for export.
     const comfy = node.data.comfy && typeof node.data.comfy === 'object' ? { ...node.data.comfy } : {
       id: node.id,
@@ -715,7 +738,7 @@ function applyMutationCore(snapshot: Snapshot, actionId: string, payload: GraphM
       const layout = declared ? resolvedNode(declared, { widgets, namedWidgets: comfy.widgets_values_named }) : undefined;
       const nativeKey = widgetIndex === undefined ? undefined : layout?.widgetOrderReliable ? layout.nativeWidgetOrder[widgetIndex] : promotedWidgetName(node.data, widgetIndex);
       if (comfy.widgets_values_named && !nativeKey) throw new CommandSignal('rejected', { error: 'Catalog widget order does not match widgets_values.' });
-      patchWidgets(comfy, payload.key, payload.value, widgetIndex, nativeKey ?? payload.key);
+      patchWidgets(comfy, payload.key, value, widgetIndex, nativeKey ?? payload.key);
     }
     node.data = { ...node.data, parameters, comfy };
     return { snapshot: { nodes, edges, document: snapshot.document }, result: { nodeId: payload.nodeId, key: payload.key } };

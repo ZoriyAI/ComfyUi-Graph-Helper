@@ -52,7 +52,7 @@ const addNodeProps = {
   title: { type: 'string', description: 'Node title' },
   x: { type: 'number', description: 'X position on the canvas' },
   y: { type: 'number', description: 'Y position on the canvas' },
-  parameters: { type: 'object', description: 'Widget values by input name' },
+  parameters: { type: 'object', description: 'Widget values by input name, using numbers and booleans for those field types. Note and MarkdownNote accept {text: "your note"}. Primitive values are set after connecting their output to a widget.' },
 };
 const connectProps = {
   sourceNodeId: { type: 'string', description: 'Id of the node that gives the output' },
@@ -66,7 +66,7 @@ const connectProps = {
 };
 const parameterProps = {
   nodeId,
-  key: { type: 'string', description: 'Widget input name' },
+  key: { type: 'string', description: 'Widget input name. For Note or MarkdownNote use text.' },
   value: { description: 'New widget value (string, number or boolean)' },
   widgetIndex: { type: 'integer', minimum: 0, description: 'Index in widgets_values, when the order is known' },
 };
