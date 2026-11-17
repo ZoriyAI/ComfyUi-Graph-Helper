@@ -19,7 +19,7 @@ import { requestWorkspacePanel } from '../../commands/events';
 import { openSubgraphWizard, openTaskWizard } from '../graph/subgraphWizardState';
 import { useCanvasStore } from '../graph/canvasStore';
 import { levelNodes } from '../graph/lib/level';
-import { guideObjectIsCurrent, guideResultObserved, useGuidanceStore, type GuideRequest } from './guidanceState';
+import { guideObjectIsCurrent, guideResultObserved, retargetGuidance, useGuidanceStore, type GuideRequest } from './guidanceState';
 import styles from './GuidanceWizard.module.css';
 
 function flowParts(problem: GuideProblem): string[] {
@@ -98,8 +98,9 @@ function GuideSteps({ request, problem }: { request: GuideRequest; problem: Guid
   const showTarget = (target: typeof targets[number]) => {
     close(); const graph = useGraphStore.getState(); graph.exitSubgraph();
     if (target.level) graph.enterSubgraph(target.level);
-    useUiStore.getState().setFocus({ kind: 'node', id: target.node.id, classType: target.node.data.comfyType });
-    requestWorkspacePanel('canvas'); useCanvasStore.getState().requestCenter(target.node.id);
+    const ref = { kind: 'node' as const, id: target.node.id, classType: target.node.data.comfyType, ...(target.level ? { subgraphId: target.level } : {}) };
+    useUiStore.getState().setFocus(ref); retargetGuidance(ref);
+    requestWorkspacePanel('canvas'); useCanvasStore.getState().requestCenter(target.node.id, target.level ?? undefined);
   };
   const verify = async () => {
     if (checking) return;

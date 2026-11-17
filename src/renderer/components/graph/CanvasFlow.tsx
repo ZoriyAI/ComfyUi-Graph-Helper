@@ -731,7 +731,7 @@ export default function CanvasFlow() {
             <ConnectAssistLayer />
             <DescriptionLayer />
             <TourLayer />
-            <BuildLayer levelId={mode === 'definition' ? inner!.id : null} />
+            <BuildLayer levelId={mode === 'definition' ? activeSubgraphId : null} />
             <LiveBuildStrip />
             <ImportLookLayer mode={mode} />
             {/* The check's findings as marks on their nodes (visual package). */}

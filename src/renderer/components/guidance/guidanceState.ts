@@ -36,6 +36,13 @@ export function resumeGuidance(): void {
   else openGuidance();
 }
 
+/** Keep the guide's place but bind further questions to the related node the person chose to inspect. */
+export function retargetGuidance(objectRef: ObjectRef): void {
+  useGuidanceStore.setState(state => ({ request: state.request ? {
+    ...state.request, objectRef, origin: captureEditOrigin(), observed: false, observedRevision: undefined,
+  } : null }));
+}
+
 /** A repeated node id in another graph must never inherit the previous guide's agent request. */
 export function guideObjectIsCurrent(request: GuideRequest): boolean {
   const ref = request.objectRef;

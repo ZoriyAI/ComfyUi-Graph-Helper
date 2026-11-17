@@ -5,7 +5,8 @@ import { GUIDE_CATEGORIES, GUIDE_PROBLEMS, guideSource, searchGuides } from '../
 import { en, ru, catalogLeaves } from '../../src/shared/i18n';
 
 vi.stubGlobal('window', { innerWidth: 1440, innerHeight: 900, matchMedia: () => ({ matches: false }), addEventListener: () => undefined, localStorage: { getItem: () => null, setItem: () => undefined } });
-import { guideObjectIsCurrent, guideResultObserved, openGuidance, resumeGuidance, useGuidanceStore } from '../../src/renderer/components/guidance/guidanceState';
+import { guideObjectIsCurrent, guideResultObserved, openGuidance, resumeGuidance, retargetGuidance, useGuidanceStore } from '../../src/renderer/components/guidance/guidanceState';
+import { BLUEPRINTS } from '../../src/shared/templates/catalog';
 import { useProjectionStore } from '../../src/renderer/services/commands/projection';
 import { useGraphStore } from '../../src/renderer/state/graphState';
 
@@ -52,6 +53,33 @@ describe('practical guidance', () => {
     useGraphStore.setState({ activeSubgraphId: null, nodes: [] });
     expect(guideObjectIsCurrent(request)).toBe(false);
   });
+});
+
+it('retargets the resumed guide to the inspected inner node, not the reused root id', () => {
+  useProjectionStore.setState({ projectId: 'desktop', graphKey: 'guided', currentRevisionId: 'rev' });
+  useGraphStore.setState({ activeSubgraphId: null, nodes: [] });
+  openGuidance(undefined, 'p10'); useGuidanceStore.getState().update({ step: 1, observed: true });
+  useGraphStore.setState({ activeSubgraphId: 'inner', subgraphs: [{ id: 'inner', nodes: [{ id: '1', data: { comfyType: 'CLIPTextEncode' } }] }] as any });
+  retargetGuidance({ kind: 'node', id: '1', classType: 'CLIPTextEncode', subgraphId: 'inner' });
+  const request = useGuidanceStore.getState().request!;
+  expect(request).toMatchObject({ problemId: 'p10', step: 1, observed: false, objectRef: { subgraphId: 'inner' }, origin: { definitionId: 'inner' } });
+  expect(guideObjectIsCurrent(request)).toBe(true);
+  useGraphStore.setState({ activeSubgraphId: null });
+  expect(guideObjectIsCurrent(request)).toBe(false);
+});
+
+it.each(GUIDE_PROBLEMS)('$id has a reachable template and checks its own evidence fields', p => {
+  if (p.template && p.template.family !== 'local-ai') {
+    const preset = p.template;
+    expect(BLUEPRINTS.some(b => b.family === preset.family && `${b.title.en} ${b.title.ru} ${b.id} ${b.category}`.toLowerCase().includes(preset.query.toLowerCase()))).toBe(true);
+  }
+  if (p.verify.kind === 'graph') {
+    const report = Object.fromEntries(p.verify.fields.map(key => [key, []]));
+    expect(verifyGuide(p, { graph: report as any, nodes: 1 }).state).toBe('clear');
+    for (const field of p.verify.fields) {
+      expect(verifyGuide(p, { graph: { ...report, [field]: [{}] } as any, nodes: 1 }).state).toBe('attention');
+    }
+  }
 });
 
 it('requires a fresh result acknowledgement after a graph change', () => {
