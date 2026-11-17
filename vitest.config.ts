@@ -8,6 +8,9 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
+    // Keep the established explicit mock lifecycle when upgrading the runner: some suites inspect beforeAll
+    // setup calls. Each suite already clears/restores the mocks that need per-test isolation.
+    clearMocks: false,
     // The default 5 s is a speed check in disguise: a sync against the fake servers (syncAddress) or the first import
     // of the main-process modules (logPrivacy) takes 1–3 s on a quiet machine and more than 5 s on a busy one.
     // A hang still fails, a little later.

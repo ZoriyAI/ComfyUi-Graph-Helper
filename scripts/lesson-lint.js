@@ -11,7 +11,7 @@
  *        --strict                                        (also fail when a lesson misses a part of standard 2)
  *
  * Who uses it: the people who write lessons (docs/wiki/dev/Writing-A-Lesson.md). The lessons live in TypeScript, so
- * this runs scripts/lib/lesson-lint.ts through vite-node, which comes with the test runner (vitest).
+ * this runs scripts/lib/lesson-lint.ts through the explicitly installed vite-node runner.
  */
 const path = require('path');
 const { spawnSync } = require('child_process');
@@ -19,9 +19,9 @@ const { spawnSync } = require('child_process');
 const root = path.join(__dirname, '..');
 let cli;
 try {
-  cli = path.join(path.dirname(require.resolve('vite-node/package.json', { paths: [root] })), 'vite-node.mjs');
+  cli = require.resolve('vite-node/cli', { paths: [root] });
 } catch {
-  console.error('vite-node is not installed: run npm install first (it comes with vitest).');
+  console.error('vite-node is not installed: run npm ci first.');
   process.exit(2);
 }
 // The root is scripts/lib, where no Vite config lives: the app's own config is for the window, not for this.
