@@ -23,6 +23,7 @@ import { commitCommand, ensureWorkspace, listRevisions, readProjection } from '.
 import { upsertObjectInfo } from '../../src/main/catalog/repository';
 import { parseObjectInfo } from '../../src/shared/catalog/objectInfo';
 import { migrate } from '../../src/main/settings/migrate';
+import { commitManual } from '../../src/renderer/components/graph/commit';
 
 vi.mock('../../src/renderer/components/graph/placeNode', () => ({ placeNewNode: vi.fn(async () => ({ x: 0, y: 0 })) }));
 vi.mock('../../src/renderer/components/graph/lib/reveal', () => ({ addedNodeId: (r: any) => r?.result?.nodeId ?? null, revealNewNode: vi.fn() }));
@@ -170,6 +171,41 @@ describe('async editor origin', () => {
     await undoing;
     expect(command.mock.calls.map(([request]) => request.payload.type)).toEqual(['add-node', 'restore-revision']);
     expect(readProjection(db, 'desktop')!.snapshot.nodes.map((item) => (item as { data: { comfyType: string } }).data.comfyType)).toEqual(['KSampler']);
+    expect(pendingCommits()).toBe(0);
+    db.close();
+  });
+
+  it('Undo rechecks edits that started while it was reading history', async () => {
+    const db = new Database(':memory:');
+    migrate(db);
+    ensureWorkspace(db);
+    const saved = commitCommand(db, { projectId: 'desktop', actionId: 'saved', expectedRevisionId: readProjection(db, 'desktop')!.currentRevisionId, actor: 'manual', runId: null,
+      payload: { type: 'add-node', nodeType: 'KSampler' } });
+    const first = commitCommand(db, { projectId: 'desktop', actionId: 'first', expectedRevisionId: saved.projection!.currentRevisionId, actor: 'manual', runId: null,
+      payload: { type: 'add-node', nodeType: 'VAEDecode' } });
+    useProjectionStore.setState({ revSeq: 0 });
+    useProjectionStore.getState().apply(first.projection!);
+    useGraphStore.setState({ activeSubgraphId: null });
+    useUndoStore.getState().setRevisions('desktop', listRevisions(db, 'desktop'));
+    const delivery = deferred<void>();
+    command.mockImplementation(async (request) => {
+      if (request.payload.type === 'add-node') await delivery.promise;
+      return commitCommand(db, request);
+    });
+    let adding: Promise<unknown> | undefined;
+    api.listRevisions.mockImplementation(async () => {
+      // A second gesture starts after Undo's first pending-edit check, while history is being read.
+      adding ??= commitManual({ type: 'add-node', nodeType: 'VAEDecode' });
+      return listRevisions(db, 'desktop');
+    });
+    const undoing = undo();
+    await vi.waitFor(() => expect(command).toHaveBeenCalledTimes(1));
+    delivery.resolve();
+    await adding;
+    await undoing;
+    expect(readProjection(db, 'desktop')!.snapshot.nodes.map(item => (item as { id: string }).id))
+      .toEqual(first.projection!.snapshot.nodes.map(item => (item as { id: string }).id));
+    expect(command.mock.calls.at(-1)![0].payload).toEqual({ type: 'restore-revision', revisionId: first.projection!.currentRevisionId });
     expect(pendingCommits()).toBe(0);
     db.close();
   });

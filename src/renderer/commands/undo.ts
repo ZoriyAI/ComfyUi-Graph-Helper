@@ -141,8 +141,16 @@ async function historyCaughtUp(): Promise<void> {
 let queue: Promise<void> = Promise.resolve();
 
 function queued(kind: 'undo' | 'redo'): Promise<void> {
-  // The revision list is read again once the edits landed, so the plan starts from the head they made.
-  const run = queue.then(() => whenSettled()).then(() => historyCaughtUp()).then(() => restore(kind));
+  const run = queue.then(async () => {
+    // A new gesture can start while history is being read. Do not enqueue a restore planned on the old
+    // head behind that edit: it would silently undo both. Check again after the last await, then enqueue
+    // the restore synchronously, before another gesture can enter the manual commit queue.
+    do {
+      await whenSettled();
+      await historyCaughtUp();
+    } while (pendingCommits() > 0);
+    await restore(kind);
+  });
   queue = run.catch(() => undefined);
   return run;
 }

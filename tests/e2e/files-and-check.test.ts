@@ -229,8 +229,11 @@ test('files, history and the check behave as they say', async () => {
     for (let i = 0; i < 4; i += 1) {
       await blur(page);
       await page.keyboard.press('Control+k');
+      const search = page.getByRole('dialog').getByRole('textbox');
+      await expect(search).toBeFocused();
       await page.keyboard.type('VAE Decode');
-      await expect(page.getByRole('dialog').getByRole('option').first()).toBeVisible();
+      await expect(search).toHaveValue('VAE Decode');
+      await expect(page.getByRole('dialog').getByRole('option').filter({ hasText: 'VAEDecode' }).first()).toBeVisible();
       await page.keyboard.press('Enter');
       await page.keyboard.press('Control+z');
     }

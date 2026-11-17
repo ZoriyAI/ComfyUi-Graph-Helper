@@ -7,7 +7,7 @@
  * from "Upscale Image (using Model)" before choosing; nodes added lately come first while nothing is typed.
  * CanvasToolbar renders the box; it opens from canvasStore.openAddSearch.
  */
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { NodeClassSummary } from '../../../shared/contracts/knowledge';
 import { useCanvasStore, type AddSearchPurpose } from './canvasStore';
@@ -213,14 +213,16 @@ export default function AddNodeSearch() {
   const [active, setActive] = useState(0);
   const input = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (search.open) {
       // A lesson opens the search with the name of the node it asks for already typed.
       setQuery(search.query ?? '');
       setResults([]);
       setResultsFor(null);
       setActive(0);
-      window.setTimeout(() => input.current?.focus(), 0);
+      // Reset and focus before the open box is painted, so immediate typing cannot go to the canvas
+      // or be erased by a delayed reset from the opening gesture.
+      input.current?.focus();
     }
   }, [search.open, search.query]);
 
