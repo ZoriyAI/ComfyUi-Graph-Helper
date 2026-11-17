@@ -650,7 +650,8 @@ test('desktop captures at 1024 and 1280 with rendered contrast', async () => {
   expect(zoom150.dpr).toBeGreaterThanOrEqual(1.5);
   await window.screenshot({ path: path.join(artifactDir, 'desktop-1280-zoom150.png') });
   const zoom200 = await zoomTo(2);
-  expect(zoom200.dpr).toBeGreaterThanOrEqual(2);
+  // Chromium may report 1.99999993 for an exact 200% scale.
+  expect(Math.round(zoom200.dpr * 1000) / 1000).toBeGreaterThanOrEqual(2);
   await window.screenshot({ path: path.join(artifactDir, 'desktop-1280-zoom200.png') });
   await zoomTo(1);
 

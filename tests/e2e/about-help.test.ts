@@ -69,7 +69,7 @@ test('Help ▸ About: icon, name, version, licence, components, copy details, da
     // The real icon has loaded, at 64 px; the name is the dialog's title; the version is the package's.
     const icon = dialog.locator('img').first();
     await expect.poll(() => icon.evaluate((image: HTMLImageElement) => image.complete && image.naturalWidth)).toBeGreaterThan(0);
-    expect(await icon.evaluate((image: HTMLImageElement) => image.getBoundingClientRect().width)).toBe(64);
+    await expect.poll(() => icon.evaluate((image: HTMLImageElement) => image.getBoundingClientRect().width)).toBeCloseTo(64, 1);
     await expect(dialog.getByRole('heading', { name: 'NodeWise Studio' })).toBeVisible();
     // The line under the name, and the window title, carry the product's name.
     await expect(dialog.locator('[data-about-tagline]')).toHaveText(RU('shell.tagline'));

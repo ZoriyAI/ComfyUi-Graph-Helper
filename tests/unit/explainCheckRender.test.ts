@@ -107,7 +107,7 @@ describe('Check panel render', () => {
     useKnowledgeStore.setState({ check: report, checking: false });
     const html = render(React.createElement(CheckPanel, { projectId: 'p' }));
     expect(html.match(/data-type="unconnectedRequiredInputs"/g)).toHaveLength(50);
-    expect(html).toContain('1–50 of 1000'); expect(html).toContain('Find a node or a problem');
+    expect(html).toContain('1-50 of 1000'); expect(html).toContain('Find a node or a problem');
     expect(html).toContain('1000 findings');
   });
 

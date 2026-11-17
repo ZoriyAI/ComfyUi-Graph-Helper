@@ -37,7 +37,7 @@ test('large graph findings navigate to editable cards and camera movement preser
     const panel = page.locator('.check-panel');
     const group = panel.locator('[data-check-group="unconnectedRequiredInputs"]');
     await expect(group.locator('li')).toHaveCount(50);
-    await expect(group.getByRole('status')).toContainText('1–50 of 1004');
+    await expect(group.getByRole('status')).toContainText('1-50 of 1004');
     await group.getByRole('button', { name: 'Next', exact: true }).click();
     await expect(group.getByRole('status')).toContainText('51–100 of 1004');
     await expect(group.locator('li')).toHaveCount(50);

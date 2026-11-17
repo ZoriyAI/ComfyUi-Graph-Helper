@@ -30,6 +30,8 @@ what to expect. Wishes go to the project's Discussions, problems to its Issues.
 - Not tried yet on a real desktop: installing the `.deb` with apt, the `.rpm` with dnf on Fedora, the final AppImage
   file. These are checked on CI only.
 
+A real portable installer cycle from 1.2.8 to the 1.3.0 candidate passed with a private profile, retained settings/workflow, export, restart and model release. [Exact isolation and result](../../research/2026-11-17-release-upgrade.md).
+
 ## Connection and reading
 
 - A real ComfyUI 0.45.3 installation returned 3375 node types and all 797 model files, including direct fallback when MCP was unavailable. Windows, ComfyUI Desktop and authenticated third-party MCP servers remain unqualified. [Qualification report](../../research/2026-11-17-live-catalog.md)
