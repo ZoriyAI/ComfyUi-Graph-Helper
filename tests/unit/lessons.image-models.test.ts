@@ -4,6 +4,7 @@
  * the number "Do this for me" sets, the checks catch what each family gets wrong, and the knowledge exists in both
  * languages and is seeded with the core set.
  */
+import { answerAll, isPersonStep, type StepAnswers } from '../../src/shared/lessons/steps';
 import { describe, expect, it } from 'vitest';
 import { fixFor, lessonProgress, type ClassPorts, type Lesson, type LessonGraph, type LessonNode, type Missing } from '../../src/shared/lessons/engine';
 import { fits, groupGaps, lessonFit } from '../../src/shared/lessons/fit';
@@ -98,12 +99,18 @@ const readIds = (lesson: Lesson) => new Set(lesson.steps.filter((step) => step.r
 
 function carryOut(lesson: Lesson, canvas: Canvas): void {
   const read = new Set<string>();
+  const answers: Record<string, StepAnswers> = {};
   for (let guard = 0; guard < 400; guard += 1) {
-    const progress = lessonProgress(lesson, canvas, {}, read);
+    const progress = lessonProgress(lesson, canvas, {}, read, answers);
     if (progress.current === lesson.steps.length) return;
     const step = lesson.steps[progress.current];
     if (step.read) {
       read.add(step.id);
+      continue;
+    }
+    if (isPersonStep(step)) {
+      expect(answers[step.id], `${lesson.id}/${step.id}: only one simulated answer`).toBeUndefined();
+      answers[step.id] = answerAll(step);
       continue;
     }
     const missing = progress.missing[0];
@@ -129,7 +136,7 @@ function build(id: string): Canvas {
 
 const progressOf = (id: string, canvas: Canvas) => {
   const lesson = lessonById(id)!;
-  return lessonProgress(lesson, canvas, {}, readIds(lesson));
+  return lessonProgress(lesson, canvas, {}, readIds(lesson), Object.fromEntries(lesson.steps.filter(isPersonStep).map((step) => [step.id, answerAll(step)])));
 };
 const stepAt = (id: string, canvas: Canvas) => lessonById(id)!.steps[progressOf(id, canvas).current]?.id ?? 'end';
 
@@ -137,7 +144,7 @@ describe('the lessons on picture model families', () => {
   it('are registered, each with words in both languages and a place on the learning path', () => {
     expect(IMAGE_MODEL_LESSONS.length).toBeGreaterThanOrEqual(8);
     for (const lesson of IMAGE_MODEL_LESSONS) {
-      expect(LESSONS).toContain(lesson);
+      expect(LESSONS.find((item) => item.id === lesson.id)?.steps.slice(0, lesson.steps.length)).toEqual(lesson.steps);
       expect(lessonWords('ru', lesson.id), lesson.id).not.toBeNull();
       expect(lessonWords('en', lesson.id), lesson.id).not.toBeNull();
       const path = LESSON_PATH[lesson.id];

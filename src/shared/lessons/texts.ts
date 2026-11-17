@@ -13,6 +13,7 @@ import { FOUNDATIONS_LESSONS_EN } from './sets/foundations.texts.en';
 import { FOUNDATIONS_LESSONS_RU } from './sets/foundations.texts.ru';
 import { REASONS_EN } from './reasons.en';
 import { REASONS_RU } from './reasons.ru';
+import { completeLessonWords } from './completion';
 
 /** The words of one checklist item: what to do and, when it helps, how to see that it is done. */
 export interface ItemWords {
@@ -89,6 +90,9 @@ const WORDS: Record<LessonLanguage, Record<string, LessonWords>> = {
   en: { ...LESSONS_EN, ...VIDEO_LESSONS_EN, ...FOUNDATIONS_LESSONS_EN },
   ru: { ...LESSONS_RU, ...VIDEO_LESSONS_RU, ...FOUNDATIONS_LESSONS_RU },
 };
+for (const language of ['en', 'ru'] as const) {
+  for (const [id, words] of Object.entries(WORDS[language])) WORDS[language][id] = completeLessonWords(language, id, words);
+}
 
 /** The words of a lesson in the person's language (English for any language but Russian); null for an unknown id. */
 export function lessonWords(language: string, lessonId: string): LessonWords | null {

@@ -60,8 +60,8 @@ export function registerLessonsIpc(ipcMain: IpcMain, deps: LessonsIpcDeps): void
     if (result.canceled || result.filePaths.length === 0) return { ok: false, canceled: true };
     const file = result.filePaths[0];
     try {
-      // The size is read before the file: a huge file is refused unread (a character takes up to four bytes).
-      if (fs.statSync(file).size > LESSON_LIMITS.fileBytes * 4) return { ok: false, problem: { code: 'too-large' } };
+      // The size is read before the file: a huge file is refused unread.
+      if (fs.statSync(file).size > LESSON_LIMITS.fileBytes) return { ok: false, problem: { code: 'too-large' } };
       const text = fs.readFileSync(file, 'utf8');
       return write(() => importLessonText(folder(), text, { origin: 'file', fileName: file }));
     } catch {

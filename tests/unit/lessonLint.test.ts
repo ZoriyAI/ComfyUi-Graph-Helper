@@ -16,6 +16,18 @@ import { lintLessonDoc, lintLines } from '../../src/shared/lessons/share/lint';
 
 const ROOT = path.join(__dirname, '../..');
 
+/** Keep exercising imported legacy lessons after the built-in curriculum has been upgraded. */
+function legacyDoc() {
+  const doc = structuredClone(builtinLessonDoc('image')!);
+  doc.standard = 1; delete doc.meta; delete doc.outcomes;
+  doc.steps = doc.steps.filter((step) => !step.id.startsWith('practice-'));
+  for (const words of Object.values(doc.texts)) if (words) {
+    delete words.meta;
+    for (const key of Object.keys(words.steps)) if (key.startsWith('practice-')) delete words.steps[key];
+  }
+  return doc;
+}
+
 describe('the lint of a lesson', () => {
   it('passes the lessons of standard 2 with nothing missing', () => {
     for (const lesson of LESSONS.filter((item) => item.standard === 2)) {
@@ -29,7 +41,7 @@ describe('the lint of a lesson', () => {
       expect(lint.errors, lesson.id).toEqual([]);
       expect(lint.missing.length, lesson.id).toBeGreaterThan(0);
     }
-    const lint = lintLessonDoc(builtinLessonDoc('image')!);
+    const lint = lintLessonDoc(legacyDoc());
     expect(lint.missing).toContain('image: the target skill is not written in English');
     expect(lint.missing).toContain('image: fewer than 3 expected mistakes, each with how to recognize it and what to do, in Russian');
     expect(lint.missing).toContain('image: it has no transfer task (a task done without "Do this for me"); a lesson of standard 2 has one');
@@ -37,7 +49,7 @@ describe('the lint of a lesson', () => {
   });
 
   it('makes every part of the template an error once a lesson says it is of standard 2', () => {
-    const doc = { ...builtinLessonDoc('image')!, id: 'image-2', standard: 2 as const };
+    const doc = { ...legacyDoc(), id: 'image-2', standard: 2 as const };
     const lint = lintLessonDoc(doc);
     expect(lint.missing).toEqual([]);
     expect(lint.errors[0]).toBe('image-2: the versions it was written against and the date it was checked on are missing');
@@ -64,7 +76,11 @@ describe('scripts/lesson-lint.js', () => {
       expect(refused.status).toBe(1);
       expect(refused.stdout).toContain('not a lesson file the app reads');
       const strict = run('--strict', 'image');
-      expect(strict.status).toBe(1);
+      expect(strict.status).toBe(0);
+      const legacy = path.join(folder, 'legacy.lesson.json');
+      fs.writeFileSync(legacy, JSON.stringify(lessonFileOf([legacyDoc()])));
+      expect(run('--strict', legacy).status).toBe(1);
+      expect(run(legacy).status).toBe(0);
       expect(run('image').status).toBe(0);
     } finally {
       fs.rmSync(folder, { recursive: true, force: true });

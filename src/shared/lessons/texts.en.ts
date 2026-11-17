@@ -230,7 +230,7 @@ export const LESSONS_EN: Record<string, LessonWords> = {
       },
       files: {
         title: 'Choose the files and the strength',
-        body: 'Choose a file in `lora_name`. The node in the path of the `high_noise` model takes the `high` file, the one in the path of `low_noise` the `low` file. If the LoRA is a single file, put it into both nodes.\n\n`strength_model` is the strength. 1 means full strength. If the LoRA overrides everything else or spoils the picture, lower it to 0.6-0.8.\n\nSeveral LoRAs are chained: the output of one LoRA node to the input of the next.',
+        body: 'Choose a file in `lora_name`. The node in the path of the `high_noise` model takes the `high` file, the one in the path of `low_noise` the `low` file. Use one file in both stages only when its author explicitly supports this. For this lesson, choose a compatible high/low pair or a file documented for both stages; a one-stage LoRA needs its own wiring.\n\n`strength_model` is the strength. 1 means full strength. If the LoRA overrides everything else or spoils the picture, lower it to 0.6-0.8.\n\nSeveral LoRAs are chained: the output of one LoRA node to the input of the next.',
       },
       'trigger-words': {
         title: 'The words that switch a LoRA on',
@@ -405,7 +405,7 @@ export const LESSONS_EN: Record<string, LessonWords> = {
       },
       'pair-loras': {
         title: 'LoRAs for the two passes',
-        body: 'A LoRA for Wan 2.2 14B often comes as a pair of files: one for the first pass, one for the second. The names usually show it: `high` and `low`, or `high_noise` and `low_noise`. The `high` file goes into the path of the first-pass {high} node, the `low` file into the path of the second {high} node. If the author gives one file, it goes into both paths. If the LoRA\'s page says it is for one pass, put it only there.\n\nA speed-up LoRA and a subject LoRA stand in one path as a chain. Keep the speed-up one at the strength its author recommends, usually 1. Tune the subject LoRA separately, on one `noise_seed`: start from the author\'s recommendation and change it in steps of 0.1-0.2.',
+        body: 'A LoRA for Wan 2.2 14B often comes as a pair of files: one for the first pass, one for the second. The names usually show it: `high` and `low`, or `high_noise` and `low_noise`. The `high` file goes into the path of the first-pass {high} node, the `low` file into the path of the second {high} node. A single file goes into both paths only when its author explicitly says it supports both stages. If the LoRA\'s page says it is for one pass, put it only there.\n\nA speed-up LoRA and a subject LoRA stand in one path as a chain. Keep the speed-up one at the strength its author recommends, usually 1. Tune the subject LoRA separately, on one `noise_seed`: start from the author\'s recommendation and change it in steps of 0.1-0.2.',
       },
       anchor: {
         title: 'The anchor picture and a LoRA',
@@ -525,7 +525,7 @@ export const LESSONS_EN: Record<string, LessonWords> = {
       },
       'same-family': {
         title: 'When the models are of one family',
-        body: 'Models of one family work with the same compressed form of a picture. Then there is no need to unfold it and compress it again: the `LATENT` output of the first sampler goes straight into the `latent_image` input of the second. Less detail is lost this way.\n\nOne family is, for example, SDXL and the models built on it: Pony, Illustrious. Or two SD 1.5 models. The family of a file is shown by its card in the "Models" tab.\n\nBetween different families this must not be done: the second model gets numbers it does not understand and gives noise or an error. Going through a picture, as in this lesson, always works.',
+        body: 'Models of one family work with the same compressed form of a picture. Then there is no need to unfold it and compress it again: the `LATENT` output of the first sampler goes straight into the `latent_image` input of the second. Less detail is lost this way.\n\nOne family is, for example, SDXL and the models built on it: Pony, Illustrious. Or two SD 1.5 models. The family of a file is shown by its card in the "Models" tab.\n\nBetween different families this must not be done: the second model gets numbers it does not understand and gives noise or an error. Passing an IMAGE lets the second model encode it with its own VAE. Check its supported image size, input format and conditioning too; the bridge does not make arbitrary models compatible.',
       },
       loras: {
         title: 'LoRA in a graph with two models',
@@ -1217,7 +1217,7 @@ export const LESSONS_EN: Record<string, LessonWords> = {
       },
       memory: {
         title: 'Two models and memory',
-        body: 'ComfyUI loads the models in turn: first the one that draws the frame, then Wan. If the graphics card has no room for both, it unloads the first by itself. So a graph with two models runs on the same card as each of them alone, only longer.\n\nComfyUI works out again only what has changed. As long as the part with the frame is untouched, the next run takes the finished frame and goes straight to the video.\n\nTo keep the frame from changing by itself, fix the number in the `seed` field of {imageSampler}: in ComfyUI set the `control_after_generate` switch under it to `fixed`. Otherwise the number changes at every run, the frame is drawn anew, and the clip starts from another picture each time.\n\nGet a good frame first, then work on the motion. While you look for the frame, the node that saves the clip can be switched off in ComfyUI: select it and press Ctrl+M. Then only the frame is worked out.',
+        body: 'The graph draws the frame before Wan uses it. ComfyUI can offload supported models to make room, but a combined graph is not guaranteed to fit just because each model fits alone. Node packs, retained tensors, system RAM and loader settings also matter. Check the resource view and begin with a short, small clip; close or unload other GPU consumers when needed.\n\nComfyUI works out again only what has changed. As long as the part with the frame is untouched, the next run takes the finished frame and goes straight to the video.\n\nTo keep the frame from changing by itself, fix the number in the `seed` field of {imageSampler}: in ComfyUI set the `control_after_generate` switch under it to `fixed`. Otherwise the number changes at every run, the frame is drawn anew, and the clip starts from another picture each time.\n\nGet a good frame first, then work on the motion. While you look for the frame, the node that saves the clip can be switched off in ComfyUI: select it and press Ctrl+M. Then only the frame is worked out.',
       },
       approaches: {
         title: 'Other ways to combine models',

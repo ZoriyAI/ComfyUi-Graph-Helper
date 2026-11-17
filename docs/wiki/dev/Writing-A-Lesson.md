@@ -2,6 +2,8 @@
 [Home](../Home.md) › [For developers](README.md)
 
 # Writing a lesson
+A course file may contain up to 200 lessons and 16 MiB of UTF-8 JSON; a single lesson is limited to 8 MiB. This lets the complete bilingual curriculum travel as one file while keeping import memory bounded. The content-review date records an editorial check, not GPU execution. Mark execution and result quality separately; never infer them from a structurally valid graph.
+
 
 A lesson is a list of steps, each one described as **what must be on the canvas** after it. The app reads the canvas
 to know where the person is, so a lesson never keeps its own state: delete a node and the lesson goes back to its

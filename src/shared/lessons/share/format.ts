@@ -38,7 +38,9 @@ export const LESSON_FILE_VERSIONS = [1, 2] as const;
 /** The caps. A built-in lesson is far below each (the longest step text is about 1100 characters). */
 export const LESSON_LIMITS = {
   /** The whole file, in bytes, before it is parsed. */
-  fileBytes: 2 * 1024 * 1024,
+  fileBytes: 16 * 1024 * 1024,
+  /** Preserve the old 2M-character reader's worst-case UTF-8 capacity for one legacy lesson. */
+  lessonBytes: 8 * 1024 * 1024,
   /** How deep objects and arrays may nest; the format itself needs 7. */
   depth: 12,
   lessons: 200,
@@ -303,8 +305,7 @@ export function jsonDepth(source: string, stopAt = Number.POSITIVE_INFINITY): nu
 
 /** Reads a lesson file from its text: size, depth, JSON, then the format. */
 export function readLessonFileText(source: string): LessonFileRead {
-  // Characters, not bytes: a cap on characters is also a cap within four times as many bytes.
-  if (source.length > LESSON_LIMITS.fileBytes) return { ok: false, problem: { code: 'too-large' } };
+  if (source.length > LESSON_LIMITS.fileBytes || new TextEncoder().encode(source).byteLength > LESSON_LIMITS.fileBytes) return { ok: false, problem: { code: 'too-large' } };
   if (jsonDepth(source, LESSON_LIMITS.depth) > LESSON_LIMITS.depth) return { ok: false, problem: { code: 'too-deep' } };
   let parsed: unknown;
   try {
@@ -323,6 +324,13 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 export function readLessonFile(value: unknown): LessonFileRead {
   if (!isRecord(value) || value.format !== LESSON_FILE_FORMAT) return { ok: false, problem: { code: 'not-lesson' } };
   if (typeof value.version === 'number' && value.version > LESSON_FILE_VERSION) return { ok: false, problem: { code: 'newer-version', version: value.version } };
+  try {
+    const text = JSON.stringify(value);
+    if (text.length > LESSON_LIMITS.fileBytes || new TextEncoder().encode(text).byteLength > LESSON_LIMITS.fileBytes) return { ok: false, problem: { code: 'too-large' } };
+    if (Array.isArray(value.lessons)) for (const lesson of value.lessons) {
+      if (new TextEncoder().encode(JSON.stringify(lesson)).byteLength > LESSON_LIMITS.lessonBytes) return { ok: false, problem: { code: 'too-large' } };
+    }
+  } catch { return { ok: false, problem: { code: 'not-json' } }; }
   const parsed = fileSchema.safeParse(value);
   if (!parsed.success) {
     const issue = parsed.error.issues[0];

@@ -27,6 +27,7 @@ import { RELIABLE_AFTER, RELIABLE_LESSONS, RELIABLE_PATH } from './sets/reliable
 import { ENVIRONMENT_LESSONS, ENVIRONMENT_PATH } from './sets/environment';
 import { DAILY_CYCLE_AFTER, DAILY_CYCLE_LESSONS, DAILY_CYCLE_PATH } from './sets/daily-cycle';
 import { levelOf } from './programme';
+import { completeLesson } from './completion';
 
 // Short builders so each lesson below reads as a list of steps.
 const node = (role: string, ...classes: string[]): RoleSpec => ({ role, classes });
@@ -1108,7 +1109,7 @@ export const LESSONS: readonly Lesson[] = withFamilyPairs(withFileTable([
   ...RELIABLE_LESSONS,
   ...DAILY_CYCLE_LESSONS,
   adultImage, adultLora, adult,
-], SET_FILE_KINDS), FAMILY_PAIRS);
+], SET_FILE_KINDS), FAMILY_PAIRS).map(completeLesson);
 
 // The lessons about adult content. They are open only while the switch "Adult content (18+)" is on (preferences:
 // adultContentOn); while it is off the list shows them as one closed group that leads to the switch, never hidden.

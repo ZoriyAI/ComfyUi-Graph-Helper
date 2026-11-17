@@ -33,7 +33,7 @@ const ports: ClassPorts = (classType) => {
 describe('the video lessons are registered and fit a ComfyUI that has their nodes', () => {
   it('are in the list, each with a group that has a title in both languages', () => {
     for (const lesson of VIDEO_LESSONS) {
-      expect(lessonById(lesson.id), lesson.id).toBe(lesson);
+      expect(lessonById(lesson.id)?.steps.slice(0, lesson.steps.length), lesson.id).toEqual(lesson.steps);
       const path = LESSON_PATH[lesson.id];
       expect(path, lesson.id).toBeDefined();
       expect(path.group.title.ru).toMatch(/[а-яё]/i);

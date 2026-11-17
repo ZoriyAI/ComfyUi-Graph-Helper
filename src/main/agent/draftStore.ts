@@ -4,6 +4,8 @@ import { DESKTOP_PROJECT_ID } from '../../shared/project';
 
 type Draft = { id: string; createdAt: number; persistent?: boolean };
 type Kind = 'lesson' | 'extension';
+// One legacy lesson can contain up to 8 MiB of UTF-8, plus its pending-draft envelope.
+const MAX_DRAFT_BYTES = 9 * 1024 * 1024;
 
 /** The same bounded store can run without a database in isolated tool tests. Reads never cache SQLite rows. */
 export class DraftStore<T extends Draft> {
@@ -27,7 +29,7 @@ export class DraftStore<T extends Draft> {
     if (!projectId || projectId.length > 200 || !this.read(draft)) throw new Error('Invalid pending draft.');
     const payload = JSON.stringify(draft);
     if (this.containsHeldSecret(payload)) throw new Error('Remove credentials and secrets from the pending draft.');
-    if (Buffer.byteLength(payload) > 3 * 1024 * 1024) throw new Error('The pending draft is too large.');
+    if (Buffer.byteLength(payload) > MAX_DRAFT_BYTES) throw new Error('The pending draft is too large.');
     if (this.db && draft.persistent) {
       const db = this.db;
       db.transaction(() => {
@@ -51,7 +53,7 @@ export class DraftStore<T extends Draft> {
     if (temporary) return structuredClone(temporary);
     if (!this.db) return null;
     const row = this.db.prepare('SELECT payload FROM assistant_drafts WHERE id = ? AND kind = ?').get(id, this.kind) as { payload: string } | undefined;
-    if (!row || row.payload.length > 3 * 1024 * 1024) return null;
+    if (!row || row.payload.length > MAX_DRAFT_BYTES) return null;
     try {
       const draft = this.read(JSON.parse(row.payload));
       return draft?.id === id ? { ...draft, persistent: true } : null;

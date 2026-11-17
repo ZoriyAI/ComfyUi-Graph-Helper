@@ -10,6 +10,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { builtinLessonDoc, builtinGroupFile } from '../../src/shared/lessons/share/builtin';
+import { sampleDoc } from '../fixtures/lessons/sampleLesson';
 import { LESSON_FILE_FORMAT, engineLesson, lessonFileOf, lessonFileVersion, readLessonFile, readLessonFileText, type LessonDoc } from '../../src/shared/lessons/share/format';
 import { checkLessonDoc, readStoredRecord, storedRecord, type MyLesson } from '../../src/shared/lessons/share/mine';
 import { checklistLines, checklistStep, docFromDraft, draftFromDoc } from '../../src/shared/lessons/share/authoring';
@@ -114,8 +115,7 @@ describe('lesson files of version 2', () => {
 
 describe('My lessons with version 2', () => {
   it('reads a record written by version 1.0, and writes the version a lesson needs', () => {
-    const old = builtinLessonDoc('refine')!;
-    const plain: LessonDoc = { id: 'old-refine', texts: old.texts, steps: old.steps };
+    const plain: LessonDoc = sampleDoc({ id: 'old-refine' });
     const record = { format: `${LESSON_FILE_FORMAT}/mine`, version: 1, origin: 'file', savedAt: 1, adultMark: false, lesson: plain };
     expect(readStoredRecord(record)?.doc.id).toBe('old-refine');
     const mine: MyLesson = { id: 'my:v2-sample', origin: 'made', savedAt: 2, adultMark: false, doc: sampleV2() };

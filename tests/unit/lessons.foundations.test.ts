@@ -5,6 +5,7 @@
  * the screens look up. These are the first lessons a newcomer meets, so a dead end or a missing note here is the
  * first thing they would hit.
  */
+import { answerAll, isPersonStep, type StepAnswers } from '../../src/shared/lessons/steps';
 import { describe, expect, it } from 'vitest';
 import { fixFor, lessonGaps, lessonProgress, rolesOf, type ClassPorts, type Lesson, type LessonGraph, type LessonNode, type Missing } from '../../src/shared/lessons/engine';
 import { fits, lessonFit } from '../../src/shared/lessons/fit';
@@ -124,13 +125,19 @@ function decide(canvas: Canvas, missing: Missing): void {
 /** Does what the lesson says, one lack at a time. */
 function carryOut(lesson: Lesson, canvas: Canvas): void {
   const read = new Set<string>();
+  const answers: Record<string, StepAnswers> = {};
   // A cap on actions, so a lesson that never ends fails the test instead of hanging it.
   for (let guard = 0; guard < 300; guard += 1) {
-    const progress = lessonProgress(lesson, canvas, {}, read);
+    const progress = lessonProgress(lesson, canvas, {}, read, answers);
     if (progress.current === lesson.steps.length) return;
     const step = lesson.steps[progress.current];
     if (step.read) {
       read.add(step.id);
+      continue;
+    }
+    if (isPersonStep(step)) {
+      expect(answers[step.id], `${lesson.id}/${step.id}: only one simulated answer`).toBeUndefined();
+      answers[step.id] = answerAll(step);
       continue;
     }
     const missing = progress.missing[0];
@@ -169,7 +176,7 @@ describe('the foundations lessons', () => {
     // Only the level 0 lessons of setting up ComfyUI (group "environment") stand before it.
     expect(LESSONS.filter((lesson) => LESSON_PATH[lesson.id].group.id !== 'environment')[0].id).toBe('comfy-basics');
     for (const lesson of DOMAIN) {
-      expect(lessonById(lesson.id), lesson.id).toBe(lesson);
+      expect(lessonById(lesson.id)?.steps.slice(0, lesson.steps.length), lesson.id).toEqual(lesson.steps);
       if (FOUNDATIONS_PATH[lesson.id]) expect(LESSON_PATH[lesson.id], lesson.id).toEqual(FOUNDATIONS_PATH[lesson.id]);
       for (const id of LESSON_PATH[lesson.id].follows) expect(lessonById(id), id).not.toBeNull();
     }

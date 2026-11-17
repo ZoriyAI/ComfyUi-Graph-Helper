@@ -27,7 +27,7 @@ describe('lesson navigation', () => {
   });
 
   it('exposes all path, graph and metadata predecessors, once, lowest level first', () => {
-    expect(lessonDependencies('image')).toEqual([]);
+    expect(lessonDependencies('image')).toEqual(['comfy-basics']);
     // prompt (level 1) before sdxl (level 3), whatever order the registry names them in.
     expect(lessonDependencies('tags')).toEqual(['prompt', 'sdxl']);
     expect(lessonDependencies('gguf')).toEqual(['flux', 'zimage-turbo']);

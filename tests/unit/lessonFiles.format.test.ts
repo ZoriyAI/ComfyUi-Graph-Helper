@@ -41,10 +41,19 @@ describe('reading a lesson file', () => {
 
   it('refuses a huge file before it is parsed, and a deep one before the parser walks into it', () => {
     expect(readLessonFileText(' '.repeat(LESSON_LIMITS.fileBytes + 1))).toEqual({ ok: false, problem: { code: 'too-large' } });
+    expect(readLessonFileText('я'.repeat(LESSON_LIMITS.fileBytes / 2 + 1))).toEqual({ ok: false, problem: { code: 'too-large' } });
     const deep = `${'['.repeat(100_000)}${']'.repeat(100_000)}`;
     expect(readLessonFileText(deep)).toEqual({ ok: false, problem: { code: 'too-deep' } });
     // Brackets inside strings are text, not depth.
     expect(jsonDepth('{"a": "[[[[[[[[[[[[[[[[[[[[[[[[[[[\\"]]]"}')).toBe(1);
+  });
+
+  it('keeps a separate byte limit for one lesson inside a larger course file', () => {
+    // Refuse an oversized object before schema validation, even within an otherwise bounded collection.
+    const large = { ...sampleDoc(), oversized: 'я'.repeat(LESSON_LIMITS.lessonBytes / 2 + 1) };
+    expect(new TextEncoder().encode(JSON.stringify(large)).byteLength).toBeGreaterThan(LESSON_LIMITS.lessonBytes);
+    expect(new TextEncoder().encode(JSON.stringify(file([large]))).byteLength).toBeLessThan(LESSON_LIMITS.fileBytes);
+    expect(readLessonFile(file([large]))).toEqual({ ok: false, problem: { code: 'too-large' } });
   });
 
   it('refuses too many lessons, steps, roles and too long texts', () => {

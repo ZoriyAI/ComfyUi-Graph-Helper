@@ -3,6 +3,7 @@
  * knowledge/sets/image-techniques*.ts): each lesson is carried out on a small canvas and its graph is checked against
  * the template it follows; the knowledge is held to both languages and to its sources.
  */
+import { answerAll, isPersonStep, type StepAnswers } from '../../src/shared/lessons/steps';
 import { describe, expect, it } from 'vitest';
 import { fixFor, lessonProgress, type ClassPorts, type Lesson, type LessonGraph, type LessonNode } from '../../src/shared/lessons/engine';
 import { fitLines, lessonFit, packOf } from '../../src/shared/lessons/fit';
@@ -80,12 +81,18 @@ class Canvas implements LessonGraph {
 /** Does what a lesson says, choosing files and words where only a person can. */
 function carryOut(lesson: Lesson, canvas: Canvas): void {
   const read = new Set<string>();
+  const answers: Record<string, StepAnswers> = {};
   for (let guard = 0; guard < 400; guard += 1) {
-    const progress = lessonProgress(lesson, canvas, {}, read);
+    const progress = lessonProgress(lesson, canvas, {}, read, answers);
     if (progress.current === lesson.steps.length) return;
     const step = lesson.steps[progress.current];
     if (step.read) {
       read.add(step.id);
+      continue;
+    }
+    if (isPersonStep(step)) {
+      expect(answers[step.id], `${lesson.id}/${step.id}: only one simulated answer`).toBeUndefined();
+      answers[step.id] = answerAll(step);
       continue;
     }
     const missing = progress.missing[0];
@@ -115,7 +122,7 @@ const only = (canvas: Canvas, classType: string) => canvas.nodes.filter((node) =
 describe('the lessons on picture techniques', () => {
   it('are in the list, each in a group with a title in both languages, and continue lessons that exist', () => {
     for (const lesson of IMAGE_TECHNIQUE_LESSONS) {
-      expect(LESSONS).toContain(lesson);
+      expect(LESSONS.find((item) => item.id === lesson.id)?.steps.slice(0, lesson.steps.length)).toEqual(lesson.steps);
       const group = LESSON_PATH[lesson.id]?.group;
       expect(group?.title.en, lesson.id).toBeTruthy();
       for (const before of LESSON_PATH[lesson.id].follows) expect(lessonById(before), `${lesson.id} follows ${before}`).not.toBeNull();

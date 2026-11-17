@@ -15,7 +15,7 @@ vi.mock('electron', () => ({ app: { getPath: () => '/nowhere' }, dialog }));
 import { registerLessonsIpc, withLessonExtension } from '../../src/main/lessons/lessonsIpc';
 import { lessonDrafts } from '../../src/main/lessons/drafts';
 import { IPC_CHANNELS } from '../../src/shared/ipc-channels';
-import { LESSON_FILE_FORMAT, LESSON_FILE_VERSION, readLessonFileText } from '../../src/shared/lessons/share/format';
+import { LESSON_FILE_FORMAT, LESSON_FILE_VERSION, LESSON_LIMITS, readLessonFileText } from '../../src/shared/lessons/share/format';
 import { builtinGroupFile } from '../../src/shared/lessons/share/builtin';
 import { sampleDoc } from '../fixtures/lessons/sampleLesson';
 
@@ -79,7 +79,8 @@ describe('lessons IPC', () => {
     dialog.showOpenDialog.mockResolvedValueOnce({ canceled: true, filePaths: [] });
     expect(await call(IPC_CHANNELS.LESSONS_IMPORT_DIALOG)).toEqual({ ok: false, canceled: true });
     const huge = path.join(dir, 'huge.json');
-    fs.writeFileSync(huge, Buffer.alloc(9 * 1024 * 1024, 32));
+    fs.writeFileSync(huge, '');
+    fs.truncateSync(huge, LESSON_LIMITS.fileBytes + 1);
     dialog.showOpenDialog.mockResolvedValueOnce({ canceled: false, filePaths: [huge] });
     expect(await call(IPC_CHANNELS.LESSONS_IMPORT_DIALOG)).toEqual({ ok: false, problem: { code: 'too-large' } });
   });

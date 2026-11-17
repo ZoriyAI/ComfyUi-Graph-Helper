@@ -120,7 +120,7 @@ export async function importDroppedFiles(files: readonly File[]): Promise<void> 
   const bridge = window.electronAPI;
   if (!bridge?.importLessonsText) return;
   for (const file of files.slice(0, 8)) {
-    if (file.size > LESSON_LIMITS.fileBytes * 4) {
+    if (file.size > LESSON_LIMITS.fileBytes) {
       await reportImport({ ok: false, problem: { code: 'too-large' } });
       continue;
     }

@@ -569,12 +569,18 @@ describe('a node the app adds for a lesson stands where the graph reads left to 
   /** Carries a lesson out as carryOut does, and gives each node the app adds the spot the app would give it. */
   function build(lesson: Lesson, canvas: Canvas, rects: Map<string, FlowRect>): void {
     const read = new Set<string>();
+    const answers: Record<string, StepAnswers> = {};
     for (let guard = 0; guard < 400; guard += 1) {
-      const progress = lessonProgress(lesson, canvas, FACTS, read);
+      const progress = lessonProgress(lesson, canvas, FACTS, read, answers);
       if (progress.current === lesson.steps.length) return;
       const step = lesson.steps[progress.current];
       if (step.read) {
         read.add(step.id);
+        continue;
+      }
+      if (isPersonStep(step)) {
+        expect(answers[step.id]).toBeUndefined();
+        answers[step.id] = answerAll(step);
         continue;
       }
       const missing = progress.missing[0];
@@ -855,12 +861,17 @@ describe('the lessons on descriptions', () => {
       const progress = lessonProgress(lesson, canvas, FACTS, marks);
       if (progress.current === lesson.steps.length) break;
       const step = lesson.steps[progress.current];
+      if (isPersonStep(step)) {
+        expect(step.id).toBe('practice-run'); // Building the graph must not claim a real run.
+        expect(progress.current).toBeLessThan(lesson.steps.length);
+        break;
+      }
       expect(step.read, step.id).toBe(true);
       seen.push(step.id);
       marks.add(step.id);
     }
     expect(seen).toEqual(read);
-    expect(read.length).toBeGreaterThan(lesson.steps.length / 2);
+    expect(read.length).toBeGreaterThan(lesson.steps.filter((step) => !isPersonStep(step)).length / 2);
   });
 
   it('reads the description of the clip on a canvas that also draws a picture', () => {
