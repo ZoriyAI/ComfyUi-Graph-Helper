@@ -78,6 +78,10 @@ export const searchModelsSchema = z.object({
 
 /** One model file: its folder and its name inside it. */
 export const modelKeySchema = z.object({ directory: z.string().min(1).max(200), name: z.string().min(1).max(1000) });
+export const modelTranslationControlSchema = z.union([
+  z.object({ action: z.enum(['pause', 'resume']) }).strict(),
+  z.object({ action: z.literal('retry'), model: modelKeySchema.strict().optional() }).strict(),
+]);
 
 /** Which explanations to list: of one project (null for the app's own knowledge) and of one owner. */
 export const listExplanationsSchema = z.object({

@@ -13,6 +13,7 @@ import { startSyncSubscription, useKnowledgeStore } from '../../state/knowledgeS
 import Button from '../../ui/Button';
 import { SYNC_PROFILES, syncProfileOf } from '../../../shared/config/syncProfiles';
 import NumberField from '../../ui/NumberField';
+import TranslationQueue from '../sync/TranslationQueue';
 import SelectField from '../../ui/SelectField';
 import Switch from '../../ui/Switch';
 import settingsStyles from './SettingsPanel.module.css';
@@ -85,6 +86,7 @@ export default function SyncSection({
 
   return (
     <>
+      <TranslationQueue />
       <p className={hintClass} role="status">
         {t(view.labelKey, view.labelParams ?? {})}
         {/* Before the first sync the counts are only the built-in seed nodes and the sentence would read

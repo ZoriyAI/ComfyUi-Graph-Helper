@@ -1,0 +1,4 @@
+.section { display: grid; gap: .5rem; padding-block: .75rem; overflow-wrap: anywhere; }
+.section h3, .section p { margin: 0; }
+.section p { font-size: .875rem; line-height: 1.5; }
+.actions { display: flex; flex-wrap: wrap; gap: .5rem; }

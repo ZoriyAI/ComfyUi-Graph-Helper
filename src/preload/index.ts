@@ -167,6 +167,8 @@ const IPC_CHANNELS = {
   KNOWLEDGE_VALIDATE_NODE_CLASS: 'knowledge:validate-node-class',
   KNOWLEDGE_FIELD_MODELS: 'knowledge:field-models',
   SYNC_STATUS: 'sync:status',
+  MODEL_TRANSLATION_STATUS: 'model-translation:status',
+  MODEL_TRANSLATION_CONTROL: 'model-translation:control',
   SYNC_NOW: 'sync:now',
   SYNC_SET_AUTO: 'sync:set-auto',
   SYNC_PAUSE_ENRICHMENT: 'sync:pause-enrichment',
@@ -444,6 +446,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   checkGraph: (projectId: string) => ipcRenderer.invoke(IPC_CHANNELS.KNOWLEDGE_CHECK_GRAPH, projectId) as Promise<GraphCheckReport>,
   fieldModels: (request: FieldModelsRequest) => ipcRenderer.invoke(IPC_CHANNELS.KNOWLEDGE_FIELD_MODELS, request) as Promise<FieldModelsResult>,
   syncStatus: () => ipcRenderer.invoke(IPC_CHANNELS.SYNC_STATUS) as Promise<SyncStatus>,
+  modelTranslationStatus: () => ipcRenderer.invoke(IPC_CHANNELS.MODEL_TRANSLATION_STATUS) as Promise<import('../shared/contracts/knowledge').ModelTranslationQueue>,
+  modelTranslationControl: (request: import('../shared/contracts/knowledge').ModelTranslationControl) => ipcRenderer.invoke(IPC_CHANNELS.MODEL_TRANSLATION_CONTROL, request) as Promise<import('../shared/contracts/knowledge').ModelTranslationQueue>,
   syncNow: () => ipcRenderer.invoke(IPC_CHANNELS.SYNC_NOW) as Promise<SyncStatus>,
   syncSetAuto: (enabled: boolean, intervalMinutes: number) => ipcRenderer.invoke(IPC_CHANNELS.SYNC_SET_AUTO, { enabled, intervalMinutes }) as Promise<SyncStatus>,
   syncPauseEnrichment: () => ipcRenderer.invoke(IPC_CHANNELS.SYNC_PAUSE_ENRICHMENT) as Promise<SyncStatus>,
@@ -750,6 +754,8 @@ export interface ElectronAPI {
   /** Model files a model field can take, joined with the catalog and marked by fit to the checkpoint upstream. */
   fieldModels: (request: FieldModelsRequest) => Promise<FieldModelsResult>;
   syncStatus: () => Promise<SyncStatus>;
+  modelTranslationStatus: () => Promise<import('../shared/contracts/knowledge').ModelTranslationQueue>;
+  modelTranslationControl: (request: import('../shared/contracts/knowledge').ModelTranslationControl) => Promise<import('../shared/contracts/knowledge').ModelTranslationQueue>;
   syncNow: () => Promise<SyncStatus>;
   syncSetAuto: (enabled: boolean, intervalMinutes: number) => Promise<SyncStatus>;
   /** Stops background model-metadata reading until the next sync. */

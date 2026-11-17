@@ -24,6 +24,10 @@ The model card opens next to the library when you click a file in the **Models**
 
 ## Buttons
 
+When the interface is in Russian, the configured assistant translates available descriptions from every model folder. Original metadata, names, trigger words and example prompts are kept. **Show original** switches back to the source; **Retry this translation** requests a new translation if the wording is unsatisfactory. A missing description is not invented.
+
+**Sync → Sync problems and repairs → Model descriptions in Russian** shows the current file, queue, failed attempts and cache. Pause stops translation and survives restart; resume continues it. Retry requests failed texts again. Catalog reading continues independently. A request that exceeds 90 seconds becomes a failed translation with a retry path. The model's quality still matters; compare technical instructions with the original.
+
 - **Add to canvas** puts the loader node that fits the file, with the file chosen, and selects it: "Added “Load LoRA” with … The node is selected."
 - **Put into the selected node** appears when a node that loads this kind of file is selected: the node then loads this file.
 - **Ask the assistant** and **How do I connect it?** send a question about the file.

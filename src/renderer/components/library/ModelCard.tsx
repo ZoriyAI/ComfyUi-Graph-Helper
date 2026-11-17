@@ -412,9 +412,10 @@ export default function ModelCard({ model, all, onClose, onShowLoras, onAsk, onU
   const targetValue = target ? levelGraph.nodes.find((node) => node.id === target.nodeId)?.data.parameters?.[target.field] : undefined;
 
   const [originalText, setOriginalText] = useState(false);
+  const [translationActionFailed, setTranslationActionFailed] = useState(false);
   useEffect(() => {
     let cancelled = false; let timer: ReturnType<typeof setTimeout> | undefined;
-    setDetail(undefined); setOriginalText(false); setStep('idle'); setLookupError(null);
+    setDetail(undefined); setOriginalText(false); setTranslationActionFailed(false); setStep('idle'); setLookupError(null);
     const read = () => {
       window.electronAPI.modelDetail(model.directory, model.name).then((found) => {
         if (cancelled) return; setDetail(found);
@@ -634,8 +635,17 @@ export default function ModelCard({ model, all, onClose, onShowLoras, onAsk, onU
           </section>
         ) : null}
         {detail?.translation && language === 'ru' ? <div role="status" className={styles.note}>
-          {t(`modelTranslation.${detail.translation.state}`)}
+          {t(detail.translation.state === 'paused' ? 'translationQueue.paused' : `modelTranslation.${detail.translation.state}`)}
           {detail.translation.state === 'ready' ? <Button size="sm" variant="subtle" onClick={() => setOriginalText(!originalText)}>{t(originalText ? 'modelTranslation.showTranslation' : 'modelTranslation.showOriginal')}</Button> : null}
+          {detail.translation.state === 'ready' && !originalText ? <p>{t('translationQueue.caveat')}</p> : null}
+          {detail.translation.state === 'failed' || detail.translation.state === 'paused' || detail.translation.state === 'ready' ? <Button size="sm" variant="subtle" onClick={() => {
+            const asked = key; setTranslationActionFailed(false);
+            void window.electronAPI.modelTranslationControl(detail.translation?.state === 'paused' ? { action: 'resume' } : { action: 'retry', model: { directory: model.directory, name: model.name } })
+              .then(() => window.electronAPI.modelDetail(model.directory, model.name))
+              .then(value => { if (currentKey.current === asked) setDetail(value); })
+              .catch(() => { if (currentKey.current === asked) setTranslationActionFailed(true); });
+          }}>{t(detail.translation.state === 'paused' ? 'translationQueue.resume' : 'translationQueue.retryOne')}</Button> : null}
+          {translationActionFailed ? <p>{t('translationQueue.error')}</p> : null}
         </div> : null}
         {Object.entries(detail?.metadata ?? {}).filter(([key]) => /(^|[._ -])(description|comment|notes|summary|instructions)([._ -]|$)/i.test(key) && !/(prompt|trigger|dataset|json|frequency)/i.test(key)).map(([key, value]) => <div key={key}><h3 className={styles.heading}>{key}</h3><p className={styles.description}>{translated?.[`metadata:${key}`] ?? value}</p></div>)}
         {notes?.notes ? (

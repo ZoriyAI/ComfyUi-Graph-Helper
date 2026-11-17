@@ -198,8 +198,14 @@ export interface ModelPreview {
 
 /** One model file in full, for its card. */
 export interface ModelTextTranslation {
-  language: 'ru'; state: 'pending' | 'ready' | 'unavailable' | 'failed'; fields?: Record<string, string>;
+  language: 'ru'; state: 'pending' | 'ready' | 'unavailable' | 'failed' | 'paused'; fields?: Record<string, string>;
 }
+export interface ModelTranslationQueue {
+  state: 'not-russian' | 'unavailable' | 'paused' | 'running' | 'idle';
+  pending: number; failed: number; cached: number;
+  active: { directory: string; name: string } | null;
+}
+export type ModelTranslationControl = { action: 'pause' | 'resume' | 'retry'; model?: { directory: string; name: string } };
 export interface ModelDetail extends ModelSummary {
   /** Cached display-only translation. Original metadata and description above are never overwritten. */
   translation?: ModelTextTranslation;

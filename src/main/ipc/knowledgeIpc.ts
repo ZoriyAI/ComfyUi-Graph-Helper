@@ -5,6 +5,7 @@
  */
 import { graphResources, refreshResourceHardware } from '../knowledge/resources';
 import { ModelTranslations } from '../knowledge/modelTranslations';
+import { modelTranslationControlSchema } from '../../shared/knowledge/schemas';
 import { translateWithAssistant } from '../knowledge/translateWithAssistant';
 import { readSettings } from '../settings/repository';
 import { languageOf } from '../../shared/i18n';
@@ -69,6 +70,12 @@ export function registerKnowledgeIpc(ipcMain: IpcMain): void {
   const lookups = new ModelLookupService({ db: getDatabase, client: appWebClient, open: openSavedMcpSession });
   const translations = new ModelTranslations({ db: getDatabase, language: () => languageOf(readSettings(getDatabase())), ready: () => Boolean(mainLLMService.currentProvider()) && !mainLLMService.sendBlock(), translate: translateWithAssistant });
   assistantMemory.onStop(() => { translations.pause(); return translations.idle(); });
+  guardedHandle(ipcMain, IPC_CHANNELS.MODEL_TRANSLATION_STATUS, () => translations.status());
+  guardedHandle(ipcMain, IPC_CHANNELS.MODEL_TRANSLATION_CONTROL, (_event, request: unknown) => {
+    const parsed = modelTranslationControlSchema.safeParse(request);
+    if (!parsed.success) throw new Error('Invalid translation action.');
+    return translations.control(parsed.data);
+  });
   const translationTimer = setInterval(() => translations.kick(), 30_000); translationTimer.unref?.();
   const handlers = knowledgeHandlers({
     db: getDatabase,

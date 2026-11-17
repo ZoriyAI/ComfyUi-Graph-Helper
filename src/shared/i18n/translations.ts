@@ -1,0 +1,33 @@
+/** Background model-description work stays separate from file-read progress. */
+export const translationQueueEn = {
+  title: 'Model descriptions in Russian',
+  lead: 'Your configured assistant translates descriptive text from every model folder. Original text, trigger words and file names remain available. Translation uses the assistant and its memory; it does not delay catalog reading.',
+  'not-russian': 'Automatic translation runs only when Russian is the interface language.',
+  unavailable: 'Choose or resume an assistant in Settings → Assistant to translate descriptions.',
+  paused: 'Translation is paused. Saved translations and original descriptions remain available.',
+  running: 'Translating a description…',
+  idle: 'No description is being translated now. New text is checked automatically.',
+  counts: 'Waiting in the queue: {{pending}} · failed: {{failed}} · cached translations: {{cached}}. Identical descriptions share a translation.',
+  active: 'Reading text for {{directory}} / {{name}}',
+  pause: 'Pause translation', resume: 'Resume translation', retry: 'Retry failed translations',
+  retryOne: 'Retry this translation',
+  error: 'The translation action did not finish. Refresh the status and try again.',
+  refresh: 'Refresh translation status',
+  caveat: 'An automatic translation can contain mistakes. Compare with the original before following model instructions.',
+};
+export const translationQueueRu = {
+  title: 'Описания моделей на русском',
+  lead: 'Настроенный помощник переводит описания из всех папок моделей. Исходный текст, триггерные слова и имена файлов сохраняются. Перевод использует помощника и его память, но не задерживает чтение каталога.',
+  'not-russian': 'Автоматический перевод работает только при русском языке интерфейса.',
+  unavailable: 'Выберите или возобновите помощника в «Настройки → Помощник», чтобы переводить описания.',
+  paused: 'Перевод на паузе. Сохранённые переводы и исходные описания доступны.',
+  running: 'Переводим описание…',
+  idle: 'Сейчас описания не переводятся. Новые тексты проверяются автоматически.',
+  counts: 'В очереди: {{pending}} · с ошибкой: {{failed}} · переводов в кэше: {{cached}}. Одинаковые описания используют общий перевод.',
+  active: 'Переводим текст для {{directory}} / {{name}}',
+  pause: 'Приостановить перевод', resume: 'Продолжить перевод', retry: 'Повторить неудавшиеся переводы',
+  retryOne: 'Повторить этот перевод',
+  error: 'Не удалось завершить действие с переводом. Обновите состояние и попробуйте ещё раз.',
+  refresh: 'Обновить состояние перевода',
+  caveat: 'Автоматический перевод может ошибаться. Перед выполнением инструкций модели сверьтесь с оригиналом.',
+};

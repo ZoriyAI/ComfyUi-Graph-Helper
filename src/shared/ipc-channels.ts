@@ -137,6 +137,8 @@ export const IPC_CHANNELS = {
   /** The model files a model field can take, with family and fit to the checkpoint upstream . */
   KNOWLEDGE_FIELD_MODELS: 'knowledge:field-models',
   SYNC_STATUS: 'sync:status',
+  MODEL_TRANSLATION_STATUS: 'model-translation:status',
+  MODEL_TRANSLATION_CONTROL: 'model-translation:control',
   SYNC_NOW: 'sync:now',
   SYNC_SET_AUTO: 'sync:set-auto',
   SYNC_PAUSE_ENRICHMENT: 'sync:pause-enrichment',
