@@ -161,9 +161,19 @@ export function adoptLinkedType(nodes: Node[], edge: Edge, catalog: CatalogView)
   if (source.data?.comfyType === 'PrimitiveNode') {
     const port = (target.data?.inputs as PortDefinition[] | undefined)?.find((item) => item.id === edge.targetHandle);
     if (!port) return;
-    const type = port.dataType;
+    const previous = comfyOf(source);
+    const output = (source.data?.outputs as PortDefinition[] | undefined)?.[0];
+    const configured = output?.dataType && output.dataType !== '*' && output.dataType !== 'unknown' && Array.isArray(previous.widgets_values) && previous.widgets_values.length > 0;
+    const type = configured ? output.dataType : port.dataType;
+    // A second destination must not reset the Primitive value or rename its existing widget binding.
+    if (configured) {
+      edge.data = { ...edge.data, dataType: type, ...(edge.data?.comfyLink && !Array.isArray(edge.data.comfyLink) ? { comfyLink: { ...edge.data.comfyLink, type } } : {}) };
+      return;
+    }
     const spec = widgetInput(catalog, String(target.data?.comfyType ?? ''), port.name, target);
-    const value = (target.data?.parameters as Record<string, unknown> | undefined)?.[port.name];
+    const declared = catalog.nodes.find(item => item.classType === target.data?.comfyType);
+    const resolved = declared ? resolvedNode(declared, { parameters: target.data?.parameters, widgets: target.data?.comfy?.widgets_values, namedWidgets: target.data?.comfy?.widgets_values_named }) : undefined;
+    const value = resolved?.widgetOrderReliable ? resolved.values[port.name] : (target.data?.parameters as Record<string, unknown> | undefined)?.[port.name];
     // A number or a choice gets ComfyUI's "control after generate" slot too (and a choice its filter slot).
     const values: unknown[] = [value ?? null];
     if (type === 'INT' || type === 'FLOAT' || type === 'COMBO' || spec?.controlDefault !== undefined) values.push('fixed');

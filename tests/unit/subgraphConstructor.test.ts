@@ -7,6 +7,7 @@ import { readCatalog, upsertObjectInfo } from '../../src/main/catalog/repository
 import { parseObjectInfo } from '../../src/shared/catalog/objectInfo';
 import { exportWorkflow, projectWorkflow, type GraphSnapshot } from '../../src/shared/workflow/codec';
 import { mutationFromTool } from '../../src/shared/commands/tools';
+import { promotedFields, ownPromotedValue } from '../../src/shared/workflow/comfyLook';
 
 const info = { Sampler: { input: { required: { seed: ['INT', { default: 5 }], steps: ['INT', { default: 20 }], model: ['MODEL'] } }, output: ['LATENT'], python_module: 'nodes' } };
 function fixture() {
@@ -22,6 +23,33 @@ function fixture() {
 }
 
 describe('native subgraph constructor', () => {
+  it('reads modern definition-only promoted fields, edits named values, reorders and dissolves them', () => {
+    const { db, snap, commit, exported } = fixture();
+    const nodeId = commit({ type: 'add-node', nodeType: 'Sampler' }).result.nodeId as string;
+    const made = commit({ type: 'create-subgraph', name: 'Modern block', nodeIds: [nodeId], widgets: [{ nodeId, name: 'seed' }, { nodeId, name: 'steps' }] });
+    const file = exported(); const native = file.nodes[0];
+    delete native.properties.proxyWidgets;
+    native.widgets_values_named = { seed: 15, steps: 32 };
+    native.widgets_values = [5, 20]; // Named values are authoritative in current ComfyUI.
+    const inner = file.definitions.subgraphs[0].nodes[0];
+    inner.widgets_values_named = { seed: 5, steps: 20 };
+    expect(commit({ type: 'import-workflow', document: file }).status).toBe('applied');
+    expect(exported()).toEqual(file);
+    let data = snap().nodes[0].data;
+    expect(promotedFields(data).map(field => [field.nodeId, field.name])).toEqual([[nodeId, 'seed'], [nodeId, 'steps']]);
+    expect(ownPromotedValue(data, promotedFields(data)[1])).toEqual({ held: true, value: 32 });
+    expect(commit({ type: 'set-parameter', nodeId: String(native.id), key: 'widgets::1', widgetIndex: 1, value: 48 }).status).toBe('applied');
+    expect(exported().nodes[0].widgets_values_named).toEqual({ seed: 15, steps: 48 });
+    expect(commit({ type: 'configure-subgraph', definitionId: made.result.definitionId, name: 'Reordered', widgets: [{ nodeId, name: 'steps' }, { nodeId, name: 'seed' }] }).status).toBe('applied');
+    data = snap().nodes[0].data;
+    expect(data.comfy.widgets_values).toEqual([48, 15]);
+    expect(data.comfy.properties.proxyWidgets).toBeUndefined();
+    expect(ownPromotedValue(data, promotedFields(data)[0]).value).toBe(48);
+    expect(commit({ type: 'dissolve-subgraph', nodeId: String(native.id) }).status).toBe('applied');
+    expect(exported().nodes[0].widgets_values_named).toEqual({ seed: 15, steps: 48 });
+    db.close();
+  });
+
   it('dissolves native boundary-promoted widget values back into the connected inner field', () => {
     const { db, snap, commit, exported } = fixture();
     const made = commit({ type: 'create-subgraph', name: 'Boundary controls', nodeIds: [], inputs: [{ name: 'seedControl', type: 'INT' }], outputs: [] });

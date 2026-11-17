@@ -22,6 +22,19 @@ const exportDoc = (db: Database.Database): Record<string, any> => { const result
 afterEach(() => databases.splice(0).forEach(db => db.close()));
 
 describe('native dynamic input declarations', () => {
+  it('removes obsolete promoted children through nested copies when a dynamic mode changes, and undoes', () => {
+    const db = open(); applied(db, { type: 'import-workflow', document: dynamicWorkflow });
+    const made = applied(db, { type: 'create-subgraph', name: 'Dynamic copy', nodeIds: ['2'], widgets: [{ nodeId: '2', name: 'mode.multiplier' }] }).result as { definitionId: string; nodeId: string };
+    applied(db, { type: 'create-subgraph', name: 'Outer copy', nodeIds: [made.nodeId], widgets: [{ nodeId: made.nodeId, name: 'mode.multiplier' }] });
+    const before = head(db).currentRevisionId;
+    applied(db, { type: 'edit-in-subgraph', definitionId: made.definitionId, edit: { type: 'set-parameter', nodeId: '2', key: 'mode', value: 'dimensions' } });
+    const saved = exportDoc(db);
+    for (const definition of saved.definitions.subgraphs) expect(definition.widgets).toEqual([]);
+    expect(saved.nodes.find((node: any) => node.title === 'Outer copy').widgets_values).toEqual([]);
+    applied(db, { type: 'restore-revision', revisionId: before });
+    expect(exportDoc(db).definitions.subgraphs.every((definition: any) => definition.widgets.length === 1)).toBe(true);
+  });
+
   it('reads the selected positional branch, persists its declaration, and displays actual named fields', () => {
     const db = open(); applied(db, { type: 'import-workflow', document: dynamicWorkflow });
     const spec = readCatalog(db).nodes.find(node => node.classType === 'DynamicImage')!;

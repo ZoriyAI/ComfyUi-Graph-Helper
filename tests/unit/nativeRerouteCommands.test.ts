@@ -28,6 +28,33 @@ function branched(): any {
 }
 
 describe('native reroute commands', () => {
+  it('keeps shared chains on the right level through wrap, move, dissolve and Undo', () => {
+    const db = open(); const original = branched();
+    expect(commit(db, { type: 'import-workflow', document: original }).status).toBe('applied');
+    const before = head(db).currentRevisionId;
+    const wrapped = commit(db, { type: 'create-subgraph', name: 'Routed pair', nodeIds: ['1', '2'] });
+    expect(wrapped.status).toBe('applied');
+    const { nodeId, definitionId } = wrapped.result as { nodeId: string; definitionId: string };
+    let saved = exportDoc(db);
+    const inner = saved.definitions.subgraphs.find((item: any) => item.id === definitionId);
+    expect(inner.reroutes).toEqual([{ id: 1, pos: [300, 300], linkIds: [2], futurePoint: 'keep' }, { id: 2, parentId: 1, pos: [350, 350], linkIds: [2] }]);
+    expect(saved.reroutes).toEqual([{ id: 1, pos: [300, 300], linkIds: [3], futurePoint: 'keep' }]);
+    const paths = (doc: Record<string, any>) => reroutePaths(doc, doc.links.map((edge: any) => ({ id: String(edge.id), parentId: edge.parentId })));
+    expect(paths(inner).get('2')).toHaveLength(2);
+    const instance = snap(db).nodes.find(node => node.id === nodeId)!;
+    commit(db, { type: 'move-node', nodeId, x: instance.position.x + 100, y: instance.position.y + 50 });
+    expect(commit(db, { type: 'dissolve-subgraph', nodeId }).status).toBe('applied');
+    saved = exportDoc(db);
+    const inside = saved.links.find((edge: any) => edge.origin_id === 1 && edge.target_id === 2);
+    const outside = saved.links.find((edge: any) => edge.origin_id === 1 && edge.target_id === 4);
+    expect(paths(saved).get(String(inside.id))?.map(({ x, y }) => [x, y])).toEqual([[400, 350], [450, 400]]);
+    expect(paths(saved).get(String(outside.id))?.map(({ x, y }) => [x, y])).toEqual([[300, 300]]);
+    expect(saved.reroutes.filter((point: any) => point.futurePoint === 'keep')).toHaveLength(2);
+    expect(new Set(saved.reroutes.map((point: any) => point.id)).size).toBe(saved.reroutes.length);
+    expect(commit(db, { type: 'restore-revision', revisionId: before }).status).toBe('applied');
+    saved = exportDoc(db); expect(saved.reroutes).toEqual(original.reroutes); expect(saved.links).toEqual(original.links);
+  });
+
   it('moves a shared point, deletes it without changing node connections, round-trips and undoes', () => {
     const db = open(); expect(commit(db, { type: 'import-workflow', document: branched() }).status).toBe('applied');
     const nodes = structuredClone(snap(db).nodes); const edges = structuredClone(snap(db).edges);
@@ -45,6 +72,32 @@ describe('native reroute commands', () => {
     expect(exportDoc(copy)).toEqual(saved);
     expect(commit(db, { type: 'restore-revision', revisionId: beforeDelete }).status).toBe('applied');
     expect(exportDoc(db).reroutes).toEqual(moved.reroutes); expect(exportDoc(db).links).toEqual(moved.links);
+  });
+
+  it('retains ancestors of unconnected points and extension fields when wrapping and dissolving', () => {
+    const doc = branched();
+    doc.reroutes.push({ id: 3, parentId: 2, pos: [370, 360], linkIds: [] });
+    doc.extra = { linkExtensions: [{ id: 2, parentId: 2, futureExtension: 'keep' }] };
+    const db = open(); commit(db, { type: 'import-workflow', document: doc });
+    const wrapped = commit(db, { type: 'create-subgraph', name: 'Pair', nodeIds: ['1', '2'] });
+    expect(wrapped.status).toBe('applied');
+    const { nodeId } = wrapped.result as { nodeId: string };
+    expect(exportDoc(db).reroutes.map((point: any) => point.id)).toEqual([1, 2, 3]);
+    expect(commit(db, { type: 'dissolve-subgraph', nodeId }).status).toBe('applied');
+    const saved = exportDoc(db);
+    const inside = saved.links.find((edge: any) => edge.origin_id === 1 && edge.target_id === 2);
+    expect(saved.extra.linkExtensions.find((extension: any) => extension.id === inside.id)).toEqual({ id: inside.id, parentId: inside.parentId, futureExtension: 'keep' });
+  });
+
+  it('refuses exhausting native point ids atomically while dissolving', () => {
+    const db = open(); commit(db, { type: 'import-workflow', document: branched() });
+    const wrapped = commit(db, { type: 'create-subgraph', name: 'Pair', nodeIds: ['1', '2'] });
+    const { nodeId } = wrapped.result as { nodeId: string };
+    const doc = exportDoc(db); doc.state.lastRerouteId = Number.MAX_SAFE_INTEGER;
+    commit(db, { type: 'import-workflow', document: doc });
+    const before = head(db).currentRevisionId;
+    expect(commit(db, { type: 'dissolve-subgraph', nodeId }).status).toBe('rejected');
+    expect(head(db).currentRevisionId).toBe(before);
   });
 
   it('inserts a terminal point on only one branch and never reuses its id after Undo or removal', () => {

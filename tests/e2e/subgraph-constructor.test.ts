@@ -56,6 +56,24 @@ test('construct a native node with ports and settings, then build an empty subgr
     expect(file.definitions.subgraphs[0].widgets).toEqual([{ id: '1', name: 'steps' }]);
     expect(file.definitions.subgraphs[0].links).toHaveLength(2);
     expect(file.definitions.subgraphs[0].inputs[0].type).toBe('MODEL'); expect(file.definitions.subgraphs[0].outputs[0].type).toBe('LATENT');
+    // Current ComfyUI stores the binding on the definition and values by name, without proxyWidgets.
+    const modern = structuredClone(exported.workflow) as Record<string, any>;
+    delete modern.nodes[0].properties.proxyWidgets;
+    modern.nodes[0].widgets_values_named = { steps: 37 };
+    await page.evaluate(async (document) => {
+      const head = await window.electronAPI.readProjection('desktop');
+      const result = await window.electronAPI.commitCommand({ projectId: 'desktop', actionId: 'modern-subgraph-import', expectedRevisionId: head!.currentRevisionId, actor: 'manual', runId: null, payload: { type: 'import-workflow', document } });
+      if (result.status !== 'applied') throw Error('Modern subgraph import refused');
+    }, modern);
+    await page.reload();
+    await expect(steps).toHaveValue('37'); await steps.fill('44'); await steps.press('Enter');
+    await expect(steps).toHaveValue('44');
+    await page.reload(); await expect(steps).toHaveValue('44');
+    const modernSaved = await page.evaluate(() => window.electronAPI.exportWorkflowDocument());
+    expect(modernSaved.ok).toBe(true);
+    if (!modernSaved.ok) throw Error('Modern export refused');
+    expect((modernSaved.workflow as Record<string, any>).nodes[0].widgets_values_named).toEqual({ steps: 44 });
+    expect((modernSaved.workflow as Record<string, any>).nodes[0].properties.proxyWidgets).toBeUndefined();
     await outer.getByRole('button', { name: 'Open subgraph Sampler block', exact: true }).click();
     await rail.getByRole('button', { name: 'Subgraph constructor…', exact: true }).click();
     const nested = page.getByRole('dialog', { name: 'Create a subgraph node', exact: true });

@@ -430,10 +430,9 @@ describe('subgraph slot names', () => {
 });
 
 describe('every way of adding a node goes into the open subgraph', () => {
-  it('scopes add-node and insert-subgraph to the open definition, and lessons refuse while one is open', async () => {
+  it('scopes add-node, insert-subgraph and boundary links to the open definition', async () => {
     const { scopedToLevel } = await import('../../src/renderer/components/graph/commit');
     const { useGraphStore } = await import('../../src/renderer/state/graphState');
-    const { useToastStore } = await import('../../src/renderer/ui/toastStore');
     const db = openDb();
     importNested(db);
     useGraphStore.setState({ subgraphs: snap(db).subgraphs!, nodes: [], activeSubgraphId: OUTER_ID, subgraphPath: [OUTER_ID] });
@@ -447,12 +446,7 @@ describe('every way of adding a node goes into the open subgraph', () => {
     const renameSlot = { type: 'rename-subgraph-io' as const, definitionId: OUTER_ID, direction: 'input' as const, slotId: 'x', name: 'y' };
     expect(scopedToLevel(renameSlot)).toEqual(renameSlot);
 
-    // "Do it for me" in a lesson writes nothing anywhere and says the lesson follows the main canvas.
-    const { doFix } = await import('../../src/renderer/components/lessons/lessonModel');
-    const revision = head(db).currentRevisionId;
-    await doFix({ kind: 'add-node', classType: 'KSampler' });
-    expect(useToastStore.getState().toasts.some((toast) => toast.id === 'lesson-in-subgraph')).toBe(true);
-    expect(head(db).currentRevisionId).toBe(revision);
+    // Lesson actions follow this scope too; lessonInstanceContext covers their real commit/Undo flow.
     useGraphStore.setState({ activeSubgraphId: null, subgraphPath: [] });
     db.close();
   });

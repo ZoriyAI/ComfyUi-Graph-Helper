@@ -9,6 +9,7 @@ import { DynamicInputError, reconcileDynamicConnections, setDynamicParameter } f
  * harmless; the expected revision turns a race with the person or another run into a 'conflict', never a lost edit.
  */
 import { missingOnGraph, type GraphNodeLike } from '../../shared/graph/compatibility';
+import { promotedWidgetName } from '../../shared/workflow/promotedWidgets';
 import { nodeRunMode } from '../../shared/graph/layout';
 import { randomUUID } from 'crypto';
 import type Database from 'better-sqlite3';
@@ -712,8 +713,8 @@ function applyMutationCore(snapshot: Snapshot, actionId: string, payload: GraphM
         : payload.widgetIndex;
       const declared = catalog.nodes.find((item) => item.classType === classType);
       const layout = declared ? resolvedNode(declared, { widgets, namedWidgets: comfy.widgets_values_named }) : undefined;
-      const nativeKey = widgetIndex !== undefined && layout?.widgetOrderReliable ? layout.nativeWidgetOrder[widgetIndex] : undefined;
-      if (comfy.widgets_values_named && payload.key.startsWith('widgets::') && !nativeKey) throw new CommandSignal('rejected', { error: 'Catalog widget order does not match widgets_values.' });
+      const nativeKey = widgetIndex === undefined ? undefined : layout?.widgetOrderReliable ? layout.nativeWidgetOrder[widgetIndex] : promotedWidgetName(node.data, widgetIndex);
+      if (comfy.widgets_values_named && !nativeKey) throw new CommandSignal('rejected', { error: 'Catalog widget order does not match widgets_values.' });
       patchWidgets(comfy, payload.key, payload.value, widgetIndex, nativeKey ?? payload.key);
     }
     node.data = { ...node.data, parameters, comfy };

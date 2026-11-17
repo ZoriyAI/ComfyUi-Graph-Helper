@@ -1,3 +1,4 @@
+import { promotedWidgetPairs, promotedWidgetValue } from '../workflow/promotedWidgets';
 /** File sizes are a reference, not VRAM usage. Offloading, quantization, activations and runtime sharing vary. */
 import type { CatalogView } from '../catalog/types';
 import type { GraphResources, HardwareSnapshot } from '../contracts/resources';
@@ -18,7 +19,7 @@ export function assessGraphResources(snapshot: GraphSnapshot, catalog: CatalogVi
       if (definition) {
         if (stack.has(type)) { reasons.push('recursive-definition'); continue; }
         const inner = structuredClone(definition.nodes);
-        const proxies = node.data.comfy?.properties?.proxyWidgets; const values = node.data.comfy?.widgets_values;
+        const proxies = promotedWidgetPairs(node.data); const values = proxies.map((_, index) => promotedWidgetValue(node.data, index).value);
         if (Array.isArray(proxies) && Array.isArray(values)) proxies.forEach((pair, index) => {
           if (!Array.isArray(pair) || index >= values.length || values[index] == null) return;
           const targets = String(pair[0]) === '-1'

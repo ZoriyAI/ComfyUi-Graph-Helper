@@ -1,4 +1,5 @@
 import { hasDynamicInputs, resolvedNode } from '../catalog/dynamicInputs';
+import { definitionWidgetPairs } from './promotedWidgets';
 /**
  * The ComfyUI workflow codec: reads a workflow file (UI format 1 or the older 0.4) into the app's graph snapshot
  * (canvas nodes and edges, subgraph definitions, groups, and a stored copy of the rest of the file), and writes the
@@ -1193,8 +1194,9 @@ export function markInstances(nodes: Array<Record<string, any>>, subgraphs: Subg
     const ports = instancePorts(definition);
     node.data = { ...node.data, kind: SUBGRAPH_INSTANCE_KIND, subgraphId: definition.id, inputs: ports.inputs, outputs: ports.outputs };
     const native = node.data.comfy;
-    if (!definition.instanceDefaults && Array.isArray(native?.properties?.proxyWidgets)) {
-      definition.instanceDefaults = Object.fromEntries(['inputs', 'outputs', 'properties', 'widgets_values', 'size'].filter((key) => native[key] !== undefined).map((key) => [key, structuredClone(native[key])]));
+    if (!Array.isArray(native?.properties?.proxyWidgets)) node.data.promotedWidgets = definitionWidgetPairs(definition.raw);
+    if (!definition.instanceDefaults && (Array.isArray(native?.properties?.proxyWidgets) || node.data.promotedWidgets?.length)) {
+      definition.instanceDefaults = Object.fromEntries(['inputs', 'outputs', 'properties', 'widgets_values', 'widgets_values_named', 'size'].filter((key) => native[key] !== undefined).map((key) => [key, structuredClone(native[key])]));
     }
   }
 }

@@ -22,7 +22,8 @@ import {
   type GraphSnapshot,
   type WorkflowDocumentState,
 } from '../../shared/workflow/codec';
-import { retargetDissolvedWidgets, retargetWrappedWidgets } from './dissolvedWidgets';
+import { removePromotedReferences, retargetDissolvedWidgets, retargetWrappedWidgets } from './dissolvedWidgets';
+import { hasDynamicInputs, resolvedNode } from '../../shared/catalog/dynamicInputs';
 import { GraphOpError, Ids, SUBGRAPH_ERRORS, instanceNode } from './graphOps';
 import { lastNativeRerouteId } from '../../shared/workflow/nativeReroutes';
 
@@ -249,6 +250,24 @@ export function applyInnerEdit(
       .some((node) => node.data?.comfyType === removed.id);
     if (!stillUsed) isolated.subgraphs = isolated.subgraphs!.filter((item) => item.id !== removed.id);
     return { snapshot: isolated, result: { ...applied.result, definitionRemoved: !stillUsed, definitionId: definition.id, dissolvedDefinitionId: removed.id, edit: edit.type } };
+  }
+  if (edit.type === 'set-parameter' || edit.type === 'remove-node') {
+    const previous = definition.nodes.find(node => String(node.id) === edit.nodeId);
+    const current = nodes.find(node => String(node.id) === edit.nodeId);
+    const spec = catalog.nodes.find(item => item.classType === previous?.data?.comfyType);
+    const removed = new Set<string>();
+    if (previous && spec && hasDynamicInputs(spec)) {
+      const layout = (node: Node) => resolvedNode(spec, { parameters: node.data.parameters, widgets: node.data.comfy?.widgets_values, namedWidgets: node.data.comfy?.widgets_values_named });
+      const beforeLayout = layout(previous); const afterLayout = current ? layout(current) : undefined;
+      if (beforeLayout.widgetOrderReliable && (!afterLayout || afterLayout.widgetOrderReliable)) {
+        for (const name of beforeLayout.widgetOrder) if (!afterLayout?.widgetOrder.includes(name)) removed.add(`${edit.nodeId}::${name}`);
+      }
+    }
+    if (removed.size) {
+      const isolated = structuredClone(next);
+      removePromotedReferences(isolated, definition.id, removed);
+      return { snapshot: isolated, result: { definitionId: definition.id, edit: edit.type, ...applied.result } };
+    }
   }
   return { snapshot: next, result: { definitionId: definition.id, edit: edit.type, ...applied.result } };
 }

@@ -388,6 +388,16 @@ describe.skipIf(dirs.length === 0)('corpus edits: a change made in the app expor
       const before = nodes[index].widgets_values[0];
       const value = typeof before === 'number' ? before + 1 : `${before}-changed`;
       const changed = commit(db, { type: 'set-parameter', nodeId: String(nodes[index].id), key: 'probe', value, widgetIndex: 0 });
+      // Without this extension's catalog, a guessed name cannot be paired with a named serialization slot.
+      // The public editor uses the same refusal: the existing workflow must stay intact.
+      if (nodes[index].widgets_values_named) {
+        const exported = exportFromDb(db); db.close();
+        if (changed.status !== 'rejected') return ['unknown named widget edit was not refused'];
+        if (!exported.ok) return [`export refused: ${exported.error}`];
+        const local: string[] = [];
+        compare('unmapped-named-refusal', expectedUnchanged(document), exported.workflow, local, classes);
+        return local;
+      }
       if (changed.status !== 'applied') {
         db.close();
         return [`set-parameter ${changed.status} ${short(changed.result)}`];

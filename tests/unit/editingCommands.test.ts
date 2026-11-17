@@ -152,6 +152,12 @@ describe('editor nodes', () => {
     expect(primitive.data.outputs[0]).toMatchObject({ name: 'INT', dataType: 'INT' });
     expect(primitive.data.comfy.outputs[0]).toMatchObject({ type: 'INT', widget: { name: 'seed' } });
     expect(primitive.data.comfy.widgets_values).toEqual([0, 'fixed']);
+    expect(commit(db, 'p-value', { type: 'set-parameter', nodeId: '4', key: 'widgets::0', widgetIndex: 0, value: 123 }).status).toBe('applied');
+    const configured = structuredClone(node(db, '4').data.comfy);
+    const steps = node(db, '2').data.inputs.find((input: any) => input.name === 'steps');
+    expect(commit(db, 'p-second-link', { type: 'connect', source: '4', sourceHandle: 'out-0', target: '2', targetHandle: steps.id }).status).toBe('applied');
+    expect(node(db, '4').data.comfy).toEqual(configured);
+    expect(node(db, '4').data.comfy.widgets_values).toEqual([123, 'fixed']);
     db.close();
   });
 });

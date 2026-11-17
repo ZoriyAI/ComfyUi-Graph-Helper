@@ -1,3 +1,4 @@
+import { definitionWidgetPairs, promotedWidgetPairs, promotedWidgetValue } from '../../shared/workflow/promotedWidgets';
 import { hasDynamicInputs, resolvedNode } from '../../shared/catalog/dynamicInputs';
 /**
  * Subgraph and group commands: make a subgraph from selected nodes, place, rename, change the slots of and dissolve
@@ -9,6 +10,7 @@ import { hasDynamicInputs, resolvedNode } from '../../shared/catalog/dynamicInpu
 import { randomUUID } from 'crypto';
 import type { CatalogView } from '../../shared/catalog/types';
 import { exposedWidgets, refreshExposedWidgets, setExposedWidgets } from './subgraphWidgets';
+import { dissolveReroutes, wrapReroutes, RerouteTransferError, type RerouteSource } from './rerouteTransfer';
 import { widgetOrderMatches } from '../../shared/workflow/widgetValues';
 import type { GraphMutation } from '../../shared/commands/types';
 import { portsCompatible } from '../../shared/graph/linkTypes';
@@ -211,6 +213,7 @@ export function instanceNode(id: string, definition: SubgraphDefinition, x: numb
       outputs: ports.outputs,
       parameters: {},
       annotations: [],
+      ...(defaults.widgets_values_named && !Array.isArray(defaults.properties?.proxyWidgets) ? { promotedWidgets: definitionWidgetPairs(definition.raw) } : {}),
       comfy: {
         ...defaults,
         id: idValue(id),
@@ -374,6 +377,7 @@ function createSubgraph(work: GraphSnapshot, ids: Ids, payload: Extract<GraphMut
     raw: newDefinitionRaw(payload.name, moved),
   };
   definition.raw.description = payload.description ?? '';
+  wrapReroutes(work, definition, innerEdges);
   try { setExposedWidgets(definition, payload.widgets ?? [], catalog); } catch (error) { fail((error as Error).message); }
   const box = centre(moved);
   const instanceId = ids.node(new Set([...canvasIds].filter((id) => !set.has(id))));
@@ -516,9 +520,8 @@ function renameSubgraph(work: GraphSnapshot, payload: Extract<GraphMutation, { t
  * positional ones by the index the inner node's own `widgets` list (when stored) gives the name.
  */
 function promoteInstanceValues(instance: Node, restored: Node[], idMap: Map<string, string>, definition: SubgraphDefinition, catalog?: CatalogView): void {
-  const comfy = instance.data?.comfy;
-  const proxies = comfy?.properties?.proxyWidgets;
-  const values = comfy?.widgets_values;
+  const proxies = promotedWidgetPairs(instance.data);
+  const values = proxies.map((_, index) => promotedWidgetValue(instance.data, index).value);
   if (!Array.isArray(proxies) || !Array.isArray(values)) return;
   const apply = (sourceId: string, rawName: string, value: unknown) => {
     const target = restored.find((node) => String(node.id) === (idMap.get(sourceId) ?? sourceId));
@@ -536,12 +539,17 @@ function promoteInstanceValues(instance: Node, restored: Node[], idMap: Map<stri
     const names = widgetOrderMatches(widgets, spec?.widgetOrder, spec?.widgetOrderReliable !== false)
       ? spec!.widgetOrder
       : Array.isArray(inner.widgets) ? inner.widgets.map((item: { name?: unknown }) => String(item?.name ?? '')) : [];
-    const nativeProxies = inner.properties?.proxyWidgets;
+    const nativeProxies = promotedWidgetPairs(target.data);
     const proxySlots = Array.isArray(nativeProxies) ? nativeProxies.flatMap((pair: unknown, index: number) =>
       Array.isArray(pair) && (rawName === `${pair[0]}::${pair[1]}` || rawName === String(pair[1])) ? [index] : []) : [];
     const slot = proxySlots.length === 1 ? proxySlots[0] : names.indexOf(name);
     if (Array.isArray(widgets) && slot >= 0 && slot < widgets.length) {
       const copy = widgets.slice(); copy[slot] = value; inner.widgets_values = copy;
+      if (inner.widgets_values_named && typeof inner.widgets_values_named === 'object') {
+        const layout = spec && resolvedNode(spec, { widgets, namedWidgets: inner.widgets_values_named });
+        const key = layout?.nativeWidgetOrder[slot] ?? name;
+        inner.widgets_values_named = { ...inner.widgets_values_named, [key]: value };
+      }
       target.data.parameters = { ...(target.data.parameters ?? {}), [name]: value };
     } else fail('Subgraph widget source is missing or its field layout is unknown.');
   };
@@ -592,6 +600,7 @@ function dissolveSubgraph(work: GraphSnapshot, ids: Ids, payload: Extract<GraphM
   const mapped = (id: unknown) => idMap.get(String(id)) ?? String(id);
   const isBoundary = (edge: Edge) => String(edge.source) === SUBGRAPH_INPUT_NODE_ID || String(edge.target) === SUBGRAPH_OUTPUT_NODE_ID;
   const created: Edge[] = [];
+  const routed: Array<{ edge: Edge; sources: RerouteSource[] }> = [];
   // Preserve native extension fields while assigning fresh link ids and endpoints on this graph level.
   const restoredEdge = (source: string, sourceHandle: string, target: string, targetHandle: string, dataType: string, ...originals: Edge[]) => {
     const fresh = makeEdge(ids.link(), source, sourceHandle, target, targetHandle, dataType, format);
@@ -600,8 +609,15 @@ function dissolveSubgraph(work: GraphSnapshot, ids: Ids, payload: Extract<GraphM
       const link = edge.data?.comfyLink;
       return link && typeof link === 'object' && !Array.isArray(link) ? link : {};
     }));
-    return { ...Object.assign({}, ...originals), ...fresh, data: { ...data, ...fresh.data,
+    const restored = { ...Object.assign({}, ...originals), ...fresh, data: { ...data, ...fresh.data,
       ...(format === WORKFLOW_FORMAT_V1 ? { comfyLink: { ...native, ...fresh.data.comfyLink } } : {}) } };
+    const isInner = (edge: Edge) => definition.edges.includes(edge);
+    const ordered = [...originals].sort((a, b) => {
+      const order = (edge: Edge) => isInner(edge) ? 1 : String(edge.target) === String(instance.id) ? 0 : 2;
+      return order(a) - order(b);
+    });
+    routed.push({ edge: restored, sources: ordered.map(edge => ({ edge, inner: isInner(edge) })) });
+    return restored;
   };
   for (const edge of definition.edges) {
     if (isBoundary(edge)) continue;
@@ -633,6 +649,12 @@ function dissolveSubgraph(work: GraphSnapshot, ids: Ids, payload: Extract<GraphM
     for (const inner of sources) {
       created.push(restoredEdge(mapped(inner.source), String(inner.sourceHandle), String(outer.target), String(outer.targetHandle), String(outer.data?.dataType ?? definition.outputs[slot]?.type ?? ''), inner, outer));
     }
+  }
+  try {
+    dissolveReroutes(work, definition, work.edges.filter(edge => String(edge.source) === instanceId || String(edge.target) === instanceId), routed, dx, dy);
+  } catch (error) {
+    if (error instanceof RerouteTransferError) fail(error.message);
+    throw error;
   }
   work.nodes = [...work.nodes.filter((node) => node !== instance), ...restored];
   work.edges = [...work.edges.filter((edge) => String(edge.source) !== instanceId && String(edge.target) !== instanceId), ...created];

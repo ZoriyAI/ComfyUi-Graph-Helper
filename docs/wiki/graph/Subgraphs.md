@@ -31,15 +31,15 @@ Open an existing node through its **Open** button, double-click its background, 
 
 Select its instance and open **Properties → Configure subgraph node**. Change its name/purpose, add interface ports or choose the outer controls. Existing ports can be renamed or removed from the inner editor. Copies share the definition's structure and default inner settings; exposed values on each instance remain independent, including after control reordering. Editing the common inner graph affects all copies.
 
-**Dissolve subgraph** works on the main canvas and inside another subgraph. It restores nodes, boundary links and inner groups, applies that instance's exposed values, and retargets controls exposed through parent nodes. Other instances keep their independent values. `Ctrl+Z` restores the previous revision. A shared definition is retained while another instance uses it. Unknown or ambiguous widget layouts are refused without changing the graph.
+**Dissolve subgraph** works on the main canvas and inside another subgraph. It restores nodes, boundary links and inner groups, applies that instance's exposed values, and retargets controls exposed through parent nodes. Routing points follow their inner links, including shared paths. Other instances keep their independent values. `Ctrl+Z` restores the previous revision. A shared definition is retained while another instance uses it. Unknown or ambiguous widget layouts are refused without changing the graph.
 
 ## Ask the assistant
 
-In Build mode the assistant can create empty subgraphs or wrap its own nodes, choose typed ports and controls, and construct nested graphs through the same command engine. It can edit inside definitions created by that build; pre-existing user definitions remain protected. The lesson canvas and the assistant's initial view still start on the main graph.
+In Build mode the assistant can create empty subgraphs or wrap its own nodes, choose typed ports and controls, and construct nested graphs through the same command engine. It can work inside existing definitions too. Lessons follow the open canvas or selected subgraph copy; exposed settings are read from that copy, while the definition remains shared.
 
 ## Export and execution
 
-Use **Save workflow for ComfyUI…**. The export uses native format1 `definitions.subgraphs`, typed boundary links and promoted-widget mappings. Open it in a ComfyUI frontend that supports subgraphs; install the node packs and models it needs. NodeWise edits and exports the graph; ComfyUI executes its inner nodes.
+Use **Save workflow for ComfyUI…**. The constructor uses native format 1 definitions, typed boundary links and exposed controls. Imported subgraphs from current ComfyUI also retain their 0.4 envelope and named values. A saved file can return from ComfyUI without legacy `proxyWidgets`; its exposed controls remain editable. Open it in a ComfyUI frontend that supports subgraphs; install the node packs and models it needs. NodeWise edits and exports the graph; ComfyUI executes its inner nodes.
 
 A subgraph composes existing node operations. Implementing a new algorithm requires a Python custom-node extension; this constructor does not generate or run such a package. Full parity with every custom JavaScript widget and execution on a real ComfyUI server have not been verified for this release.
 

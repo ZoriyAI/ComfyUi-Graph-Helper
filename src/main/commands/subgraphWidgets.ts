@@ -1,3 +1,4 @@
+import { definitionWidgetPairs, promotedWidgetName, promotedWidgetPairs, promotedWidgetValue } from '../../shared/workflow/promotedWidgets';
 import { hasDynamicInputs, resolvedNode } from '../../shared/catalog/dynamicInputs';
 /** Native exposed-widget definitions and the independent values held by each subgraph instance. */
 import type { CatalogView } from '../../shared/catalog/types';
@@ -8,20 +9,19 @@ type Node = Record<string, any>;
 export type ExposedWidget = { nodeId: string; name: string };
 
 export function exposedWidgets(definition: SubgraphDefinition): ExposedWidget[] {
-  const list = definition.raw.widgets;
-  return Array.isArray(list) ? list.flatMap((entry) => entry && typeof entry.id === 'string' && typeof entry.name === 'string' ? [{ nodeId: entry.id, name: entry.name }] : []) : [];
+  return definitionWidgetPairs(definition.raw).map(([nodeId, name]) => ({ nodeId, name }));
 }
 
 function sourceValue(definition: SubgraphDefinition, field: ExposedWidget, catalog?: CatalogView): { found: boolean; value?: unknown } {
   const node = definition.nodes.find((item) => String(item.id) === field.nodeId);
   if (!node) return { found: false };
   const data = node.data ?? {};
-  const nativeProxies = data.comfy?.properties?.proxyWidgets;
+  const nativeProxies = promotedWidgetPairs(data);
   const nativeValues = data.comfy?.widgets_values;
   if (Array.isArray(nativeProxies) && Array.isArray(nativeValues)) {
     const exact = nativeProxies.flatMap((pair: unknown, index: number) => Array.isArray(pair) && field.name === `${pair[0]}::${pair[1]}` ? [index] : []);
     const slots = exact.length ? exact : nativeProxies.flatMap((pair: unknown, index: number) => Array.isArray(pair) && field.name === String(pair[1]) ? [index] : []);
-    if (slots.length === 1 && slots[0] < nativeValues.length) return { found: true, value: nativeValues[slots[0]] };
+    if (slots.length === 1 && slots[0] < nativeValues.length) return { found: true, value: promotedWidgetValue(data, slots[0]).value };
   }
   const declared = catalog?.nodes.find((item) => item.classType === data.comfyType);
   const spec = declared && hasDynamicInputs(declared) ? resolvedNode(declared, { parameters: data.parameters, widgets: data.comfy?.widgets_values, namedWidgets: data.comfy?.widgets_values_named }) : declared;
@@ -60,20 +60,29 @@ export function refreshExposedWidgets(node: Node, definition: SubgraphDefinition
   const data = node.data;
   const comfy = { ...(data.comfy ?? {}) };
   const properties = { ...(comfy.properties ?? {}) };
+  const previousPairs = promotedWidgetPairs(data);
+  const oldNames = previousPairs.map((_, index) => promotedWidgetName(data, index));
   const old = new Map<string, unknown>();
-  if (Array.isArray(properties.proxyWidgets) && Array.isArray(comfy.widgets_values)) {
-    properties.proxyWidgets.forEach((source: unknown, index: number) => {
-      if (Array.isArray(source) && index < comfy.widgets_values.length) old.set(JSON.stringify(source.map(String)), comfy.widgets_values[index]);
-    });
-  }
+  previousPairs.forEach((source, index) => {
+    if (Array.isArray(source)) old.set(JSON.stringify(source.map(String)), promotedWidgetValue(data, index).value);
+  });
   const managed = new Set((previousFields ?? fields).map((field) => JSON.stringify([field.nodeId, field.name])));
-  const retained: string[][] = Array.isArray(properties.proxyWidgets) ? properties.proxyWidgets.filter((pair: unknown) => Array.isArray(pair) && pair.length === 2 && !managed.has(JSON.stringify(pair.map(String)))).map((pair: unknown[]) => pair.map(String)) : [];
-  const retainedKeys = new Set(retained.map((pair) => JSON.stringify(pair)));
-  properties.proxyWidgets = [...retained, ...fields.filter((field) => !retainedKeys.has(JSON.stringify([field.nodeId, field.name]))).map((field) => [field.nodeId, field.name])];
+  const retained = previousPairs.filter((pair): pair is string[] => Array.isArray(pair) && pair.length === 2 && !managed.has(JSON.stringify(pair.map(String)))).map(pair => pair.map(String));
+  const retainedKeys = new Set(retained.map(pair => JSON.stringify(pair)));
+  const pairs = [...retained, ...fields.filter(field => !retainedKeys.has(JSON.stringify([field.nodeId, field.name]))).map(field => [field.nodeId, field.name])];
+  const names = pairs.map(pair => pairs.filter(other => other[1] === pair[1]).length === 1 ? pair[1] : `${pair[0]}::${pair[1]}`);
+  const modern = Array.isArray(data.promotedWidgets) && !Array.isArray(properties.proxyWidgets);
+  if (!modern) properties.proxyWidgets = pairs;
   comfy.properties = properties;
-  comfy.widgets_values = properties.proxyWidgets.map((pair: string[]) => {
+  comfy.widgets_values = pairs.map(pair => {
     const key = JSON.stringify(pair);
     return old.has(key) ? old.get(key) : sourceValue(definition, { nodeId: pair[0], name: pair[1] }, catalog).value ?? null;
   });
-  node.data = { ...data, comfy };
+  if (comfy.widgets_values_named && typeof comfy.widgets_values_named === 'object') {
+    comfy.widgets_values_named = Object.fromEntries([
+      ...Object.entries(comfy.widgets_values_named).filter(([name]) => !oldNames.includes(name)),
+      ...names.map((name, index) => [name, comfy.widgets_values[index]]),
+    ]);
+  }
+  node.data = { ...data, comfy, ...(modern ? { promotedWidgets: pairs } : {}), promotedWidgetNames: names };
 }

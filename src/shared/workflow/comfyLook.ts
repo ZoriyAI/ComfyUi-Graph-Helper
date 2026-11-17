@@ -1,6 +1,7 @@
 /** Preserves native ComfyUI node appearance and widget presentation when projecting a workflow. */
 import type { SubgraphDefinition } from '../graph/subgraphs';
 import { nativeReroutePosition } from './nativeReroutes';
+import { promotedWidgetPairs, promotedWidgetValue } from './promotedWidgets';
 /**
  * How an imported ComfyUI node looks, read from what the file saved on it (`data.comfy`): its size, whether it is
  * collapsed, its colours, the fields a subgraph copy promotes, the editor-only nodes (Reroute, Primitive, notes,
@@ -29,7 +30,7 @@ export interface Box {
 }
 
 /** The node data fields read here; anything may be missing on a node from a file. */
-type NodeData = { comfyType?: unknown; title?: unknown; comfy?: unknown; importedLinks?: unknown; kind?: unknown } | null | undefined;
+type NodeData = { comfyType?: unknown; title?: unknown; comfy?: unknown; importedLinks?: unknown; kind?: unknown; promotedWidgets?: unknown; promotedWidgetNames?: unknown } | null | undefined;
 
 function record(value: unknown): Record<string, unknown> | null {
   return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : null;
@@ -217,8 +218,7 @@ export interface PromotedField {
 
 /** The promoted-field list (`properties.proxyWidgets`) a subgraph copy saved. */
 export function promotedFields(data: NodeData): PromotedField[] {
-  const list = record(comfyOf(data)?.properties)?.proxyWidgets;
-  if (!Array.isArray(list)) return [];
+  const list = promotedWidgetPairs(data);
   return list.flatMap((entry, index) => {
     if (!Array.isArray(entry) || entry.length < 2 || typeof entry[1] !== 'string') return [];
     return [{ index, nodeId: String(entry[0]), name: entry[1] }];
@@ -227,10 +227,7 @@ export function promotedFields(data: NodeData): PromotedField[] {
 
 /** The value the copy itself holds for a promoted field: widgets_values[index] when it is there and set. */
 export function ownPromotedValue(data: NodeData, field: PromotedField): { held: boolean; value: unknown } {
-  const widgets = comfyOf(data)?.widgets_values;
-  if (!Array.isArray(widgets) || field.index >= widgets.length) return { held: false, value: undefined };
-  const value = widgets[field.index];
-  return value === null || value === undefined ? { held: false, value: undefined } : { held: true, value };
+  return promotedWidgetValue(data, field.index);
 }
 
 // ── Colours ───────────────────────────────────────────────────────────────────────────────────────
