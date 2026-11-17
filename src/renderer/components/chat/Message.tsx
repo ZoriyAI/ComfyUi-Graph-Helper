@@ -3,6 +3,7 @@
  * about the context window, a checkpoint card, and the link to the model log. ChatDock.tsx renders one per message.
  * Notices are said by the app, not the model, because the model cannot know that its request was cut.
  */
+import { useProjectionStore } from '../../services/commands/projection';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { AnimatePresence, motion } from 'motion/react';
@@ -45,11 +46,14 @@ const CARD_MOTION = {
 
 /**
  * The card of a turn that paused at a guard: why (step checkpoint or failed tools), and Continue / Stop while it
- * is open. Continue resumes the same run and sends "continue"; Stop cancels the run.
+ * is open. A restored task rechecks the current graph; only an unchanged live pause resumes its original run.
  */
 function CheckpointCard({ messageId, checkpoint }: { messageId: string; checkpoint: TurnCheckpoint }) {
   const { t } = useTranslation();
   const busy = useChatStore((state) => state.isStreaming);
+  const graphKey = useProjectionStore(state => state.graphKey);
+  const needsReview = Boolean(checkpoint.taskTruncated || (checkpoint.graphKey && checkpoint.graphKey !== graphKey)
+    || (checkpoint.recovered && (!checkpoint.task || !checkpoint.graphKey)));
   const reason = checkpoint.reason === 'failure-streak'
     ? t('chat.checkpointFailures', { failures: checkpoint.failures ?? 3, steps: checkpoint.steps })
     : t('chat.checkpointSteps', { steps: checkpoint.steps });
@@ -63,10 +67,13 @@ function CheckpointCard({ messageId, checkpoint }: { messageId: string; checkpoi
       {checkpoint.state === 'open' ? (
         <>
           <p className={styles.checkpointHint}>{checkpoint.reason === 'failure-streak' ? t('chat.checkpointFailuresHint') : t('chat.checkpointStepsHint')}</p>
+          {checkpoint.recovered ? <p className={styles.checkpointHint}>{t('chat.checkpointRestored')}</p> : null}
+          {needsReview ? <p className={styles.checkpointHint}>{t('chat.checkpointNeedsReview')}</p> : null}
           <div className={styles.checkpointActions}>
-            <Button variant="primary" quiet size="sm" className="checkpoint-continue" icon={<Play size={12} />} disabled={busy} onClick={() => void getChatService().continueFromCheckpoint(messageId)}>
-              {t('chat.continue')}
+            <Button variant="primary" quiet size="sm" className="checkpoint-continue" icon={<Play size={12} />} disabled={busy || needsReview} onClick={() => void getChatService().continueFromCheckpoint(messageId)}>
+              {t(checkpoint.recovered ? 'chat.checkpointReviewContinue' : 'chat.continue')}
             </Button>
+            {needsReview ? <Button variant="subtle" size="sm" disabled={busy} onClick={() => void getChatService().continueFromCheckpoint(messageId, true)}>{t('chat.checkpointReview')}</Button> : null}
             <Button variant="subtle" size="sm" className="checkpoint-stop" icon={<Square size={12} />} title={String(t('chat.stopHint'))} onClick={() => getChatService().stopAtCheckpoint(messageId)}>
               {t('chat.stop')}
             </Button>

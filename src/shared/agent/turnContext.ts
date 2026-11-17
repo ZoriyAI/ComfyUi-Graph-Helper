@@ -8,7 +8,7 @@ import type { AgentTurnContext } from '../contracts/agent';
 
 /** One ObjectRef (contracts/objects.ts); the length caps only guard against absurd input. */
 const objectRef = z.object({
-  kind: z.enum(['node', 'port', 'edge', 'subgraph', 'group', 'nodeClass', 'model', 'process']),
+  kind: z.enum(['node', 'port', 'edge', 'subgraph', 'group', 'nodeClass', 'model', 'process', 'linkType', 'family']),
   id: z.string().max(500),
   nodeId: z.string().max(200).optional(),
   portName: z.string().max(200).optional(),
@@ -16,6 +16,7 @@ const objectRef = z.object({
   classType: z.string().max(200).optional(),
   directory: z.string().max(200).optional(),
   name: z.string().max(500).optional(),
+  subgraphId: z.string().max(500).optional(),
 });
 
 /**

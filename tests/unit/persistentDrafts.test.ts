@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { LessonDrafts } from '../../src/main/lessons/drafts';
 import { ExtensionDrafts } from '../../src/main/extensions/drafts';
 import { clearChatHistory } from '../../src/main/agent/chatHistory';
-import { migrate, schemaVersion } from '../../src/main/settings/migrate';
+import { migrate, schemaVersion, SCHEMA_VERSION } from '../../src/main/settings/migrate';
 import { sampleDoc } from '../fixtures/lessons/sampleLesson';
 
 const proposal = {
@@ -103,6 +103,6 @@ describe('pending drafts across restarts', () => {
     expect(() => migrate(db, { failBeforeVersionStamp: true })).toThrow();
     expect(schemaVersion(db)).toBe(20);
     expect(db.prepare("SELECT name FROM sqlite_master WHERE name = 'assistant_drafts'").get()).toBeUndefined();
-    migrate(db); expect(schemaVersion(db)).toBe(21); expect(stores(db).lessons.add(sampleDoc(), 'lesson').persistent).toBe(true);
+    migrate(db); expect(schemaVersion(db)).toBe(SCHEMA_VERSION); expect(stores(db).lessons.add(sampleDoc(), 'lesson').persistent).toBe(true);
   });
 });

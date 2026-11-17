@@ -77,7 +77,7 @@ what to expect. Wishes go to the project's Discussions, problems to its Issues.
 ## The assistant and lessons
 
 - The assistant can construct and edit native inner graphs, including definitions from earlier turns. Lessons check the displayed canvas or subgraph copy, with separately saved answers for each nested instance. Promoted settings belong to the selected copy; the definition’s structure and unpromoted fields are shared.
-- A pause at a pause point (the step limit) does not survive a restart of the app: ask again after the restart.
+- A task paused at a step limit or repeated failures is saved with chat history. After restart, **Check and continue** reads the current graph and starts a fresh turn for the remaining work. Previous commands are not replayed. A different graph or incomplete saved task requires **Review the current graph** first. With chat history disabled, the task remains only in the open window.
 - The quality of answers depends on the model. Small local models with a small context window lose track of long
   builds. [The context window](../assistant/Context-Window.md)
 - The video lessons on WanVideoWrapper cover a part of that pack; the rest of its features have no lesson.

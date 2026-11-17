@@ -12,6 +12,7 @@ import { mainLLMService } from '../llmService';
 import type { ChatRecord, ChatSaveResult } from '../../shared/contracts';
 import { lessonDrafts } from '../lessons/drafts';
 import { extensionDrafts } from '../extensions/drafts';
+import { checkpointSchema, readCheckpoint } from '../../shared/agent/checkpoint';
 
 /**
  * Protective (one SQLite row): a message longer than this is stored with a visible "[… N characters not stored]"
@@ -31,6 +32,7 @@ const chatRecordSchema = z.object({
   graphRevisionId: z.string().max(200).nullable(),
   toolCalls: z.array(z.unknown()).nullable(),
   failed: z.boolean().optional(),
+  checkpoint: checkpointSchema.optional(),
 });
 
 export type { ChatSaveResult } from '../../shared/contracts';
@@ -56,6 +58,14 @@ export function saveChatMessage(
   const content = redactSecrets(record.content.length > CHAT_CONTENT_CAP
     ? `${record.content.slice(0, CHAT_CONTENT_CAP)}\n[… ${record.content.length - CHAT_CONTENT_CAP} characters not stored]`
     : record.content);
+  let checkpoint: string | null = null;
+  if (record.checkpoint) {
+    const raw = JSON.stringify(record.checkpoint);
+    if (raw.length > 500_000) return { ok: false, error: 'Paused task is too large to store.' };
+    if (heldSecret(raw)) return { ok: false, error: 'Paused task contains the held key or token and was not stored.' };
+    checkpoint = redactSecrets(raw);
+    if (!readCheckpoint(checkpoint)) return { ok: false, error: 'Paused task could not be stored after redaction.' };
+  }
   let toolCalls: string | null = null;
   if (record.toolCalls) {
     try {
@@ -75,8 +85,8 @@ export function saveChatMessage(
   }
   try {
     db.prepare(`
-      INSERT OR REPLACE INTO chat_messages (id, project_id, role, content, timestamp, graph_revision_id, tool_calls, failed)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT OR REPLACE INTO chat_messages (id, project_id, role, content, timestamp, graph_revision_id, tool_calls, failed, checkpoint)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       record.id,
       record.projectId,
@@ -86,6 +96,7 @@ export function saveChatMessage(
       record.graphRevisionId,
       toolCalls,
       record.failed === true ? 1 : 0,
+      checkpoint,
     );
   } catch {
     return { ok: false, error: 'Chat message could not be stored.' };
@@ -131,12 +142,12 @@ export function loadChatHistory(db: Database.Database, projectId: unknown, page?
   const rows = (limit === null && !anchor
     ? db.prepare(`
     SELECT * FROM (
-      SELECT id, project_id, role, content, timestamp, graph_revision_id, tool_calls, failed, rowid AS seq
+      SELECT id, project_id, role, content, timestamp, graph_revision_id, tool_calls, failed, checkpoint, rowid AS seq
       FROM chat_messages WHERE project_id = ?
     ) ORDER BY timestamp ASC, seq ASC
   `).all(projectId)
     : db.prepare(`
-    SELECT id, project_id, role, content, timestamp, graph_revision_id, tool_calls, failed, rowid AS seq
+    SELECT id, project_id, role, content, timestamp, graph_revision_id, tool_calls, failed, checkpoint, rowid AS seq
     FROM chat_messages
     WHERE project_id = ? AND (? IS NULL OR timestamp < ? OR (timestamp = ? AND rowid < ?))
     ORDER BY timestamp DESC, seq DESC LIMIT ?
@@ -153,6 +164,7 @@ export function loadChatHistory(db: Database.Database, projectId: unknown, page?
       graphRevisionId: typeof row.graph_revision_id === 'string' ? row.graph_revision_id : null,
       toolCalls: parseToolCalls(row.tool_calls),
       ...(row.failed === 1 ? { failed: true } : {}),
+      ...(readCheckpoint(row.checkpoint) ? { checkpoint: readCheckpoint(row.checkpoint) } : {}),
     }];
   });
 }

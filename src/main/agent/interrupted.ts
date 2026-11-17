@@ -8,6 +8,7 @@ import type Database from 'better-sqlite3';
 import { closeStaleRuns, readProjection } from '../commands/commit';
 import { runCreatedNodeIds } from '../commands/placement';
 import { saveChatMessage } from './chatHistory';
+import { readPreferences } from '../settings/repository';
 import { createTranslator, type AppLanguage } from '../../shared/i18n';
 
 /**
@@ -16,6 +17,7 @@ import { createTranslator, type AppLanguage } from '../../shared/i18n';
  */
 export function reportInterruptedRun(db: Database.Database, projectId: string, runId: string, language: AppLanguage, now = Date.now()): boolean {
   try {
+    if (!readPreferences(db).privacy.saveChatHistory) return false;
     const changes = (db.prepare('SELECT COUNT(*) AS n FROM applied_commands WHERE project_id = ? AND run_id = ?').get(projectId, runId) as { n: number }).n;
     if (changes === 0) return false;
     const onCanvas = new Set(((readProjection(db, projectId)?.snapshot.nodes ?? []) as Array<{ id?: unknown }>).map((node) => String(node.id)));
@@ -46,6 +48,7 @@ export function reportInterruptedRun(db: Database.Database, projectId: string, r
 export function closeInterruptedRuns(db: Database.Database, language: AppLanguage, now = Date.now()): number {
   let written = 0;
   try {
+    if (!readPreferences(db).privacy.saveChatHistory) { closeStaleRuns(db); return 0; }
     const open = db.prepare(`SELECT project_id, run_id FROM runs WHERE status IN ('running', 'paused')`).all() as Array<{ project_id: string; run_id: string }>;
     const t = createTranslator(language);
     for (const run of open) {

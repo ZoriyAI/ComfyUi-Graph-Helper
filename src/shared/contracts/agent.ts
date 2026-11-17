@@ -7,6 +7,7 @@
 import type { BuildStepTool } from './agentTools';
 import type { Explanation } from './knowledge';
 import type { ObjectRef } from './objects';
+import type { TaskCheckpoint } from '../agent/checkpoint';
 
 /** The canvas camera when the message was sent: React Flow transform, plus the canvas size in screen pixels. */
 export interface AgentViewport {
@@ -72,6 +73,7 @@ export interface ChatRecord {
   toolCalls: unknown[] | null;
   /** A failed assistant turn stays excluded from model context after restart. */
   failed?: boolean;
+  checkpoint?: TaskCheckpoint;
 }
 
 /** 4th argument of llm:stream-chat: the run the turn commits build tools into. */

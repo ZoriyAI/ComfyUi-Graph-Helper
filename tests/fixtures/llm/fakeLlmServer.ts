@@ -63,7 +63,11 @@ const DRAFT_LESSON = () => ({
 function lastUser(messages: Array<{ role: string; content: unknown }>): string {
   for (let index = messages.length - 1; index >= 0; index -= 1) {
     const message = messages[index];
-    if (message.role === 'user') return typeof message.content === 'string' ? message.content : JSON.stringify(message.content);
+    if (message.role === 'user') {
+      if (typeof message.content === 'string') return message.content;
+      if (Array.isArray(message.content)) return message.content.map(part => part?.type === 'text' ? String(part.text) : JSON.stringify(part)).join('\n');
+      return JSON.stringify(message.content);
+    }
   }
   return '';
 }
@@ -126,6 +130,11 @@ export async function startFakeLlm(initialWindow = 32768): Promise<FakeLlm> {
       const results = body.messages.slice(userAt).filter((message) => message.role === 'tool').map((message) => {
         try { return JSON.parse(String(message.content)) as Record<string, unknown>; } catch { return {}; }
       });
+      if (/checkpoint recovery/.test(text)) {
+        if (/Continue only the unfinished part of this saved task|Review this saved task/.test(text)) return say('Recovery fixture: checked the current graph; the existing node stays.');
+        if (!results.length) return toolCall([{ name: 'addNode', args: { nodeType: 'EmptyLatentImage', title: 'Keep this existing node', why: 'Build the first part before the recovery fixture pauses.' } }]);
+        return toolCall([{ name: 'setParameter', args: { nodeId: 'fixture-missing-node', key: 'width', value: 768, why: 'Deliberately fail to reach the pause guard.' } }]);
+      }
       if (/canvas variants/.test(text)) {
         const graphs = (results[1]?.graphs ?? []) as Array<{ definitionId: string }>;
         const plan: Array<{ name: string; args: () => Record<string, unknown> }> = [

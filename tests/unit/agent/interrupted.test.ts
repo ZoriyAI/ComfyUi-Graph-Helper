@@ -10,6 +10,7 @@ import { createBuildTools, nodeTitleAt } from '../../../src/main/agent/buildTool
 import { loadChatHistory } from '../../../src/main/agent/chatHistory';
 import { ensureWorkspace, pauseRun, readProjection, startRun } from '../../../src/main/commands/commit';
 import { migrate } from '../../../src/main/settings/migrate';
+import { readSettings, saveSettings } from '../../../src/main/settings/repository';
 import { BUILD_TOOL_SPECS } from '../../../src/shared/commands/toolSpecs';
 import { DESKTOP_PROJECT_ID as P } from '../../../src/shared/project';
 
@@ -68,5 +69,20 @@ describe('a run cut off by closing the app', () => {
     const link = await tools.connectNodes.execute({ sourceNodeId: loader.nodeId, sourceHandle: 'out-0', targetNodeId: sampler.nodeId, targetHandle: 'in-0' }, { toolCallId: 'c' }) as Record<string, unknown>;
     expect(link).toMatchObject({ sourceTitle: 'Загрузчик', targetTitle: expect.any(String) });
     expect(nodeTitleAt(null, '1')).toBeUndefined();
+  });
+
+  it('closes the interrupted run without writing a courtesy message when history storage is off', async () => {
+    const db = openDb();
+    expect(saveSettings(db, { ...readSettings(db).values, preferences: { privacy: { saveChatHistory: false } } })).toMatchObject({ ok: true });
+    const run = startRun(db, P);
+    const tools = createBuildTools(BUILD_TOOL_SPECS, { db, run: { projectId: P, runId: run.runId, expectedRevisionId: run.expectedRevisionId } });
+    await tools.addNode.execute({ nodeType: 'KSampler' }, { toolCallId: 'privacy-node' });
+    pauseRun(db, P, run.runId);
+    expect(reportInterruptedRun(db, P, run.runId, 'en')).toBe(false);
+    expect(closeInterruptedRuns(db, 'en')).toBe(0);
+    expect(loadChatHistory(db, P)).toEqual([]);
+    expect(readProjection(db, P)!.activeRun).toBeNull();
+    expect(readProjection(db, P)!.snapshot.nodes).toHaveLength(1);
+    db.close();
   });
 });

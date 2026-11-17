@@ -6,6 +6,7 @@
  * components/graph/layers/LiveBuildStrip.tsx, components/journey/ComfyErrorDialog.tsx, App.tsx, and
  * commands/actions.ts and commands/buildGuard.ts (pause, resume, stop).
  */
+import { TASK_TEXT_LIMIT } from '../../../shared/agent/checkpoint';
 import { useChatStore } from '../../state/chatState';
 import { useGraphStore } from '../../state/graphState';
 import { useKnowledgeStore } from '../../state/knowledgeState';
@@ -132,10 +133,13 @@ export function parseTurnPaused(content: unknown): Omit<TurnCheckpoint, 'state' 
 }
 
 /** Marks every open checkpoint card as moved past: a new turn supersedes its buttons. */
-function closeOpenCheckpoints(state: 'closed' | 'stopped' = 'closed'): void {
+function closeOpenCheckpoints(state: 'closed' | 'stopped', persist: (message: ChatMessage) => void): void {
   const { messages, updateMessage } = useChatStore.getState();
   for (const message of messages) {
-    if (message.checkpoint?.state === 'open') updateMessage(message.id, { checkpoint: { ...message.checkpoint, state } });
+    if (message.checkpoint?.state === 'open') {
+      const changed = { ...message, checkpoint: { ...message.checkpoint, state } };
+      updateMessage(message.id, changed); persist(changed);
+    }
   }
 }
 
@@ -188,6 +192,8 @@ export class ChatService {
   private pendingRuns = new Set<Promise<unknown>>();
   private writes = new Map<string, number>();
   private pendingWrites = new Set<Promise<void>>();
+  private writeQueue = new Map<string, Promise<void>>();
+  private continuing = false;
   private clearingHistory = false;
   /** Increments per turn and on cancel, so a finished or cancelled turn cannot flip the state of a newer one. */
   private turnToken = 0;
@@ -279,7 +285,9 @@ export class ChatService {
     const finish = (failed: boolean) => {
       if (this.writes.get(message.id) === ticket) useChatStore.getState().updateMessage(message.id, { persistence: failed ? 'failed' : undefined });
     };
-    const work = Promise.resolve().then(() => save(record)).then(result => finish(!result || result.ok !== true)).catch(() => finish(true));
+    const work = (this.writeQueue.get(message.id) ?? Promise.resolve()).then(() => save(record)).then(result => finish(!result || result.ok !== true)).catch(() => finish(true));
+    this.writeQueue.set(message.id, work);
+    void work.finally(() => { if (this.writeQueue.get(message.id) === work) this.writeQueue.delete(message.id); });
     this.pendingWrites.add(work);
     void work.finally(() => this.pendingWrites.delete(work));
   }
@@ -302,7 +310,7 @@ export class ChatService {
    * Sends one turn. `context` defaults to intent chat with the current selection and language;
    * a partial context is completed from those defaults.
    */
-  async sendMessage(content: string, context?: Partial<AgentTurnContext>): Promise<void> {
+  async sendMessage(content: string, context?: Partial<AgentTurnContext>, originalTask?: string): Promise<void> {
     if (this.isStreaming || this.clearingHistory) {
       console.warn('[ChatService] Already streaming');
       return;
@@ -316,7 +324,7 @@ export class ChatService {
     const current = () => token === this.turnToken;
 
     this.isStreaming = true;
-    closeOpenCheckpoints();
+    closeOpenCheckpoints('closed', message => this.persist(message));
     useChatStore.setState({ isStreaming: true, isPaused: false });
     const { messages, addMessage } = useChatStore.getState();
 
@@ -486,7 +494,12 @@ export class ChatService {
           const paused = parseTurnPaused(chunk.content);
           if (paused) {
             pausedAtCheckpoint = true;
-            publish({ checkpoint: { ...paused, context: turn, state: 'open' } });
+            const task = originalTask ?? content;
+            const projection = useProjectionStore.getState();
+            publish({ checkpoint: { ...paused, context: turn, state: 'open', runId: run.runId,
+              ...(projection.graphKey ? { graphKey: projection.graphKey } : {}), revisionId: projection.currentRevisionId,
+              task: task.slice(0, TASK_TEXT_LIMIT), ...(task.length > TASK_TEXT_LIMIT ? { taskTruncated: true } : {}) } });
+            this.persist(currentAssistant());
           }
         } else if (chunk.type === 'text-delta' && typeof body.text === 'string' && body.text) {
           assistantContent += body.text;
@@ -578,7 +591,7 @@ export class ChatService {
     useChatStore.setState({ isStreaming: false, isPaused: false });
     // A run ended from anywhere (the status bar, the chat's Stop) ends the pause it was waiting in: the card of
     // that pause says it stopped and no longer offers Continue on a run that is gone.
-    closeOpenCheckpoints('stopped');
+    closeOpenCheckpoints('stopped', message => this.persist(message));
     const runId = this.currentRunId;
     const llmCancel = window.electronAPI?.llmCancel;
     const cancelRun = window.electronAPI?.cancelRun;
@@ -640,21 +653,60 @@ export class ChatService {
   }
 
   /**
-   * Continue on a checkpoint card: reopens the paused run (resume) and sends "continue" with the paused turn's
-   * context, so a long build carries on across checkpoints in the same run.
+   * A saved task starts a new turn against the current graph. Only an unchanged live pause can reuse its run.
    */
-  async continueFromCheckpoint(messageId: string): Promise<void> {
-    const message = useChatStore.getState().messages.find((item) => item.id === messageId);
+  async continueFromCheckpoint(messageId: string, reviewOnly = false): Promise<void> {
+    const message = useChatStore.getState().messages.find(item => item.id === messageId);
     const checkpoint = message?.checkpoint;
-    if (!checkpoint || checkpoint.state !== 'open' || this.isStreaming) return;
-    useChatStore.getState().updateMessage(messageId, { checkpoint: { ...checkpoint, state: 'continued' } });
+    if (!checkpoint || checkpoint.state !== 'open' || this.isStreaming || this.continuing) return;
+    this.continuing = true;
+    const token = this.turnToken;
     try {
-      await this.resume();
+      // Restored metadata is data, never authority to modify a newly opened workflow.
+      const latest = window.electronAPI?.readProjection ? await window.electronAPI.readProjection(DESKTOP_PROJECT_ID) : null;
+      if (token !== this.turnToken || this.isStreaming) return;
+      if (latest) applyProjection(latest);
+      const current = useProjectionStore.getState();
+      const foreign = Boolean(checkpoint.graphKey && checkpoint.graphKey !== current.graphKey);
+      if (!reviewOnly && (foreign || checkpoint.taskTruncated || (checkpoint.recovered && (!checkpoint.task || !checkpoint.graphKey || !latest)))) {
+        showToast({ id: 'checkpoint-graph', tone: 'warn', title: translate('chat.checkpointNeedsReview') });
+        return;
+      }
+      const sameLiveRun = checkpoint.runId && current.activeRun?.runId === checkpoint.runId;
+      const reconsider = reviewOnly || checkpoint.recovered || !sameLiveRun || (checkpoint.revisionId && checkpoint.revisionId !== current.currentRevisionId);
+      const updated = { ...message!, checkpoint: { ...checkpoint, state: 'continued' as const } };
+      useChatStore.getState().updateMessage(messageId, updated); this.persist(updated);
+      // Resume only this exact live pause. Restored/changed tasks start from a freshly read graph.
+      if (!reconsider) {
+        await this.resume();
+      }
+      if (token !== this.turnToken || this.isStreaming) return;
+      // Opening another document or changing the graph during the await invalidates this decision.
+      const after = useProjectionStore.getState();
+      if (!reviewOnly && (after.graphKey !== current.graphKey || after.currentRevisionId !== current.currentRevisionId)) {
+        const reopened = { ...message!, checkpoint };
+        useChatStore.getState().updateMessage(messageId, reopened); this.persist(reopened);
+        this.resumed = null;
+        showToast({ id: 'checkpoint-graph', tone: 'warn', title: translate('chat.checkpointNeedsReview') });
+        return;
+      }
+      let word = translate('chat.continueMessage');
+      if (!word || word === 'chat.continueMessage') word = 'continue';
+      const context = reconsider ? { ...defaultTurnContext(), intent: reviewOnly ? 'ask' as const : checkpoint.context?.intent ?? 'chat', selection: [] } : checkpoint.context;
+      if (reconsider) {
+        const task = checkpoint.task ?? '';
+        const key = reviewOnly ? 'chat.checkpointReviewTask' : 'chat.checkpointResumeTask';
+        word = translate(key, { task });
+        if (!word || word === key) word = `${reviewOnly ? 'Review without edits' : 'Continue only unfinished work'}: ${task}. Read the current graph first. Do not replay previous commands or recreate work already present.`;
+      }
+      await this.sendMessage(word, context, checkpoint.task);
     } catch (error) {
-      console.warn('[ChatService] Resume failed; continuing in a new run:', errorText(error));
-    }
-    const word = translate('chat.continueMessage');
-    await this.sendMessage(word && word !== 'chat.continueMessage' ? word : 'continue', checkpoint.context);
+      if (token === this.turnToken) {
+        const reopened = { ...message!, checkpoint };
+        useChatStore.getState().updateMessage(messageId, reopened); this.persist(reopened);
+      }
+      showToast({ id: 'checkpoint-read', tone: 'error', title: translate('chat.checkpointReadFailed'), description: errorText(error) });
+    } finally { this.continuing = false; }
   }
 
   /** "Retry" (chat.retry) on a failed turn: the same question goes again, with the context it was asked in. */
@@ -670,7 +722,8 @@ export class ChatService {
     const message = useChatStore.getState().messages.find((item) => item.id === messageId);
     const checkpoint = message?.checkpoint;
     if (!checkpoint || checkpoint.state !== 'open') return;
-    useChatStore.getState().updateMessage(messageId, { checkpoint: { ...checkpoint, state: 'stopped' } });
+    const stopped = { ...message!, checkpoint: { ...checkpoint, state: 'stopped' as const } };
+    useChatStore.getState().updateMessage(messageId, stopped); this.persist(stopped);
     this.cancel();
   }
 

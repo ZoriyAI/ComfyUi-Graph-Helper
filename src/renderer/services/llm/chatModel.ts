@@ -5,6 +5,7 @@
  * Who uses it: services/llm/chatService.ts, and in components/chat (ToolCard, ProposalCard, buildSteps.ts,
  * toolPresentation.ts), ExplainPanel and CheckPanel for `isRecord`, `asObjectRef` and the tool kinds.
  */
+import { readCheckpoint } from '../../../shared/agent/checkpoint';
 import {
   AGENT_BUILD_TOOLS,
   AGENT_KNOWLEDGE_TOOLS,
@@ -165,6 +166,7 @@ export function chatRecordFromMessage(message: ChatMessage, projectId: string, g
     graphRevisionId: message.graphRevisionId ?? graphRevisionId,
     toolCalls: calls.length > 0 ? calls.map(savedToolCall) : null,
     ...(isFailedTurn(message) ? { failed: true } : {}),
+    ...(readCheckpoint(message.checkpoint) ? { checkpoint: readCheckpoint(message.checkpoint) } : {}),
   };
 }
 
@@ -201,6 +203,7 @@ export function messageFromChatRecord(record: ChatRecord): ChatMessage {
     content: record.content,
     timestamp: record.timestamp,
     ...(record.failed ? { failed: true } : {}),
+    ...(readCheckpoint(record.checkpoint) ? { checkpoint: { ...readCheckpoint(record.checkpoint)!, recovered: record.checkpoint?.state === 'open' } } : {}),
     ...(record.graphRevisionId ? { graphRevisionId: record.graphRevisionId } : {}),
     ...(toolCalls.length > 0 ? { toolCalls } : {}),
   };

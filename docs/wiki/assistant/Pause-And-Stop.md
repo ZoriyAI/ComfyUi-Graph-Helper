@@ -26,6 +26,14 @@ After 3 failed attempts in a row it pauses too: "The assistant paused after 3 fa
 
 After it has stopped or finished, one `Ctrl+Z` undoes the steps it made one after another ("Undo: the assistant's consecutive steps (16)"). While it still builds: "The assistant is still building. Stop it to undo."
 
+## After closing the app
+
+With **Save chat history** enabled, the pause card and original task return after restart. **Check and continue** reads the graph as it is now, clears the old selection and asks the assistant to finish only what remains. Already applied changes stay; the app does not replay saved tool calls. Review the result as with any assistant answer.
+
+If another workflow is open, or the saved task is incomplete, use **Review the current graph**. This runs in Explain mode: the assistant describes what matches and what needs attention. **Stop** closes the saved task too, so it will not return as an open pause next time. Starting a different message closes the older pause card.
+
+Turning off chat history leaves future tasks only in the current window. Clearing chat history removes stored paused tasks and pending drafts too. A failure to save is visible in the chat and can be retried.
+
 ## See also
 
 - [Build](Build.md)
