@@ -25,7 +25,7 @@ const ICON_SIZES = [16, 24, 32, 48, 64, 128, 256, 512];
 const ICONS = Object.fromEntries(ICON_SIZES.map((size) => [`${size}x${size}`, `resources/icons/${size}x${size}.png`]));
 // The names come from src/shared/productNames.ts (scripts/lib/product-names.js); package.json repeats them.
 const PRODUCT_NAME = DISPLAY_NAME;
-const GENERIC_NAME = 'ComfyUI graph tutor';
+const GENERIC_NAME = 'ComfyUI creative assistant';
 // The line under the name, the same words as package.json description and the About window.
 const SUMMARY = pkg.description;
 const LONG_DESCRIPTION = [

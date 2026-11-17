@@ -147,7 +147,7 @@ describe('Linux AppImage and fuses', () => {
   it('the menu entry is the deb\'s entry with the names filled in', () => {
     const entry = desktopEntry();
     expect(entry).toContain('Name=NodeWise Studio\n');
-    expect(entry).toContain('Comment=A desktop tutor for ComfyUI graphs\n');
+    expect(entry).toContain('Comment=Create, learn and get guidance in ComfyUI\n');
     expect(entry).toContain(`Exec=${NAME} %U`);
     expect(entry).toContain(`StartupWMClass=${NAME}`);
     expect(entry).not.toContain('<%');

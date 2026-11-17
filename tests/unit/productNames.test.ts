@@ -48,8 +48,8 @@ describe('product names', () => {
   });
 
   it('give the same line under the name everywhere: About, package.json, the package summary, the desktop entry', () => {
-    const english = 'A desktop tutor for ComfyUI graphs';
-    const russian = 'Учебный помощник по графам ComfyUI';
+    const english = 'Create, learn and get guidance in ComfyUI';
+    const russian = 'Творчество, обучение и советы по ComfyUI';
     expect(leaf(en, 'shell.tagline')).toBe(english);
     expect(leaf(ru, 'shell.tagline')).toBe(russian);
     expect(pkg.description).toBe(english);

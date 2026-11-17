@@ -3,7 +3,7 @@
   "productName": "NodeWise Studio",
   "desktopName": "nodewise-studio.desktop",
   "version": "1.3.1",
-  "description": "A creative assistant for ComfyUI workflows: learn, explore recommendations and build",
+  "description": "Create, learn and get guidance in ComfyUI",
   "main": "dist/main/index.js",
   "engines": {
     "node": ">=22.12 <23"
