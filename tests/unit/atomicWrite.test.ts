@@ -101,7 +101,7 @@ describe('writing a file the person saves', () => {
 });
 
 describe('opening a file the person picked', () => {
-  it('reads a normal file and refuses one too large before reading it', () => {
+  it('reads a normal file and refuses one too large before reading it', async () => {
     const dir = folder();
     const small = path.join(dir, 'w.json');
     fs.writeFileSync(small, '{"nodes":[]}');
@@ -114,14 +114,14 @@ describe('opening a file the person picked', () => {
       const readsBefore = control.readCalls;
       let caught: unknown = null;
       try {
-        read(big);
+        await read(big);
       } catch (error) {
         caught = error;
       }
       expect(control.readCalls).toBe(readsBefore);
       expect(fileOpenErrorCode(caught, 'Workflow JSON could not be parsed.')).toBe('The file is too large to open.');
     }
-    expect(translateKnownError(createTranslator('ru'), 'The file is too large to open.')).toBe('Файл превышает предел импорта 64 МиБ. Для большого видео откройте JSON его графа, экспортированный из ComfyUI.');
+    expect(translateKnownError(createTranslator('ru'), 'The file is too large to open.')).toBe('Файл превышает предел импорта 64 МиБ. MP4, MOV, MKV и WebM читаются отдельно по метаданным; для других больших файлов откройте экспортированный JSON графа.');
     expect(fileOpenErrorCode(new SyntaxError('Unexpected end'), 'Workflow JSON could not be parsed.')).toBe('Workflow JSON could not be parsed.');
   });
 });

@@ -28,6 +28,7 @@ export const IPC_CHANNELS = {
   WORKFLOW_EXPORT_DOCUMENT: 'workflow:export-document',
   /** Ways of opening that end in one path (main/ipc/openIpc.ts): a dropped file, File ▸ Recent and Examples, the command line. */
   FILE_OPEN_PATH: 'file:open-path',
+  FILE_OPEN_CANCEL: 'file:open-cancel',
   FILE_RECENT_LIST: 'file:recent-list',
   FILE_OPEN_RECENT: 'file:open-recent',
   FILE_EXAMPLES_LIST: 'file:examples-list',

@@ -12,6 +12,7 @@ import { guidanceEn, guidanceRu } from './guidance';
 
 // ── English ──
 export const en = {
+  fileReading: { title: "Reading the selected file…", description: "For video, only metadata is read; frames stay on your device. You can cancel before the graph is replaced.", cancel: "Cancel reading" },
   guidance: guidanceEn,
   recovery: recoveryEn,
   services: servicesEn,
@@ -2295,7 +2296,10 @@ export const en = {
     storageFailed: 'The change could not be saved. The graph is as it was before it.',
     writeReadOnly: 'This folder cannot be written to. Pick another folder.',
     writeDiskFull: 'There is no free space on the disk. Free some space or pick another disk.',
-    fileTooLarge: 'The file is larger than the 64 MiB import limit. For a large video, open its workflow JSON exported from ComfyUI.',
+    fileTooLarge: 'The file exceeds the 64 MiB import limit. MP4, MOV, MKV and WebM use a separate bounded metadata reader; other large files can be opened as exported workflow JSON.',
+    videoMetadataInvalid: 'The video metadata is damaged or uses an unsupported layout. Open the workflow JSON exported from ComfyUI; the video itself is not changed.',
+    videoMetadataLimit: 'Reading stopped at the metadata or time limit. Open the workflow JSON exported from ComfyUI. Video frames were not loaded.',
+    fileGraphChanged: 'The graph changed while the file was being read. Your changes are kept; open the file again when ready.',
     pictureTextTooLarge: 'The workflow text in this picture is too large. Open its workflow JSON file instead.',
     writeProtectedFile: 'This file is protected from writing. Choose another name, or allow writing to it in its properties.',
     noWorkflowInFile: 'There is no workflow in this file. ComfyUI writes one into the pictures and videos it saves itself; a picture from elsewhere, or one sent through a chat app, usually has none.',
@@ -3505,6 +3509,7 @@ export type Catalog = MessageTree<typeof en>;
 
 // ── Russian: the same keys as `en` (checked by `satisfies Catalog` at the end). ──
 export const ru = {
+  fileReading: { title: "Читаем выбранный файл…", description: "У видео читаются только метаданные; кадры остаются на устройстве. Можно отменить чтение до замены графа.", cancel: "Отменить чтение" },
   guidance: guidanceRu,
   recovery: recoveryRu,
   services: servicesRu,
@@ -5785,7 +5790,10 @@ export const ru = {
     storageFailed: 'Изменение не удалось сохранить. Граф остался таким, каким был до него.',
     writeReadOnly: 'В эту папку нельзя записывать. Выберите другую папку.',
     writeDiskFull: 'На диске нет свободного места. Освободите место или выберите другой диск.',
-    fileTooLarge: 'Файл превышает предел импорта 64 МиБ. Для большого видео откройте JSON его графа, экспортированный из ComfyUI.',
+    fileTooLarge: 'Файл превышает предел импорта 64 МиБ. MP4, MOV, MKV и WebM читаются отдельно по метаданным; для других больших файлов откройте экспортированный JSON графа.',
+    videoMetadataInvalid: 'Метаданные видео повреждены или имеют неподдерживаемую структуру. Откройте JSON графа, экспортированный из ComfyUI; само видео не изменено.',
+    videoMetadataLimit: 'Чтение остановлено по пределу объёма метаданных или времени. Откройте JSON графа из ComfyUI. Кадры видео не загружались.',
+    fileGraphChanged: 'Пока читался файл, граф изменился. Ваши правки сохранены; когда будете готовы, откройте файл снова.',
     pictureTextTooLarge: 'Текст workflow в этой картинке слишком большой. Откройте файл workflow в формате JSON.',
     writeProtectedFile: 'Этот файл защищён от записи. Выберите другое имя или разрешите запись в его свойствах.',
     noWorkflowInFile: 'В этом файле нет workflow. ComfyUI записывает его в картинки и видео, которые сохраняет сам; в картинке из другого места или пересланной через мессенджер его обычно нет.',

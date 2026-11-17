@@ -5,6 +5,7 @@ import type { ElectronAPI } from '../../preload';
 import { BROWSER_METHODS } from '../../shared/browser/methods';
 import { IPC_CHANNELS } from '../../shared/ipc-channels';
 import { i18n } from '../i18n';
+import { readVideoMetadata, VIDEO_EXTENSIONS, VIDEO_METADATA_CANCELLED } from '../../shared/workflow/videoMetadata';
 
 export const BROWSER_CONNECTION = 'nodewise-browser-connection';
 /** The desktop preload supplies this object before renderer scripts run; HTTP browsers install it below. */
@@ -34,9 +35,22 @@ function pickFile(accept: string): Promise<File | null> {
     input.addEventListener('cancel', () => done(null), { once: true }); input.click();
   });
 }
-async function encodedFile(file: File): Promise<string> {
+async function encodedFile(file: File, signal: AbortSignal): Promise<string> {
+  if (VIDEO_EXTENSIONS.test(file.name)) {
+    const metadata = await readVideoMetadata({ size: file.size, read: async (at, length) => new Uint8Array(await file.slice(at, at + length).arrayBuffer()) }, signal);
+    if (metadata !== null) {
+      if (!metadata.length) throw new Error('This file holds no workflow.');
+      let binary = '\0'; for (let at = 0; at < metadata.length; at += 8192) binary += String.fromCharCode(...metadata.subarray(at, at + 8192));
+      return btoa(binary);
+    }
+  }
   if (file.size > 11 * 1024 * 1024) throw new Error(String(i18n.t('browser.fileTooLarge')));
-  return new Promise((done, fail) => { const reader = new FileReader(); reader.onload = () => done(String(reader.result).split(',')[1]); reader.onerror = fail; reader.readAsDataURL(file); });
+  return new Promise((done, fail) => {
+    const reader = new FileReader(); const abort = () => { reader.abort(); fail(new Error(VIDEO_METADATA_CANCELLED)); };
+    if (signal.aborted) { abort(); return; } signal.addEventListener('abort', abort, { once: true });
+    reader.onload = () => done(String(reader.result).split(',')[1]); reader.onerror = () => fail(reader.error);
+    reader.onloadend = () => signal.removeEventListener('abort', abort); reader.readAsDataURL(file);
+  });
 }
 
 /** Install after a successful paired bootstrap, before mounting App. No Electron runtime is bundled here. */
@@ -90,6 +104,7 @@ export async function installBrowserBridge(bootstrap: { platform?: string; versi
     },
     importCatalog: async () => { const file = await pickFile('.json'); return file ? call('browserImportCatalog', [await file.text()]) : { status: 'cancelled' }; },
     importWorkflow: async () => openFile(), openProject: async () => openFile(),
+    cancelFileOpen: async () => { reading?.abort(); return { ok: true }; },
     importLessonsDialog: async () => { const file = await pickFile('.json,.yaml,.yml'); return file ? call('importLessonsText', [file.name, await file.text()]) : { ok: false, canceled: true }; },
     exportLessons: async (file: unknown, name: string) => { download(name, JSON.stringify(file, null, 2)); return { ok: true }; },
     saveProjectFile: async (choice?: string) => {
@@ -107,11 +122,20 @@ export async function installBrowserBridge(bootstrap: { platform?: string; versi
     comfyAddressKnown: async () => false,
   };
   let lastExport: string | null = null;
+  let reading: AbortController | null = null;
   const openFile = async () => {
+    reading?.abort(); const controller = new AbortController(); reading = controller;
+    try {
     const projection = await api.readProjection('desktop');
-    const file = await pickFile('.json,.png,.webp,.jpg,.jpeg,.mp4,.webm,.mkv,.gif,.flac');
-    if (!file) return { status: 'cancelled', projection: null, result: null };
-    return call('browserImport', [file.name, await encodedFile(file), projection?.currentRevisionId, `browser-open-${crypto.randomUUID()}`]);
+    const file = await pickFile('.json,.png,.webp,.jpg,.jpeg,.mp4,.mov,.webm,.mkv,.gif,.flac,.mp3,.opus,.ogg');
+    if (!file || controller.signal.aborted) return { status: 'cancelled', projection: null, result: null };
+    const encoded = await encodedFile(file, controller.signal);
+    if (controller.signal.aborted) return { status: 'cancelled', projection: null, result: null };
+    return await call('browserImport', [file.name, encoded, projection?.currentRevisionId, `browser-open-${crypto.randomUUID()}`]);
+    } catch (error) {
+      if (controller.signal.aborted || (error instanceof Error && error.message === VIDEO_METADATA_CANCELLED)) return { status: 'cancelled', projection: null, result: null };
+      throw error;
+    } finally { if (reading === controller) reading = null; }
   };
   for (const method of Object.keys(BROWSER_METHODS)) if (!(method in api)) api[method] = (...args: unknown[]) => call(method, args);
   const getSettings = api.getSettings;

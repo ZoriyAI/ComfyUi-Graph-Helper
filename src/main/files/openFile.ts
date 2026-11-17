@@ -13,6 +13,7 @@ import * as path from 'path';
 import * as zlib from 'zlib';
 import { FileTooLargeError, OPEN_FILE_MAX_BYTES } from './atomicWrite';
 import { isNativeProjectFormat } from '../../shared/native-project';
+import { readVideoMetadata, VIDEO_EXTENSIONS, VIDEO_METADATA_CANCELLED } from '../../shared/workflow/videoMetadata';
 
 /** What a file holds, as far as opening it is concerned. */
 export type OpenedFile =
@@ -198,10 +199,41 @@ export function embeddedWorkflow(bytes: Buffer): unknown {
  * Reads and recognises a file. Throws an Error whose message is a code the window translates: too large, unreadable,
  * no workflow in it, not JSON.
  */
-export function readOpenedFile(filePath: string): OpenedFile {
-  if (fs.statSync(filePath).size > OPEN_FILE_MAX_BYTES) throw new FileTooLargeError();
-  const bytes = fs.readFileSync(filePath);
-  return readOpenedBytes(path.basename(filePath), bytes);
+export async function readOpenedFile(filePath: string, signal?: AbortSignal): Promise<OpenedFile> {
+  const file = await fs.promises.open(filePath, 'r');
+  try {
+    const before = await file.stat(); const size = before.size;
+    if (signal?.aborted) throw new Error(VIDEO_METADATA_CANCELLED);
+    if (VIDEO_EXTENSIONS.test(filePath)) {
+      const metadata = await readVideoMetadata({ size, read: async (at, length) => {
+        const bytes = Buffer.alloc(length); let filled = 0;
+        while (filled < length) {
+          if (signal?.aborted) throw new Error(VIDEO_METADATA_CANCELLED);
+          const read = await file.read(bytes, filled, length - filled, at + filled);
+          if (!read.bytesRead) break; filled += read.bytesRead;
+        }
+        return bytes.subarray(0, filled);
+      } }, signal);
+      if (metadata !== null) {
+        const after = await file.stat();
+        if (after.size !== size || after.mtimeMs !== before.mtimeMs) throw new Error(NOT_A_WORKFLOW_FILE);
+        const document = embeddedWorkflow(Buffer.from(metadata));
+        if (document) return { kind: 'workflow', document, from: 'video' };
+        throw new Error(NO_WORKFLOW_IN_FILE);
+      }
+    }
+    if (size > OPEN_FILE_MAX_BYTES) throw new FileTooLargeError();
+    const bytes = Buffer.alloc(size);
+    for (let at = 0; at < size;) {
+      if (signal?.aborted) throw new Error(VIDEO_METADATA_CANCELLED);
+      const read = await file.read(bytes, at, Math.min(256 * 1024, size - at), at);
+      if (!read.bytesRead) throw new Error(NOT_A_WORKFLOW_FILE); at += read.bytesRead;
+    }
+    const after = await file.stat();
+    if (after.size !== size || after.mtimeMs !== before.mtimeMs) throw new Error(NOT_A_WORKFLOW_FILE);
+    if (signal?.aborted) throw new Error(VIDEO_METADATA_CANCELLED);
+    return readOpenedBytes(path.basename(filePath), bytes);
+  } finally { await file.close(); }
 }
 
 /** Recognises an uploaded file with exactly the same bounded metadata parser as desktop files. */

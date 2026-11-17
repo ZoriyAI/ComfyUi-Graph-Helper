@@ -73,6 +73,8 @@ what to expect. Wishes go to the project's Discussions, problems to its Issues.
 - A picture or video opens only when ComfyUI wrote the workflow into it. A picture from elsewhere, or one sent
   through a chat app, usually has none.
 
+- MP4, MOV, MKV and WebM can exceed the ordinary 64 MiB file limit: NodeWise seeks through headers and reads text metadata, skipping encoded frames. This also works in the paired browser; only metadata goes to the computer. Reading can be cancelled. Metadata is limited to 8 MiB, total reads to 16 MiB and 10 seconds; unsupported or damaged layouts ask for exported workflow JSON. Compressed MOV metadata is not inflated.
+
 ## The assistant and lessons
 
 - The assistant can construct and edit native inner graphs, including definitions from earlier turns. Lessons check the displayed canvas or subgraph copy, with separately saved answers for each nested instance. Promoted settings belong to the selected copy; the definition’s structure and unpromoted fields are shared.

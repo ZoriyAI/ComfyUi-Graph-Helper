@@ -26,6 +26,7 @@ import { currentGraphKey } from '../knowledge/projectExplanations';
 import { rememberProjectFile } from '../projectFiles';
 import { fileOpenErrorCode } from '../files/atomicWrite';
 import { isOpenablePath, PNG_TEXT_TOO_LARGE, readOpenedFile } from '../files/openFile';
+import { VIDEO_METADATA_CANCELLED, VIDEO_METADATA_INVALID, VIDEO_METADATA_LIMIT } from '../../shared/workflow/videoMetadata';
 import { isRecent, recentFiles, rememberRecent, rememberSource } from '../files/recentFiles';
 import { watchReplacingCommit } from './startIpc';
 
@@ -49,6 +50,7 @@ let commits: OpenCommits | null = null;
 let pending: string | null = null;
 /** The last workflow file written for ComfyUI, for "Show in folder" on the run card. */
 let lastExport: string | null = null;
+let reading: AbortController | null = null;
 
 /** A refused open, with the graph as it is so the window redraws nothing new. */
 function rejected(error: string): OpenResponse {
@@ -59,16 +61,22 @@ function rejected(error: string): OpenResponse {
  * Opens one file: the single path behind every way of opening. A project of this app opens as a project and is
  * remembered as the graph's file (Ctrl+S writes back there); anything else opens as a workflow.
  */
-export function openFileAtPath(filePath: string): OpenResponse {
+export async function openFileAtPath(filePath: string): Promise<OpenResponse> {
   if (!commits) return rejected('Project is not ready.');
+  reading?.abort();
+  const controller = new AbortController(); reading = controller;
+  const revision = readProjection(getDatabase(), DESKTOP_PROJECT_ID)?.currentRevisionId;
   let file;
   try {
-    file = readOpenedFile(filePath);
+    file = await readOpenedFile(filePath, controller.signal);
   } catch (error) {
     // Only known codes pass through; any other message (a system error with a path in it) becomes a fixed code.
     const message = error instanceof Error ? error.message : '';
-    return rejected(message === 'This file holds no workflow.' || message === 'Workflow JSON could not be parsed.' || message === PNG_TEXT_TOO_LARGE ? message : fileOpenErrorCode(error, 'Workflow JSON could not be parsed.'));
-  }
+    if (controller.signal.aborted || message === VIDEO_METADATA_CANCELLED) return { status: 'cancelled', projection: null, result: null };
+    return rejected(['This file holds no workflow.', 'Workflow JSON could not be parsed.', PNG_TEXT_TOO_LARGE, VIDEO_METADATA_INVALID, VIDEO_METADATA_LIMIT].includes(message) ? message : fileOpenErrorCode(error, 'Workflow JSON could not be parsed.'));
+  } finally { if (reading === controller) reading = null; }
+  if (controller.signal.aborted) return { status: 'cancelled', projection: null, result: null };
+  if (readProjection(getDatabase(), DESKTOP_PROJECT_ID)?.currentRevisionId !== revision) return rejected('The graph changed while the file was being read. Open it again.');
   const userData = app.getPath('userData');
   const name = path.basename(filePath);
   if (file.kind === 'project') {
@@ -186,6 +194,7 @@ function savedComfyOrigin(): string {
 /** Registers the channels; `opening` are the two commits of ipc.ts. */
 export function registerOpenIpc(ipcMain: IpcMain, opening: OpenCommits): void {
   commits = opening;
+  ipcMain.handle(IPC_CHANNELS.FILE_OPEN_CANCEL, () => { reading?.abort(); return { ok: true }; });
   // A dropped file: the renderer passes its path (webUtils in the preload). Only kinds of file the app opens.
   ipcMain.handle(IPC_CHANNELS.FILE_OPEN_PATH, (_event, filePath: unknown) => {
     if (typeof filePath !== 'string' || filePath.length > 4096 || !path.isAbsolute(filePath) || !isOpenablePath(filePath)) return rejected('This file cannot be opened here.');

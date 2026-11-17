@@ -14,6 +14,10 @@ A workflow is the graph ComfyUI saves, without explanations. Open one here to un
 
 The file is read as data only. Nothing in it is run.
 
+## Large videos
+
+For MP4, MOV, MKV and WebM, the file size does not require loading the video into memory. The app reads its metadata and skips frames. On a paired phone or tablet, select the video from that device: only the extracted metadata is sent to the computer. **Cancel reading** stops a slow read without replacing the graph. If someone changes the graph during reading, those changes are kept and the import asks you to try again. A video without embedded workflow data needs a separate workflow JSON.
+
 ## Ways to open
 
 - **File ▸ Open workflow…** (`Ctrl+I`), **Import** on the toolbar, or **Open a ComfyUI workflow** on the welcome card. The dialog **Open a workflow** lists workflows, pictures and videos.

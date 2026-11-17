@@ -9,7 +9,7 @@
 import { useLessonStore } from '../state/lessonState';
 import { i18n, applyLanguage } from '../i18n';
 import { describeNote, type WorkflowNote } from '../components/shell/notices';
-import { showToast } from '../ui/toastStore';
+import { showToast, useToastStore } from '../ui/toastStore';
 import { applyProjection, useProjectionStore } from '../services/commands/projection';
 import { getChatService } from '../services/llm/chatService';
 import { useUiStore } from '../state/uiState';
@@ -119,7 +119,12 @@ export async function runQueuedOpen(): Promise<void> {
  */
 export async function finishOpen(call: OpenCall): Promise<void> {
   useUiStore.getState().setDialog(null);
-  const result = await trackCommit(call);
+  let notice: string | undefined;
+  const timer = setTimeout(() => { notice = showToast({ title: String(i18n.t('fileReading.title')), description: String(i18n.t('fileReading.description')), duration: Infinity, action: { label: String(i18n.t('fileReading.cancel')), onSelect: () => { void window.electronAPI.cancelFileOpen(); } } }); }, 350);
+  let result: Awaited<ReturnType<OpenCall>>;
+  try { result = await trackCommit(call); }
+  catch (error) { notify({ kind: 'error', code: error instanceof Error ? error.message : 'Import was rejected.' }); return; }
+  finally { clearTimeout(timer); if (notice) useToastStore.getState().dismiss(notice); }
   if (!result || result.status === 'cancelled') return;
   const opened = 'opened' in result ? result.opened : undefined;
   const project = opened?.kind === 'project' || (!opened && call === openProjectCall);

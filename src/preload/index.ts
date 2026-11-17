@@ -73,6 +73,7 @@ const IPC_CHANNELS = {
   WORKFLOW_EXPORT_DOCUMENT: 'workflow:export-document',
   /** Ways of opening that end in one path (main/ipc/openIpc.ts): a dropped file, File ▸ Recent and Examples, the command line. */
   FILE_OPEN_PATH: 'file:open-path',
+  FILE_OPEN_CANCEL: 'file:open-cancel',
   FILE_RECENT_LIST: 'file:recent-list',
   FILE_OPEN_RECENT: 'file:open-recent',
   FILE_EXAMPLES_LIST: 'file:examples-list',
@@ -278,6 +279,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     }
   },
   openPath: (filePath: string) => ipcRenderer.invoke(IPC_CHANNELS.FILE_OPEN_PATH, filePath),
+  cancelFileOpen: () => ipcRenderer.invoke(IPC_CHANNELS.FILE_OPEN_CANCEL),
   recentFiles: () => ipcRenderer.invoke(IPC_CHANNELS.FILE_RECENT_LIST),
   openRecent: (filePath: string) => ipcRenderer.invoke(IPC_CHANNELS.FILE_OPEN_RECENT, filePath),
   examples: () => ipcRenderer.invoke(IPC_CHANNELS.FILE_EXAMPLES_LIST),
@@ -613,6 +615,7 @@ export interface ElectronAPI {
   openProject: () => Promise<import('../shared/commands/types').CommandResponse | { status: 'cancelled'; projection: null; result: null }>;
   pathForFile: (file: File) => string;
   openPath: (filePath: string) => Promise<OpenResponse>;
+  cancelFileOpen: () => Promise<{ ok: boolean }>;
   recentFiles: () => Promise<Array<{ path: string; name: string; kind: 'project' | 'workflow'; at: number }>>;
   openRecent: (filePath: string) => Promise<OpenResponse>;
   examples: () => Promise<string[]>;
