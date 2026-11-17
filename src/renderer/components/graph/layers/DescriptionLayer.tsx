@@ -373,7 +373,7 @@ const DescriptionCard = React.memo(function DescriptionCard(props: CardProps) {
     // node's bottom-right corner. A dot centred on the edge read as one more port.
     const closed = hidden;
     return (
-      <NodeToolbar nodeId={node.id} isVisible position={Position.Bottom} align="end" offset={-9} className="nopan nodrag">
+      <NodeToolbar nodeId={node.id} isVisible position={Position.Bottom} align="end" offset={-9} className={`nopan nodrag ${styles.toolbar}`}>
         <button
           type="button"
           className={styles.dot}
@@ -405,7 +405,7 @@ const DescriptionCard = React.memo(function DescriptionCard(props: CardProps) {
       position={POSITIONS[placement.side]}
       align={placement.side === 'left' || placement.side === 'right' ? 'start' : 'center'}
       offset={OFFSETS[placement.side] * scale}
-      className="nopan nodrag"
+      className={`nopan nodrag ${styles.toolbar}`}
       style={raised ? { zIndex: RAISED_Z } : undefined}
     >
       {/* The scale lives on a box of its own: the card's entrance animation moves the card itself. */}

@@ -2,7 +2,11 @@
  * Description cards under nodes (DescriptionLayer.tsx): a quiet raised note that reads as part of the node, not a
  * popup, with its dot, its edit form and its provenance badge.
  */
+/* The toolbar keeps the unscaled layout box. Only the visible card/chip may catch input: at a small
+ * canvas zoom the empty remainder of that box otherwise blocks the next node's title and ports. */
+.toolbar { pointer-events: none; }
 .card {
+  pointer-events: auto;
   box-sizing: border-box;
   padding: 4px 4px 4px 6px;
   border-radius: var(--radius-lg, 10px);
@@ -130,6 +134,7 @@
 /* A hidden card leaves a small note chip on the node's bottom-right corner that brings it back. */
 /* Quiet by default: it marks that there is something to read, it does not compete with the node's ports. */
 .dot {
+  pointer-events: auto;
   display: inline-grid;
   place-items: center;
   width: 16px;
