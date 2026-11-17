@@ -21,6 +21,7 @@ import { AddImageButton } from './imageSource';
 import { openGuidance, resumeGuidance, useGuidanceStore } from '../guidance/guidanceState';
 import { useJourneyStore } from '../../state/journeyState';
 import { useGraphStore } from '../../state/graphState';
+import { canvasControlsTop } from './lib/followCamera';
 
 const zoomOf = (state: ReactFlowState) => state.transform[2];
 
@@ -34,12 +35,7 @@ const DESCRIPTION_TITLES = {
 /** Room for the floating toolbar above and the minimap in the bottom-right corner, so a fit never hides a node. */
 export const FIT_PADDING = {
   get top(): `${number}px` {
-    if (typeof document === 'undefined') return '76px';
-    const root = document.querySelector('.graph-canvas')?.getBoundingClientRect();
-    if (!root) return '76px';
-    const bottom = Array.from(document.querySelectorAll('[data-canvas-toolbar], [data-live-build]'))
-      .reduce((value, element) => Math.max(value, element.getBoundingClientRect().bottom - root.top + 16), 76);
-    return `${Math.ceil(bottom + (useGraphStore.getState().groups.length ? 72 : 0))}px`;
+    return `${canvasControlsTop(76) + (useGraphStore.getState().groups.length ? 72 : 0)}px`;
   },
   right: '32px', bottom: '128px', left: '32px',
 } as const;

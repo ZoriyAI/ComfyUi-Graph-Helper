@@ -11,7 +11,7 @@ import { useUiStore } from '../../../state/uiState';
 import Illustration from '../illustrations/Illustration';
 import { useMotionLevel } from '../../../motion/policy';
 import { moveCamera } from '../../../motion/camera';
-import { CALLOUT_GAP_PX, CALLOUT_Z, cameraCenter, TOOLBAR_ROOM_PX, TOUR_CALLOUT_PX, type CameraRoom } from '../lib/followCamera';
+import { CALLOUT_GAP_PX, CALLOUT_Z, cameraCenter, canvasControlsTop, TOOLBAR_ROOM_PX, TOUR_CALLOUT_PX, type CameraRoom } from '../lib/followCamera';
 import { withoutLeadingName } from '../lib/description';
 import styles from './Callout.module.css';
 
@@ -47,7 +47,7 @@ export function useCenterOn() {
       { x: at.x, y: at.y, width, height },
       { width: pane.width, height: pane.height },
       zoom,
-      { top: room.top ?? TOOLBAR_ROOM_PX, above: room.above ?? 0 },
+      { top: canvasControlsTop(room.top ?? TOOLBAR_ROOM_PX), above: room.above ?? 0 },
     );
     void moveCamera(flow, { x: pane.width / 2 - center.x * zoom, y: pane.height / 2 - center.y * zoom, zoom });
   }, [flow, store]);

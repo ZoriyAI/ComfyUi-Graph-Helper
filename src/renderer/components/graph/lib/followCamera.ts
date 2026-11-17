@@ -6,9 +6,9 @@
  * Used by BuildLayer and TourLayer.
  */
 
-/** The floating toolbar's room at the top of the canvas (15 px margin, 40 px tall, a gap). */
+/** Fallback room for a single-row toolbar before its real height is available. */
 export const TOOLBAR_ROOM_PX = 64;
-/** The toolbar and the build strip under it (the strip starts 64 px down and is 36 px tall), with a gap. */
+/** Fallback room for the toolbar and build strip; measured controls take precedence. */
 export const BUILD_ROOM_PX = 112;
 /** Between a callout and its node (the tail of the bubble), and a little air above the callout. */
 export const CALLOUT_GAP_PX = 30;
@@ -18,6 +18,19 @@ export const BUILD_BUBBLE_PX = 200;
 export const TOUR_CALLOUT_PX = 220;
 /** Kept free under the node. */
 const BOTTOM_ROOM_PX = 24;
+
+/** Keep camera moves below the controls as drawn, including wrapped toolbars and desktop text scaling. */
+export function canvasControlsTop(fallback = TOOLBAR_ROOM_PX): number {
+  const root = typeof document === 'undefined' ? null : document.querySelector('.graph-canvas');
+  if (!root) return fallback;
+  const top = root.getBoundingClientRect().top;
+  const bottom = Array.from(root.querySelectorAll('[data-canvas-toolbar], [data-live-build]'))
+    .reduce((value, element) => {
+      const box = element.getBoundingClientRect();
+      return box.width > 0 && box.height > 0 ? Math.max(value, box.bottom - top + 16) : value;
+    }, fallback);
+  return Math.ceil(bottom);
+}
 
 /** A node's box in flow coordinates. */
 export interface CameraNode { x: number; y: number; width: number; height: number }

@@ -226,8 +226,10 @@ async function resize(page: Page, size: Size): Promise<void> {
   const wanted = `${size.width}x${size.height} at ${DPR > 0 ? DPR : 1}`;
   let actual = '';
   for (let turn = 0; turn < 20; turn += 1) {
-    actual = await page.evaluate(() => `${window.innerWidth}x${window.innerHeight} at ${window.devicePixelRatio}`);
-    if (actual === wanted) return;
+    const seen = await page.evaluate(() => ({ width: window.innerWidth, height: window.innerHeight, dpr: window.devicePixelRatio }));
+    actual = `${seen.width}x${seen.height} at ${seen.dpr}`;
+    // Chromium can report 0.999999964 for scale 1; dimensions and any meaningful scale difference remain strict.
+    if (seen.width === size.width && seen.height === size.height && Math.abs(seen.dpr - (DPR > 0 ? DPR : 1)) < 1e-6) return;
     await page.waitForTimeout(50);
   }
   throw new Error(`the window is ${actual} where ${wanted} was asked for`);

@@ -181,7 +181,8 @@ jobs:
           LAYOUT_TEXT: ${{ matrix.text }}
           LAYOUT_DPR: ${{ matrix.dpr }}
           LAYOUT_OUT: ${{ matrix.out }}
-        run: xvfb-run -a npx playwright test tests/e2e/layout-walk.test.ts --trace off --retries=1
+        # Layout faults are deterministic; report the first full walk instead of repeating every screen.
+        run: xvfb-run -a npx playwright test tests/e2e/layout-walk.test.ts --trace off --retries=0
       - name: Upload results on failure
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
