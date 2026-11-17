@@ -1,5 +1,7 @@
 # Reliability and teaching improvements
 
+> Historical baseline. Current implementation/status reconciliation: [completion audit](2026-11-16-completion-audit.md#reconciliation-for-128) and [fifty scenarios](2026-11-16-fifty-user-problems.md). Earlier unchecked boxes record their original review state; they are not a fresh list of missing features. The remaining lesson-facts, recovery/privacy and delivery-gate gaps were implemented for1.2.8. Actual acceptance remains in the release evidence.
+
 ## Goal and authorization
 
 Implement the defects found during the 15 November 2026 source audit, use existing maintained packages for general-purpose work, verify the result, merge it into main and publish the next release, v0.9.0. The user explicitly authorized implementation, the final merge and release publication. Legal adult 18+ technical education must not be blocked merely because the topic is NSFW; keep educational material factual, with consent and lawful use guidance for adult subjects.

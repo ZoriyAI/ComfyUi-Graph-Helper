@@ -20,8 +20,8 @@ Rules that hold everywhere:
 - **Main is the only writer.** The renderer asks; main checks, applies and answers with the new state.
 - **Secrets never reach the renderer.** Keys and tokens live in main; the window learns only whether one is held and
   where. [Security](../trust/Security.md)
-- **ComfyUI is only read.** Every call to ComfyUI or an MCP server passes one read-only gate.
-  [ComfyUI is only read](../trust/Read-Only.md)
+- **Catalog access is read-only.** ComfyUI catalog and MCP requests pass read-only gates. A separate upload path accepts only explicitly selected media, with no overwrite.
+  [Catalog reads and selected-file uploads](../trust/Read-Only.md)
 - **Every IPC call is checked:** the sender must be the app's own page, and the input must match its schema.
   [IPC between window and main](IPC.md)
 

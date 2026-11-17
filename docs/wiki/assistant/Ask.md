@@ -1,19 +1,19 @@
 [Русский](Ask.ru.md)
 [Home](../Home.md) › [The assistant](README.md)
 
-# Ask
+# Explain
 
-In **Ask** mode the assistant answers your questions and, when a change would help, proposes it as a grey draft you can accept or reject. It does not change the graph by itself. "Answers and grey suggestions; only what you accept goes in."
+In **Explain** mode the assistant answers your questions and, when a change would help, proposes it as a grey draft you can accept or reject. It does not change the graph by itself. "Answers and grey suggestions; only what you accept goes in."
 
 ## How to ask
 
-1. Open the **Assistant** tab and choose **Ask** under the conversation.
+1. Open the **Assistant** tab and choose **Explain** under the conversation.
 2. Write in **Ask about the graph** and press `Enter` (`Shift+Enter` for a new line).
 3. Or start from the empty conversation: **What can I build with my models?**, **Explain this graph**, **What's next?**.
 
 ## How to ask about one thing
 
-The fastest way: right-click it on the canvas and pick a question. The question goes to the assistant with the object attached, and the answer is saved to that object.
+Open its menu on the canvas (right-click or the touch menu button) and pick a question. The question goes to the assistant with the object attached, and the answer is saved to that object.
 
 | Right-click on | Questions |
 |---|---|
@@ -36,7 +36,7 @@ A question asked while the assistant is still answering waits its turn.
 
 ## Ask and "Build directly"
 
-Settings ▸ Assistant ▸ **When I ask for a change** chooses the mode the assistant's box opens in. **Suggest first (grey drafts)** opens in Ask; **Build directly** opens in Build, which puts nodes on the graph at once. Ask itself never changes the graph.
+The default **Assistant** mode carries out requests directly. Choose **Explain** when you want an answer or a draft without changing the graph. Settings ▸ Assistant lets you choose which mode opens by default.
 
 In the message field, `Up` and `Down` bring back your earlier questions. With no assistant chosen, a question about an object opens the Explain tab with the built-in knowledge instead: see [Working without a model](Without-A-Model.md).
 

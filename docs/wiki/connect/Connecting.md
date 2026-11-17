@@ -42,8 +42,7 @@ Sync.
 
 ## What the app never does there
 
-It only reads. Every request to ComfyUI is a `GET` on a short list of routes; the queue, prompts, uploads, installs
-and settings are refused before anything is sent. [ComfyUI is only read](../trust/Read-Only.md)
+Synchronization uses read-only requests through a fixed route allowlist. The separate media loader uploads only a file you explicitly select, to input without overwriting existing files. It does not queue workflows or install models and packs. [Access details](../trust/Read-Only.md)
 
 ## See also
 

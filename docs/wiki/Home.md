@@ -3,19 +3,15 @@ Home
 
 # NodeWise Studio
 
-**A desktop tutor for ComfyUI graphs**
+**Build ComfyUI workflows, understand them and learn by doing**
 
-NodeWise Studio is an independent, experimental learning tool. It is not affiliated with or endorsed by Comfy Org. It
-contains no ComfyUI code and only reads a running ComfyUI; it never changes it.
+Start with a task, a template or your own workflow. Configure its nodes manually or ask the assistant to build and edit the graph, then export it to run in ComfyUI. Task wizards, explanations and lessons help you understand each stage.
 
-NodeWise helps you learn ComfyUI and understand its graphs. It reads which nodes and models your ComfyUI has,
-explains every node and link, teaches with lessons you do by hand, and has an assistant that can explain and build
-a graph step by step. It comes as packages for Linux; on Windows and macOS a script builds and installs it from the
-project's source (checked on GitHub's machines, not yet on a range of real computers). You save the result as an ordinary workflow and run it in ComfyUI yourself.
+The app includes 115 bundled blueprints, 95 lessons, 50 guided problem-solving routes, a subgraph constructor and tools for your own lessons. A phone or tablet can open the running desktop app in a browser over Wi-Fi. Configure an assistant separately; lessons and manual editing work without a model.
 
-It is an experimental project: things change between versions and some parts are unfinished. Ideas and wishes are
-welcome in the project's Discussions; problems go to its Issues (Help ▸ Report a problem in the app). Who makes it
-and why: [The author and the experiment](trust/Author.md).
+NodeWise is an independent, experimental project, unaffiliated with Comfy Org. Catalog reads preserve ComfyUI files; media you select is uploaded to its input folder. You run generation in ComfyUI. [Capabilities and boundaries](start/What-It-Is.md).
+
+**[Download](https://github.com/ZoriyAI/nodewise-studio/releases/latest)** · **[Task wizards](graph/Task-Wizards.md)** · **[Phone and tablet](start/Browser-Access.md)** · **[Synchronization problems](interface/Sync-Menu.md)**
 
 ## Start here
 
@@ -35,7 +31,7 @@ know? [Glossary](reference/Glossary.md).
 - [Connecting](connect/README.md): Connecting the app to ComfyUI.
 - [The window](interface/README.md): One page per part of the window.
 - [Working with a graph](graph/README.md): Building, checking, saving and running a graph.
-- [The assistant](assistant/README.md): Ask, Build, Learn, choosing who answers and what is sent.
+- [The assistant](assistant/README.md): Assistant, Explain, Build and Learn; model choice and sent data.
 - [Lessons](lessons/README.md): The built-in lessons, one page each; My lessons and the lesson file format.
 - [ComfyUI concepts](concepts/README.md): An encyclopedia of ComfyUI for a newcomer, one idea per page.
 - [Reference](reference/README.md): Formats, settings, shortcuts, messages, words and limits.

@@ -3,40 +3,31 @@
 
 # The assistant
 
-The assistant is a language model, in the cloud or on your own computer, that the app lets look at your graph and your ComfyUI so it can explain and build with you. You choose which model it is. It works in three modes: **Ask**, **Build** and **Learn**. Where you talk to it: [The assistant tab](../interface/Assistant-Panel.md).
+Tell the assistant what you want in ordinary words. **Assistant** is the default conversation mode: questions get explanations, and requests such as “add a LoRA”, “change the first graph” or “clear the canvas and make two variants” can use the graph tools immediately. You do not need to switch to Build first.
 
-## What it does
+## What it can do
 
-- **Explains.** What a node is, why it is here, what flows along a link, what a field does, what to do next. The answer is saved to the object you asked about, so it shows later in its description card and in the **Explain** tab.
-- **Suggests.** In Ask mode it proposes changes as [grey drafts](Drafts.md) on the canvas; only what you accept goes into the graph.
-- **Builds.** In Build mode it changes the graph step by step on the canvas, and writes next to each node why it is there. It changes only what it placed itself in this build; a change to your own nodes, values, notes or links comes as a grey draft for you to decide.
-- **Reads your ComfyUI.** Before it names a node or a model, it looks in your catalog: which node classes you have, their inputs and outputs, which model files and of which family.
-- **Looks things up**, when your catalog cannot answer and you allow it: a web search and reading a page. See [Web search and pages](Web-Search.md).
+- Read the current graph, synchronized node schemas and model descriptions before choosing compatible parts.
+- Add, connect, edit and remove requested nodes, including existing nodes and the contents of native subgraphs from earlier turns.
+- Clear the canvas when you explicitly ask to start over, keeping the previous graph in revision history.
+- Create several named subgraphs for variants, populate them and expose inner settings on their outer nodes. Empty containers alone are not finished workflows.
+- Explain a node, field or connection from its menu, or follow a task wizard with you. On a touch screen, use the node's menu button.
+- Propose grey drafts when a change needs your decision. [Grey drafts](Drafts.md)
 
-## What it never does
+## Choose the kind of help
 
-- It never runs a graph, never installs a node or a pack, never downloads a model, never changes anything in ComfyUI. Nor can it: the app gives it no such tool.
-- It never sees your keys or tokens.
-- It never changes the graph in Ask mode; only a draft you accept goes in. If it tries, the app refuses: "The assistant tried to change the graph, but the chat is in Ask mode. Switch to Build and ask again; nothing was changed."
-- It never edits the inside of a subgraph: it builds on the main canvas.
-- In Ask mode it never saves anything as general knowledge, and its words are never marked as a fact: what it wrote carries the badge **Assistant**.
-- It never opens a web page or a link from the chat: a link in an answer copies its address when you click it.
+| Mode | Behavior |
+| --- | --- |
+| **Assistant** | Answers questions and carries out requested graph edits. |
+| **Explain** | Answers and proposes drafts; graph-changing tools are unavailable. [Explain](Ask.md) |
+| **Build** | Carries out a graph construction request step by step. [Build](Build.md) |
 
-## The three modes
+[Lessons](Learn.md) and the fifty problem guides also work without a model. Configure a provider once in [Settings: Assistant](../interface/Settings-Assistant.md); node menus and wizards use it.
 
-| Mode | Who builds | Needs a model | Page |
-|---|---|---|---|
-| **Ask** | you; the assistant answers and suggests | yes | [Ask](Ask.md) |
-| **Build** | the assistant, step by step, while you watch | yes | [Build](Build.md) |
-| **Learn** | you, led by a lesson | no | [Learn](Learn.md) |
+## Keep control
 
-## Before the first question
+Each saved edit is recorded in history. Pause or stop a build, inspect its steps and use Undo when needed. A question or imported text is not an instruction to clear your work. The assistant can make mistakes: check the proposed structure and run the exported workflow in ComfyUI to confirm its output.
 
-Choose who answers: the toolbar chooser, **Assistant ▸ Choose the assistant**, or Settings ▸ Assistant. See [Choosing who answers](Choosing-Who-Answers.md) and [Which model to take](Which-Model.md). Without a model, a question about an object is still answered from the built-in knowledge: [Working without a model](Without-A-Model.md).
+The assistant does not execute workflows, install third-party code or download model weights. Its explanations remain marked as assistant text rather than confirmed facts. [Limits](Limits.md), [What is sent](What-Is-Sent.md).
 
-## See also
-
-- [Choosing who answers](Choosing-Who-Answers.md)
-- [What is sent to the model](What-Is-Sent.md)
-- [Limits of the assistant](Limits.md)
-- [Read-only](../trust/Read-Only.md)
+After exporting, **Make room for ComfyUI** can pause assistant requests and background translations and unload the local Ollama models used by this app. Closing the desktop app performs this by default and also ends browser access. Closing a paired browser tab leaves the desktop running.

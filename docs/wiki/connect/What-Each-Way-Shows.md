@@ -32,4 +32,4 @@ artokun/comfyui-mcp 0.52.206 and joenorton/comfyui-mcp-server.
 
 - [Connecting](README.md)
 - [Connecting to ComfyUI](Connecting.md)
-- [ComfyUI is only read](../trust/Read-Only.md)
+- [Catalog reads and selected-file uploads](../trust/Read-Only.md)

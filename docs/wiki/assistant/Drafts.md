@@ -3,7 +3,7 @@
 
 # Grey drafts
 
-A grey draft is a change the assistant suggests but has not made: a node, a link, a value, a subgraph, a removal. It stands on the canvas in grey, with a short "Why", until you accept or reject it. Only what you accept goes into the graph. Drafts come from **Ask** mode, and from **Build** mode when a step would change what you made: your own nodes, their values, notes or links, a description, or the name of the graph. A build changes only what it placed itself; the rest waits for you as a draft. Drafts are never put on top of your own nodes.
+A grey draft is a suggested change that has not been applied. It waits for you to accept or reject it. Explain mode uses drafts; Assistant and Build can also propose one when you need to choose. A direct request to edit an existing node can be applied immediately with undo history. Drafts remain useful for reviewing alternatives before changing the graph.
 
 <!-- picture: a grey draft node with Accept and Reject next to a real node -->
 

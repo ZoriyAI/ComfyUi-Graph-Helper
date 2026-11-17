@@ -3,7 +3,7 @@
 
 # The assistant tab
 
-The **Assistant** tab is where you talk to the assistant. It shows the conversation, the switch between **Ask**, **Build** and **Learn**, and the message field. What the assistant does in each mode is on [The assistant](../assistant/Assistant.md).
+The **Assistant** tab is where you talk to the assistant. It shows the conversation, the switch between **Explain**, **Build** and **Learn**, and the message field. What the assistant does in each mode is on [The assistant](../assistant/Assistant.md).
 
 <!-- picture: the assistant tab during a build: step list, summary and the composer -->
 
@@ -16,9 +16,9 @@ The **Assistant** tab is where you talk to the assistant. It shows the conversat
   - **Build result**: "Done: 7 nodes, 9 links, 5 fields set." and **What next:** **Tour the graph**, **Check the graph**, **Save workflow…**.
   - Grey-draft cards with **Accept** and **Reject**. See [Grey drafts](../assistant/Drafts.md).
   - A link to the log of the answer: "The log of this answer: what was sent to the model and what it answered".
-- **The mode switch**: **Ask**, **Build**, **Learn**, with one line under it on what the mode does:
-  - Ask: "Answers and grey suggestions; only what you accept goes in."
-  - Build: "Builds on the canvas step by step and explains each step. It changes only what it builds itself; your nodes only with your consent."
+- **The mode switch**: **Explain**, **Build**, **Learn**, with one line under it on what the mode does:
+  - Explain: "Answers and grey suggestions; only what you accept goes in."
+  - Build: "Builds on the canvas step by step and explains each step. Requested changes can edit existing nodes and subgraphs, with undo history."
   - Learn: "You build; the app leads you step by step and checks."
 - **The message field**: "Ask about the graph" in Ask, "Ask for a graph change" in Build. It grows with its text. `Enter` sends, `Shift+Enter` adds a line. In an empty field, `Up` and `Down` bring back your earlier questions. The round button on the right is **Send**; while the assistant answers, **Stop** takes its place ("Stops the run. Changes already applied stay in the graph.").
 
@@ -53,3 +53,5 @@ An answer you stopped says "Stopped by you: the answer may be unfinished."; its 
 - [Learn](../assistant/Learn.md)
 - [The lessons tab](Lessons-Panel.md)
 - [The conversation log](Conversation-Log.md)
+
+The default **Assistant** mode answers questions and carries out requested graph changes directly. Choose Explain to keep a turn read-only.

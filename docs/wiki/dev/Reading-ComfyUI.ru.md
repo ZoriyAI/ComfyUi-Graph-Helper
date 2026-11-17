@@ -66,5 +66,5 @@
 ## См. также
 
 - [Для разработчиков](README.ru.md)
-- [ComfyUI только читается](../trust/Read-Only.ru.md)
+- [Чтение каталога и загрузка выбранных файлов](../trust/Read-Only.ru.md)
 - [Подключение к ComfyUI](../connect/Connecting.ru.md)

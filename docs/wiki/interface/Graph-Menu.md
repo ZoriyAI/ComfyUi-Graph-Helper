@@ -11,9 +11,9 @@ The **Graph** menu changes and explains the graph: adding nodes, laying them out
 |---|---|---|---|
 | **Add node…** | `Ctrl+K` | Opens the node search in the middle of the canvas. See [Adding nodes](../graph/Adding-Nodes.md). | a history replay is showing |
 | **Arrange the graph** | `Ctrl+Shift+L` | Lays the graph out from left to right so nothing overlaps. With two or more nodes selected, only those. One undo puts it back. See [Arranging the graph](../graph/Arranging.md). | the level on screen has no nodes, or a replay is showing |
-| **Make a subgraph from selection** | `Ctrl+G` | Folds the selected nodes into one subgraph block. See [Subgraphs](../graph/Subgraphs.md). | nothing is selected, a subgraph is open, or a replay is showing |
+| **Make a subgraph from selection** | `Ctrl+G` | Folds the selected nodes into one subgraph block. See [Subgraphs](../graph/Subgraphs.md). | nothing is selected or a replay is showing |
 | **Dissolve subgraph** | none | Puts the nodes of the selected subgraph block back on the canvas. | not exactly one subgraph block is selected |
-| **Make a group from selection** | `Ctrl+Shift+G` | Draws a named frame around the selected nodes. See [Groups](../graph/Groups.md). | nothing is selected, a subgraph is open, or a replay is showing |
+| **Make a group from selection** | `Ctrl+Shift+G` | Draws a named frame around the selected nodes. See [Groups](../graph/Groups.md). | nothing is selected or a replay is showing |
 | **Bypass** | `Ctrl+Shift+B` | ComfyUI skips the selected nodes: what comes into a node goes straight out to its output of the same type. A tick shows when all selected nodes are bypassed; choose it again to make them run. Notes are skipped. See [A node on the canvas](Node.md#bypass-and-mute). | a replay is showing |
 | **Mute** | `Ctrl+M` | ComfyUI does not run the selected nodes at all; nodes that need their result get nothing. It toggles the same way. | a replay is showing |
 | **Color** ▸ **Red** / **Brown** / **Green** / **Blue** / **Pale blue** / **Cyan** / **Purple** / **Yellow** / **Black** / **No color** | none | Colours the selected nodes with ComfyUI's own palette, so ComfyUI shows the colour too. | a replay is showing |
@@ -29,7 +29,7 @@ The **Graph** menu changes and explains the graph: adding nodes, laying them out
 
 ## Good to know
 
-- Making a subgraph, dissolving one and grouping work only on the main canvas. Inside an open subgraph these items are grey.
+- Constructing or dissolving a subgraph and grouping nodes work on the displayed level, including inside a subgraph.
 - Bypass, Mute, Color and Replace with… need at least one selected node, and Insert node… needs one selected link. Otherwise the app says "Select one or more nodes first.", "Select one link first." or "Select one node first."
 - `Ctrl+B` is not Bypass: it opens and folds the library.
 - During a history replay the canvas is read-only, so every item that changes the graph is grey. Leave the replay with `Escape` or by choosing **Replay history** again.

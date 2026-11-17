@@ -23,7 +23,7 @@ Every change is a new version of the graph: you can always [undo it or look back
 
 ## What the app never does
 
-It never runs the graph, never installs a node pack, never downloads a model and never changes anything in ComfyUI. See [Read-only](../trust/Read-Only.md).
+It does not run the graph, install node packs or download model weights. Catalog reads preserve ComfyUI files; a file you explicitly select is uploaded to input. See [Read-only](../trust/Read-Only.md).
 
 ## See also
 

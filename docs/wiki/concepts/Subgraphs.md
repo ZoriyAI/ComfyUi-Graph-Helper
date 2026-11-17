@@ -27,6 +27,8 @@ In the workflow file, subgraph definitions are stored once in a `definitions` se
 ## How the app helps
 The app opens and saves workflows with subgraphs, shows them in the **Subgraphs** section of the library, and lets you edit a subgraph from the inside. Lessons follow the main canvas only. See [Subgraphs in the app](../graph/Subgraphs.md).
 
+The **Subgraph constructor…** now creates empty or selected-node definitions, typed interfaces, exposed per-instance settings and nested graphs. Follow the [constructor guide](../graph/Subgraphs.md).
+
 ## See also
 - [Workflow formats](Workflow-Formats.md)
 - [Notes, reroutes and primitives](Notes-Reroutes-Primitives.md)

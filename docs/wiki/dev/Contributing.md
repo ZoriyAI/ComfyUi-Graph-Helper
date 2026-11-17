@@ -41,7 +41,7 @@ The pages of this chapter are written for that:
 - [Testing](Testing.md): the checks and what each kind of test covers.
 - [Architecture](Architecture.md) and the [Code map](Code-Map.md): where to start reading.
 
-The rules the author's own changes keep are worth knowing when you change your copy: ComfyUI is only read
+The rules the author's own changes keep are worth knowing when you change your copy: catalog access is read-only, and media uploads require explicit file selection
 ([Reading ComfyUI](Reading-ComfyUI.md)); keys never reach the window, a log or a file
 ([Security](../trust/Security.md)); every IPC call is checked ([IPC](IPC.md)); every text exists in English and
 Russian ([Texts and languages](Texts-And-Languages.md)).

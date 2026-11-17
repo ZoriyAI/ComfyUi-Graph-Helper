@@ -52,3 +52,5 @@ One page per part of the window.
 ## See also
 
 - [Home](../Home.md)
+
+- [Settings: Services](Settings-Services.md): Host service status, memory use and lifecycle controls.

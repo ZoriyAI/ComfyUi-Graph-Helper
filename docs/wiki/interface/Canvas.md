@@ -18,9 +18,9 @@ The canvas is the middle of the window, where the graph lives: nodes, the links 
 
 When the graph first appears, or when you enter a subgraph, the canvas fits the graph by itself, never above 100 %. After **Fit to view**, after opening a workflow and after a build, the canvas keeps the cards readable when the graph almost fits; a large graph opens at no less than 30 %. The view glides to where it goes: a short hop takes about a quarter of a second, a long trip about two thirds. With motion reduced or off it jumps. See [Settings ▸ Appearance & Motion](Settings-Appearance.md#motion).
 
-## The overview
+## Zoomed-out graphs
 
-Below 50 % the nodes shrink to their titles and their colour, so a large graph reads like a map. Group names keep a readable size at any zoom. A node your ComfyUI does not have keeps its dashed frame here too. Zoom in past the threshold again and the fields come back.
+Nodes become smaller with the graph, but keep their inputs, outputs and settings visible. Zooming does not collapse them to titles. Explicitly collapsing a node remains a separate action. Group names retain a readable size, and missing nodes keep their dashed frame.
 
 ## How to select
 

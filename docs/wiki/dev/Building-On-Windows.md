@@ -20,8 +20,10 @@ every change, not yet on a range of real computers; when it fails, these steps a
 
 In PowerShell or the Git Bash window:
 
+The command below selects the source for release **1.2.8**. For another release, use the tag shown on its Releases page. To edit the code, create your own branch after cloning: `git switch -c my-change`.
+
 ```powershell
-git clone https://github.com/ZoriyAI/nodewise-studio.git nodewise-studio
+git clone --branch v1.2.8 --depth 1 https://github.com/ZoriyAI/nodewise-studio.git nodewise-studio
 cd nodewise-studio
 npm ci
 ```
@@ -61,8 +63,11 @@ after `npm run build`. Keys are encrypted by Windows (DPAPI) through Electron.
 
 ## Update the source
 
+Use the tag from the new release page in place of `v1.2.8` below. Save your edits on a branch before switching versions.
+
 ```powershell
-git pull
+git fetch origin tag v1.2.8
+git switch --detach v1.2.8
 npm ci
 npm run build
 ```

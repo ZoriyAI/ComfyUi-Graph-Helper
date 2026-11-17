@@ -32,4 +32,4 @@ artokun/comfyui-mcp 0.52.206 и joenorton/comfyui-mcp-server.
 
 - [Подключение](README.ru.md)
 - [Подключение к ComfyUI](Connecting.ru.md)
-- [ComfyUI только читается](../trust/Read-Only.ru.md)
+- [Чтение каталога и загрузка выбранных файлов](../trust/Read-Only.ru.md)

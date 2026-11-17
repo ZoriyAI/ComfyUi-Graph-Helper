@@ -5,6 +5,60 @@
 Releases, newest first. Each release has full notes in `docs/releases/`.
 This file is written by `node scripts/changelog.js`: change the notes, not this file.
 
+## 1.2.8
+
+The assistant now carries out ordinary requests on your existing graph, including clearing the canvas, building several variants and editing inside earlier subgraphs. The fifty problem guides have concrete preparation, actions and result checks; recovery and memory controls make the transition to ComfyUI clearer.
+
+Notes: [docs/releases/v1.2.8.md](docs/releases/v1.2.8.md)
+
+## 1.2.7
+
+Synchronization automatically tries another way to read model headers and reports **read, pending, failed and excluded** files separately. The new **Solve a problem** guide covers 50 practical situations with an explanation, an interactive diagram and a route to the relevant tool.
+
+Notes: [docs/releases/v1.2.7.md](docs/releases/v1.2.7.md)
+
+## 1.2.6
+
+Create, rename, colour, move and remove **groups inside subgraphs**, and use **Dissolve subgraph** on a nested node. These operations now follow the displayed graph level and its undo history.
+
+Notes: [docs/releases/v1.2.6.md](docs/releases/v1.2.6.md)
+
+## 1.2.5
+
+**Settings → Services** discovers supported Linux systemd services on the NodeWise computer and offers start, stop, restart and live status. The same controls are available from a paired phone. **Sync** now offers explained Gentle, Balanced and Faster reading profiles instead of leading with batch sizes and millisecond pauses.
+
+Notes: [docs/releases/v1.2.5.md](docs/releases/v1.2.5.md)
+
+## 1.2.4
+
+Sync problems now have a separate **Sync → Sync problems and repairs** window. It collects connection warnings, unread and excluded files, with retry and direct-file repair. A skipped file can be retried immediately; a successful read removes its exclusion.
+
+Notes: [docs/releases/v1.2.4.md](docs/releases/v1.2.4.md)
+
+## 1.2.3
+
+Fixes a model-metadata sync that repeatedly stopped at the same file after MCP reported `Not connected`. ComfyUI's native metadata route also returns HTTP 404 for headers above its 1 MiB limit or without embedded metadata. Previously, failure on that first fallback file stopped the entire pass.
+
+Notes: [docs/releases/v1.2.3.md](docs/releases/v1.2.3.md)
+
+## 1.2.2
+
+Phone and tablet panels now close with a second tap or the back-to-canvas action, including their floating cards. Photo selection uses the current device's native picker. The **Image** button, paste and file drop add an ordinary ComfyUI `LoadImage` source with preview and an `IMAGE` output.
+
+Notes: [docs/releases/v1.2.2.md](docs/releases/v1.2.2.md)
+
+## 1.2.1
+
+Media loaders now let you choose a file from this device, including a phone browser. The node library has **Collapse all** and **Expand all** controls. Input and output ports share the same rows, following ComfyUI's node layout. Browser access over Wi-Fi from 1.2.0 is included.
+
+Notes: [docs/releases/v1.2.1.md](docs/releases/v1.2.1.md)
+
+## 1.2.0
+
+Open the running app from your phone or tablet over Wi-Fi. The browser shares the computer's project and assistant, with a layout that fits a phone, tablet or desktop. This version also preserves lesson edits during saves and imports, tracks explanation changes in saved projects, and reports incomplete secret removal.
+
+Notes: [docs/releases/v1.2.0.md](docs/releases/v1.2.0.md)
+
 ## 1.1.0
 
 Lessons now ask you things, not only the canvas: checklists, rubrics, questions and checks the app makes, each saying whether the app saw it or you said it. Lessons have levels, tracks and a path; 95 lessons in sixteen groups, with the new groups Start and a reliable setup, Experiments and quality, Diagnostics, performance and safety, and The daily work cycle. Lesson progress is saved again after the 3D lesson or one of My lessons (1.0.0 lost it). A model of Ollama's cloud is no longer called local. A full guide to choosing a model, with current suggestions and prices. Copyright and authorship are stated in NOTICE and COPYRIGHT, and the packages carry them.

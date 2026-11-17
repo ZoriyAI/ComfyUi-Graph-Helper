@@ -46,7 +46,9 @@ Pick from the list ("Pick from 12 models on the server") or type the name. **Ref
 
 **Test connection** sends one short request with the fields above. "The model answered in 840 ms." For your own server it also says the context window, for example "Context window on the server: 4096 tokens. That is too small…".
 
-When the window is small and the server is Ollama, **Make a copy with a 16,384-token window** makes a copy of the model that loads with a larger window. The copy uses the same files: nothing is downloaded. It needs more memory than the original. **How to set the window by hand** covers Ollama as a Linux service, Ollama in a container, Ollama on another computer, LM Studio ("Context Length") and the llama.cpp server (`-c 16384 --jinja`). See [The context window](../assistant/Context-Window.md).
+**Conversation capacity** offers automatic sizing and task modes for small graphs, complex graphs and long sessions. **Response style** retains model defaults or chooses focused/varied answers with an explanation. **Apply dialogue mode to Ollama** configures through its API, loads and verifies the actual settings. Save settings after success. The chat warning has **Configure automatically**, which saves the verified result immediately.
+
+**Models on this server** shows loaded models, memory/VRAM and context. Refresh, stop the assistant response, load the selected model or unload a model without deleting its file. These controls require Ollama's native API; they do not stop the system service. See [Context and model controls](../assistant/Context-Window.md).
 
 ## Network
 
@@ -56,9 +58,9 @@ When the window is small and the server is Ollama, **Make a copy with a 16,384-t
 
 | Field | Default | What it does |
 |---|---|---|
-| **When I ask for a change** | **Suggest first (grey drafts)** | The mode the assistant's box opens in. Ask answers and offers grey drafts that go in only when you accept them. **Build directly** opens in Build. |
+| **When I ask for a change** | **Assistant** | Carries out requests directly. Explain only answers and drafts; Build emphasizes construction steps. |
 | **Steps per answer** | 60 (from 4 to 200) | After this many actions the assistant pauses and asks whether to go on. A text-to-image build takes about 16. |
-| **Context window (tokens)** | 0 = auto | The size of the model's memory. Auto takes it from the model name, from the server, or a default. |
+| **Conversation capacity** | Automatic | Task modes with explanations; applying to Ollama verifies the loaded window. For other providers it budgets conversation. |
 | **Allow web search**, **Allow reading web pages** | on | "Used only when your catalog cannot answer. Answers from the web carry their link." |
 | **Answer language** | **Same as the interface** | or **English**, **Russian** |
 | **Answer length** | **Short** | or **Detailed** |
@@ -70,3 +72,9 @@ When the window is small and the server is Ollama, **Make a copy with a 16,384-t
 - [Keys and where they are kept](../assistant/Keys.md)
 - [Web search and pages](../assistant/Web-Search.md)
 - [Settings](Settings.md)
+
+## Free memory before ComfyUI
+
+**Make room for ComfyUI** pauses chat and background model-description translation, then unloads the local Ollama models used by this app and checks the server result. Other model names and the shared service stay running. A failed or unsupported unload is shown as unconfirmed, with retry. **Resume assistant** or a new message resumes requests.
+
+**Unload assistant models when closing NodeWise** is on by default. Quitting the desktop stops browser access; closing a paired tab does not quit the desktop. The export handoff shows the same controls, even when its introductory hints were dismissed.

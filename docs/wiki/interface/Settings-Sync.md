@@ -3,11 +3,13 @@
 
 # Settings: Sync
 
-"The library comes from ComfyUI directly or through optional read-only MCP tools. Auto-sync and the interval apply at once; the rest saves with Save settings." This section shows how the last sync went, runs one now, sets automatic sync, and says how model files are read.
+"The library comes from ComfyUI directly or through optional read-only MCP tools. Auto-sync, intervals and reading profiles are applied with Save settings. Sync now runs immediately." This section shows how the last sync went, runs one now, sets automatic sync, and says how model files are read.
 
 ## What it shows
 
 The state and a summary: "Up to date · Node types: 812, packs: 41, models: 331 (120 with metadata). Last sync: 14:05." Warnings of the last sync, a paused reading ("Metadata reading is paused at 120 / 331. It continues with the next sync, or press Sync now.") and the last error.
+
+Choose **Gentle** while the server is busy, **Balanced** for ordinary use, or **Faster** when it is idle. Each mode explains its load tradeoff. Existing custom settings are preserved. Batch sizes and pauses are under **Advanced reading settings**. Common intervals have named choices, with a custom minute interval available.
 
 ## Fields and buttons
 
@@ -25,28 +27,17 @@ Read straight from ComfyUI, the app gets the header metadata of model files (tit
 
 A line at the bottom says the fixed timeout: one MCP call may take up to 60 s. A file that could not be read does not stop the sync: it is listed under **Could not be read** and tried again by itself after 1 h, 6 h, then 24 h.
 
-## Could not be read
+## Problems and repairs
 
-When something could not be read, the section shows a report under the buttons. It starts with one line: "Model files read: 360 of 372; could not be read: 2; skipped: 1." Then one row per thing, each saying what it is, why and what to do:
+The report has its own menu: **Sync → Sync problems and repairs**. The end-of-sync **Show the list** button opens it too. It collects connection warnings, unread and excluded files, reasons and recovery actions.
 
-- a model file with its folder, for example "“style.safetensors” in the folder “loras”";
-- a model folder, for example "Model folder “upscale_models”";
-- a part of the catalog, for example "Catalog: the list of packs".
+- **Try again now** reads one file through the server, including excluded files. Success removes the exclusion.
+- **Read file from this device** opens the file picker on the device displaying the interface. Select the same `.safetensors` or `.sft` file: its name, size and catalog revision are checked. Only the eight-byte prefix and header (up to 64 MiB) are read; weights are not loaded or transferred. A phone browser selects a phone file; a desktop selects a desktop file.
+- A valid header without embedded metadata is recorded as successfully read with no embedded description. This does not indicate corruption. An existing sidecar description is preserved.
+- **Skip this file** disables automatic attempts but keeps manual repair available.
+- **Retry non-excluded files** clears retry waits. **Copy report** includes reasons and exclusions.
 
-| Why (on screen) | What to do (on screen) |
-|---|---|
-| "The server dropped the connection while reading this file, also on a new connection." | The file may be damaged, or its header is one the server cannot read: load it in ComfyUI once to check. The other files were read. |
-| "The server had lost its connection for reading files." | Restart the MCP server. |
-| "The server answered with an error: …" (the server's short text, without addresses) | Nothing to do: it is tried again at the time shown. |
-| "The answer was too large.", "The server did not answer in time.", "The read did not come through." | Nothing to do: it is tried again at the time shown. |
-| "ComfyUI was not running when the list was asked for." | Start ComfyUI and sync again. |
-| "The server did not give this list." | Sync again. If it stays, check the MCP server. |
-
-Each model file row has **Try again now** (reads just that file at once, past its wait) and the switch **Skip this file** (the file is not read again, and not counted as a failure, until you turn the switch off). Under the list: **Try all again** (clears every wait and syncs) and **Copy report** (plain text, one line per row, without the server address). A long list shows its first five rows and **Show all**.
-
-A sync you start by hand ends with a toast when something could not be read: "Sync done. Could not be read: 2. See the list." Its button **Show the list** opens this section. A sync on the timer shows no toast; the [sync indicator](Sync-Indicator.md) carries the warning mark instead. The card of such a model in the library says "No description: the file could not be read during sync." with the reason.
-
-Automatic sync and its interval also live in the [sync indicator](Sync-Indicator.md) popover, where they apply at once. Here they apply with **Save settings**.
+History lists headers read from this device. A large header can explain why ComfyUI's native route refused it. Another source's history is hidden when the connection changes. Pause reading, open connection settings or go to [Services](Settings-Services.md) from the dialog.
 
 ## See also
 

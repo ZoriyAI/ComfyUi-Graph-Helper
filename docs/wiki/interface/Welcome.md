@@ -3,7 +3,7 @@
 
 # The welcome card
 
-While the canvas is empty, a card titled **Welcome** stands in its middle. It offers three ways to start and, under them, the two things those ways need. It goes away as soon as the graph has a node, and it steps aside while the node search is open.
+While the canvas is empty, a card titled **Welcome** stands in its middle. It offers three ways to start and, under them, the two things those ways need. Press **Go to the canvas** at the top to dismiss it immediately, including on a phone. This device remembers the choice. **Show the welcome screen** in the empty canvas toolbar brings it back. It also goes away as soon as the graph has a node, and steps aside while node search is open.
 
 <!-- picture: the welcome card with the three ways and the two setup rows -->
 
@@ -16,7 +16,7 @@ In the top corner of the card is a button with the name of the other language: *
 | Way | What it says | Button |
 |---|---|---|
 | **Take a lesson** | Build your first graph yourself: the app leads you step by step and checks each step. No assistant needed. | **Choose a lesson** opens the lessons. See [Learn](../assistant/Learn.md). |
-| **Open an example** | A finished lesson graph made of your nodes and models: open it and see how it works. | **Open an example** opens the example of the first lesson your ComfyUI can build. Until ComfyUI is read, there is no button: "Examples appear once the app has read your ComfyUI: they are built from your nodes." |
+| **Create from a ready starting point** | Choose a photo, video, music or another task. | **Choose what to create** opens task wizards with inputs, settings and model requirements. Available lesson examples remain below the setup rows. |
 | **Ask the assistant** | Write what you want, for example "I want a picture from text". The assistant explains every step on the canvas. | **Ask the assistant** puts the cursor in the message field. While no assistant is chosen, the button is **Choose an assistant…** and opens Settings ▸ Assistant. |
 
 Only one button is the main (bright) one at a time.

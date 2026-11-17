@@ -1,5 +1,7 @@
 # Task 2 implementation report
 
+> Historical baseline. Current implementation/status reconciliation: [completion audit](2026-11-16-completion-audit.md#reconciliation-for-128) and [fifty scenarios](2026-11-16-fifty-user-problems.md). Earlier unchecked boxes record their original review state; they are not a fresh list of missing features. The remaining lesson-facts, recovery/privacy and delivery-gate gaps were implemented for1.2.8. Actual acceptance remains in the release evidence.
+
 Status: implemented and locally verified, awaiting independent review/integration.
 
 Base: `c1295e0c7b326c6884d4dfbf0a68b10eddf823c5`.

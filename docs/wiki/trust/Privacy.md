@@ -68,6 +68,12 @@ else leaves your computer.
 - **A server on your computer**: while a request runs, the app also asks an Ollama server which context window it
   loaded the model with (`/api/ps`), so a request that does not fit can be noticed.
 
+### Model controls and selected-file repair
+
+An open assistant model monitor reads the selected server's status every 10 seconds. Context/style application, loading and unloading run only on the person's click through Ollama's native API. Creating a configuration reuses existing weights; loading uses server memory. Unloading keeps the file but can affect other apps on that server. System services are not changed.
+
+For sync repair, the file is selected on the interface device. Only its prefix and header, up to 64 MiB, are read. Only name, size and bounded metadata go to the main computer; weights are not transferred. Names and descriptions may contain personal data.
+
 ### Web search and web pages (the assistant)
 
 - **When:** while the assistant answers, if your catalog cannot answer and the assistant decides to search or to read
@@ -156,6 +162,6 @@ Where each file lies: [The data folder](../reference/Data-Folder.md). How to rem
 
 - [Trust](README.md)
 - [Security](Security.md)
-- [ComfyUI is only read](Read-Only.md)
+- [Catalog reads and selected-file uploads](Read-Only.md)
 - [What is sent to the model](../assistant/What-Is-Sent.md)
 - [Settings: Privacy](../interface/Settings-Privacy.md)

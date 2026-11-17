@@ -1,47 +1,34 @@
 [Русский](Context-Window.ru.md)
 [Home](../Home.md) › [The assistant](README.md)
 
-# The context window
+# Conversation capacity and model context
 
-The context window is how much text a model can read at once: the instructions, your graph, the descriptions of the assistant's tools, the conversation and its own answer, all counted in tokens (a token is a piece of a word). The assistant's request alone takes 3 to 6 thousand tokens. A cloud model has room for far more. A model on your own server is loaded with a fixed window, often small, and the server silently drops what does not fit: the model then answers without having read the question.
+The context window holds the instructions, graph, tool descriptions, conversation and answer together. Tokens are pieces of text. When this capacity is too small, a server may drop the beginning of a request. The app shows the actual reported window and warns about truncation or little remaining room.
 
-## What the app does about it
+## Configure from the app
 
-- It reads the real window from your server (Ollama, LM Studio, a llama.cpp server, vLLM) when you press **Test connection** and while it answers.
-- It keeps the newest messages within 70 % of the window and tells the model how many earlier messages it left out.
-- Under 16 000 tokens it saves room: it offers the model fewer tools. "From the next question the assistant saves room: it offers the model fewer tools."
-- When the window is small or not known, it sends a shorter plan of the graph from the first question, and keeps the data it sends within about a third of the window.
-- It says so when the window is too small.
+1. Open **Settings → Assistant** and select the server and installed model.
+2. Leave **Conversation capacity → Automatic** unless you need a specific task mode. Automatic considers the recent request, room for tools and the answer, and the model's reported maximum. The other choices are conversation/small graphs, complex graphs, and long sessions.
+3. Leave **Response style → Keep the model’s settings** to retain its own parameters, template and stop tokens. Focused reduces variation; Ideas increases it. Each choice explains its effect and its limits.
+4. For local Ollama, press **Apply dialogue mode to Ollama**. The app creates a configuration using the existing weights, loads it, checks the real window, and verifies explicitly selected generation parameters. It does not download weights or edit a system service. **Save settings** selects the verified configuration for the assistant.
+5. From a warning in chat, **Configure automatically** performs the same verification and saves the result immediately. Ask again after success.
 
-## What the app says
+More context uses more memory. Automatic sizing does not guarantee enough free RAM/VRAM; it checks the model limit and verifies loading. If loading fails, use a smaller mode/model or free memory in the model monitor. A failed or unconfirmed operation does not switch the assistant to the new configuration.
 
-| Where | Text | What it means |
-|---|---|---|
-| Test connection | "Context window on the server: 32768 tokens. The assistant's requests fit." | fine |
-| Test connection | "… The assistant will save room by offering the model fewer tools. For long builds and web search, 16384 or more is better" | works, but long builds may not |
-| Test connection | "… That is too small: a request from the assistant with its tools takes 3 to 6 thousand, so no room is left for the answer and for build steps." | raise it before you ask |
-| Above an answer | "The model's context window is almost full" | little room is left for a long build |
-| Above an answer | "The model read only part of the request … so this answer may be random." | the answer cannot be trusted; raise the window and ask again |
+## Monitoring and stopping
 
-## What to do when it is small
+**Models on this server** refreshes while Assistant settings is open. It shows the actual loaded models, model allocation, video-memory allocation and reported context. These values belong to the selected server, which may be another computer. Unknown values are labelled as not reported.
 
-1. Raise the window on the server to at least 16 384 tokens:
-   - **Ollama**: the variable `OLLAMA_CONTEXT_LENGTH` when the server starts, or `num_ctx` on the model. The steps with commands: [Ollama](Ollama.md). The app shows them too, under "How to do it (Ollama on Linux)", with **Copy**. Simpler: after **Test connection**, **Make a copy with a 16,384-token window** in Settings ▸ Assistant makes a copy of the model with the larger window, without downloading anything.
-   - **LM Studio**: load the model again with a larger "Context Length", or set it in the model's default settings.
-   - **llama.cpp**: start `llama-server` with a larger `-c`, and with `--jinja`, which tool calling needs.
-   - **vLLM**: a larger `--max-model-len`.
-2. A larger window needs more memory. If the model gets slow or does not load, choose a smaller window or a smaller model.
-3. Ask again.
+**Stop assistant response** cancels the app's active answer. **Unload and free memory** unloads a model without deleting its files; another request may load it again. **Load selected model** loads it with an empty request. Load/unload success is checked against the server's list, and is unavailable during the app's answer. Other apps sharing this server may be affected by unloading.
 
-If you cannot raise it: ask short questions, prefer **Ask** to long builds, start a new conversation (Settings ▸ Privacy ▸ **Clear chat history**), or use a cloud model.
+## Other providers and small windows
 
-## The setting
+The app can read window information exposed by Ollama, LM Studio, llama.cpp and vLLM. Configuration and load/unload in this version require Ollama's native API. A generic OpenAI chat endpoint cannot change the server's loaded context. The interface explains unavailable management instead of claiming success. Ollama cloud models manage their window at the provider.
 
-Settings ▸ Assistant ▸ **Context window (tokens)**: 0 means auto ("as your server loaded the model", "known model", or 32 000 for an unknown model). A number you set wins, except that a smaller window reported by the server is believed.
+For other providers, the capacity choice budgets conversation sent by the app. A smaller actual server window takes precedence. At small or unknown windows the assistant offers a compact tool set, retaining resource assessment and tools relevant to a requested blueprint or subgraph. Ask still cannot directly edit the graph. Short questions, a fresh conversation or a model with more context reduce pressure.
 
 ## See also
 
-- [Ollama](Ollama.md)
 - [Settings: Assistant](../interface/Settings-Assistant.md)
+- [Ollama](Ollama.md)
 - [Failed answers](Failed-Answers.md)
-- [Limits of the assistant](Limits.md)

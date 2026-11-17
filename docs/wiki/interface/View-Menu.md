@@ -35,6 +35,6 @@ The **View** menu changes what you see, not the graph: the zoom of the canvas, t
 ## See also
 
 - [Canvas](Canvas.md)
-- [Zoom and the overview](Canvas.md)
+- [Zoom and the canvas](Canvas.md)
 - [Settings ▸ Canvas](Settings-Canvas.md)
 - [Settings ▸ Appearance & Motion](Settings-Appearance.md)

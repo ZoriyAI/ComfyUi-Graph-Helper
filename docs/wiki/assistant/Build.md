@@ -7,9 +7,9 @@ In **Build** mode the assistant builds the graph on the canvas while you watch: 
 
 ## How to ask for a build
 
-1. Open the **Assistant** tab and choose **Build** under the conversation.
+1. Open the **Assistant** tab. Use the default Assistant mode, or choose **Build** for a construction request.
 2. Write in **Ask for a graph change** what you want, for example "a picture from text with my SDXL checkpoint" or "add a LoRA to this graph". Press `Enter`.
-3. Watch. The assistant changes only what it places in this build. If a step would change your own nodes, values, notes or links, the process name or a component, it becomes a grey draft instead. See [Grey drafts](Drafts.md).
+3. Watch the steps. Requested changes can affect your existing graph and earlier subgraphs. Unrelated work stays in place; each edit has undo history. If a choice needs review, the assistant can offer a [grey draft](Drafts.md).
 
 ## What you see while it builds
 
@@ -30,7 +30,7 @@ One `Ctrl+Z` takes back the steps the assistant made one after another: "Undo: t
 
 ## Limits
 
-- The assistant builds on the main canvas; if you are inside a subgraph, the canvas goes back to the main one.
+- The assistant can edit the main canvas and native subgraph contents, including earlier definitions. The view may return to the main level at the start of a turn; this does not prevent inner edits.
 - It uses only nodes and models your ComfyUI has. A node you do not have is refused, with similar names.
 - A long build pauses at the step limit. See [Pausing and stopping](Pause-And-Stop.md).
 - A model on your own server with a small context window may lose track in a long build. See [The context window](Context-Window.md).
@@ -38,6 +38,10 @@ One `Ctrl+Z` takes back the steps the assistant made one after another: "Undo: t
 - New project, Open project or Open workflow during a build ask "The assistant is still building. Stop it?". What was built stays in the old graph.
 - If a step cannot be saved (the disk is full or the app cannot write its data file), the build stops: "A step could not be saved: the disk is full or the app cannot write its data file. The build stopped; what was built so far stays."
 - A history replay closes when a build starts.
+
+## Starting over and making variants
+
+Ask explicitly to clear the canvas when you want to replace it. The previous graph remains in history. Ask for named variants to get separate native subgraphs; each must be populated and checked before export. You can ask for a change to a specific earlier variant in a later message.
 
 ## See also
 

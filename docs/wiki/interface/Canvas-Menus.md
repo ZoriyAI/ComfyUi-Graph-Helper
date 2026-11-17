@@ -25,7 +25,7 @@ A right-click on the canvas opens a menu for what is under the pointer: a node, 
 | **Bypass** (`Ctrl+Shift+B`), **Mute** (`Ctrl+M`) | ComfyUI skips the node, or does not run it at all. A tick shows the current state. See [Bypass and mute](Node.md#bypass-and-mute). |
 | **Color** ▸ | One of ComfyUI's colours, or **No color**. |
 | **Replace with…** | Puts another node in its place. Not on a subgraph, a note, a reroute or a primitive. |
-| **Add to group** ▸ / **Take out of group** | Puts the node into a group or takes it out (main canvas only). See [Groups](../graph/Groups.md). |
+| **Add to group** ▸ / **Take out of group** | Puts the node into a group or takes it out (on the displayed level). See [Groups](../graph/Groups.md). |
 | **Delete node** (`Delete`) | Removes the node with its links. |
 
 ## On an input or output

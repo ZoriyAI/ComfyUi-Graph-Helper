@@ -40,6 +40,12 @@ The first run takes longer: ComfyUI loads the models into memory.
 
 ComfyUI shows a red message and outlines the node that failed. Copy the message and bring it here with **Help ▸ Explain a ComfyUI error…**. See [An error in ComfyUI](ComfyUI-Errors.md).
 
+## Make room for generation
+
+In the export handoff choose **Make room for ComfyUI**. The app pauses its assistant requests and background translations, attempts to unload the models it used through native Ollama and verifies the result. Failures offer retry; availability for other servers is stated explicitly. [Assistant settings](../interface/Settings-Assistant.md).
+
+This also runs by default when the desktop app closes. Closing a phone tab does not close the desktop app. If you no longer need the NodeWise canvas, close it after export; browser access ends too. Resource estimates do not replace measuring memory during a real ComfyUI run.
+
 ## See also
 
 - [An error in ComfyUI](ComfyUI-Errors.md)

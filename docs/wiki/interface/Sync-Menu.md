@@ -11,6 +11,7 @@ The **Sync** menu reads your ComfyUI: which nodes, node packs and model files it
 |---|---|---|
 | **Sync now** | Reads your ComfyUI now. | a sync is already running |
 | **Sync automatically** | Reads it again on a timer. A tick means on. The interval is set in Settings ▸ Sync (at least 5 minutes). It works with the ComfyUI address or with an MCP server. | the app has never had a sync state (right after the first start, before the connection is set) |
+| **Sync problems and repairs** | Separate report of warnings, excluded files, retry and direct selected-file header repair. | never |
 | **Sync settings…** | Opens [Settings ▸ Sync](Settings-Sync.md). | never |
 
 ## What the app says

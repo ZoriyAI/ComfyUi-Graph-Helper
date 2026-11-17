@@ -1,5 +1,6 @@
 [Русский](README.ru.md)
 [Home](../Home.md) › Working with a graph
+- [Task wizards, agent and custom extensions](Task-Wizards.md)
 
 # Working with a graph
 

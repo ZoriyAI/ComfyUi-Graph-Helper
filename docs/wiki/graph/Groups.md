@@ -13,7 +13,7 @@ A group is a named frame drawn around a few nodes, for example "Prompts" or "Ups
 
 ## How to rename a group
 
-Double-click its title, type the new one, press `Enter`. `Escape` cancels.
+Double-click its title, type the new one, press `Enter`. `Escape` cancels. On a phone, tap the **⋯** button beside the group title and choose **Rename**. The same menu offers colour and removal.
 
 ## How to move a group
 
@@ -41,7 +41,7 @@ Right-click the group ▸ **What is this group for?** asks the assistant.
 
 ## Limits
 
-- Groups live on the main canvas only, not inside a subgraph.
+- Groups work on the main canvas and inside subgraphs. Identical group numbers on different levels refer to different frames.
 - A workflow from ComfyUI keeps its groups and their colours.
 
 ## See also
