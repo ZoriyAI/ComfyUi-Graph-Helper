@@ -260,18 +260,18 @@ describe('the size main gives a node', () => {
   });
 
   it('is the size the canvas draws: the catalog says which inputs are fields and which is a text box', () => {
-    // 177 px is what the canvas draws for this node (tests/e2e/node-size.test.ts).
-    expect(newNodeSize({ type: 'add-node', nodeType: 'CLIPTextEncode' }, catalog)).toEqual({ width: 240, height: 177 });
+    // Encloses the measured 180 px card (tests/e2e/node-size.test.ts).
+    expect(newNodeSize({ type: 'add-node', nodeType: 'CLIPTextEncode' }, catalog)).toEqual({ width: 240, height: 181 });
     const hints = classHints(catalog);
     expect(hints('CLIPTextEncode')).toEqual({ inputs: [{ name: 'text', widget: true, multiline: true }, { name: 'clip', widget: false, multiline: undefined }] });
     expect(hints('Unknown')).toBeNull();
     expect(classHints(null)('CLIPTextEncode')).toBeNull();
     const node = { id: '1', position: { x: 10, y: 20 }, data: { comfyType: 'CLIPTextEncode', inputs: [{ name: 'clip', dataType: 'CLIP' }, { name: 'text', dataType: 'STRING' }], outputs: [{ name: 'CONDITIONING' }], parameters: { text: '' } } };
-    expect(nodeRectOf(node, hints)).toEqual({ x: 10, y: 20, width: 240, height: 177 });
+    expect(nodeRectOf(node, hints)).toEqual({ x: 10, y: 20, width: 240, height: 181 });
     // Without the catalog the text is an ordinary field: smaller by the text box, never larger than drawn.
-    expect(nodeRectOf(node).height).toBe(177 - 41);
+    expect(nodeRectOf(node).height).toBe(181 - 45);
     // Usable as a plain map callback.
-    expect([node].map(nodeRectOf)[0].height).toBe(177 - 41);
+    expect([node].map(nodeRectOf)[0].height).toBe(181 - 45);
   });
 
   it('keeps room for a collapsed description card around a placed node', () => {

@@ -196,9 +196,9 @@ describe('estimateNodeSize', () => {
     // Without the catalog and without a value, `text` is taken for a link input.
     expect(estimateNodeSize(prompt).height).toBe(55 + (4 + 2 * 28) + 10);
     const hints = { inputs: [{ name: 'clip', widget: false }, { name: 'text', widget: true, multiline: true }] };
-    expect(estimateNodeSize(prompt, hints).height).toBe(55 + (4 + 28) + (9 + 30 + 41) + 10);
-    // The size measured on the canvas for this very node.
-    expect(estimateNodeSize(prompt, hints).height).toBe(177);
+    expect(estimateNodeSize(prompt, hints).height).toBe(55 + (4 + 28) + (9 + 30 + 45) + 10);
+    // The estimate encloses the measured 180 px card with its 24 px controls.
+    expect(estimateNodeSize(prompt, hints).height).toBe(181);
   });
 
   it('counts a value with no input of its name as a field, once', () => {
@@ -211,7 +211,8 @@ describe('estimateNodeSize', () => {
     expect(estimateNodeSize({ ...sampler, annotations: ['short'] }).height).toBe(plain + 20 + 18);
     const card = { inputs: [{ name: 'samples', dataType: 'LATENT' }], outputs: [{ name: 'IMAGE' }], kind: 'subgraph-instance', comfyType: 'uuid-1', title: 'uuid-1' };
     const bare = estimateNodeSize(card).height;
-    expect(bare).toBe(55 + (4 + 28) + 10);
+    // The subgraph Open control adds 6 px to the ordinary title row.
+    expect(bare).toBe(55 + 6 + (4 + 28) + 10);
     expect(estimateNodeSize({ ...card, title: 'My upscale' }).height).toBe(bare + 26);
     // A card titled with the subgraph's own name does not repeat it.
     expect(estimateNodeSize({ ...card, title: 'Upscale' }, { subgraphName: 'Upscale' }).height).toBe(bare);
