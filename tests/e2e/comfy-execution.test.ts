@@ -29,7 +29,7 @@ test('waiting diagnosis preserves prompt identity and never submits or unloads a
     await app.page.evaluate(async baseURL => {
       const read = await window.electronAPI.getSettings();
       if (!('values' in read) || !read.values) throw Error('Settings unavailable');
-      const result = await window.electronAPI.saveSettings({ ...read.values, comfyOrigin: baseURL, provider: 'local', baseURL: `${baseURL}/v1` });
+      const result = await window.electronAPI.saveSettings({ ...read.values, comfyOrigin: baseURL, provider: 'local', model: 'fixture-model', baseURL: `${baseURL}/v1` });
       if (!result.ok) throw Error('Fixture settings rejected');
     }, origin);
     await app.page.locator('.document-bar').getByRole('menuitem', { name: 'Help', exact: true }).click();
