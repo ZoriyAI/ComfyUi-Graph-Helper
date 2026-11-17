@@ -41,7 +41,7 @@ A paid node shows **Paid** on the canvas too.
 Four nodes belong to the editor of ComfyUI, not to a pack, and are always in the search and the library: **Note**, **Markdown Note**, **Reroute** and **Primitive**. ComfyUI does not run them.
 
 - **Note**: **Graph ▸ Add note** or right-click an empty place ▸ **Add note**. Double-click the note or press `Enter` to write. `Ctrl+Enter` or a click elsewhere saves, `Escape` cancels. An empty note says "Write a note…". See [Notes and descriptions](Notes-And-Descriptions.md).
-- **Reroute**: carries a link to another place on the canvas, to keep long links tidy. Right-click a link ▸ **Add reroute** puts one on it.
+- **Reroute**: carries a link to another place on the canvas, to keep long links tidy. Right-click a link ▸ **Add legacy Reroute node** puts one on it. For native link points, use **Add routing point** instead.
 - **Primitive**: holds one value and gives it to the field it is linked to. It connects only to a field, not to a link input: "A Primitive feeds a field only, not a link input."
 
 ## Put a node on a link

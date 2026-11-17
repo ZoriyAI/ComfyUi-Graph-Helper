@@ -1,5 +1,6 @@
 /** Preserves native ComfyUI node appearance and widget presentation when projecting a workflow. */
 import type { SubgraphDefinition } from '../graph/subgraphs';
+import { nativeReroutePosition } from './nativeReroutes';
 /**
  * How an imported ComfyUI node looks, read from what the file saved on it (`data.comfy`): its size, whether it is
  * collapsed, its colours, the fields a subgraph copy promotes, the editor-only nodes (Reroute, Primitive, notes,
@@ -310,10 +311,9 @@ export function reroutePaths(raw: unknown, links: ReadonlyArray<{ id: string; pa
   for (const item of list) {
     const reroute = record(item);
     if (!reroute || reroute.id == null) continue;
-    const pos = reroute.pos;
-    const x = Array.isArray(pos) ? pos[0] : record(pos)?.['0'];
-    const y = Array.isArray(pos) ? pos[1] : record(pos)?.['1'];
-    if (typeof x !== 'number' || typeof y !== 'number') continue;
+    const position = nativeReroutePosition(reroute);
+    if (!position) continue;
+    const { x, y } = position;
     byId.set(String(reroute.id), { x, y, parent: reroute.parentId == null ? null : String(reroute.parentId) });
   }
   const parents = new Map<string, string>();

@@ -4,7 +4,7 @@
  * whole canvas in it. The rows come from the command registry where a command exists, so labels, shortcuts and the
  * enabled state match the menu bar; editingMenu.tsx and lookMenu add the editing and collapse rows.
  */
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import * as Menu from '@radix-ui/react-context-menu';
 import { useReactFlow } from '@xyflow/react';
@@ -59,11 +59,14 @@ export type MenuTarget =
   | { kind: 'node'; nodeId: string }
   | { kind: 'port'; nodeId: string; handle: string; direction: 'input' | 'output' }
   | { kind: 'edge'; edgeId: string }
+  | { kind: 'reroute'; rerouteId: string }
   | { kind: 'group'; groupId: string }
   | { kind: 'pane'; at: { x: number; y: number } };
 
 /** Reads the target from the DOM element under the pointer. Pure apart from DOM reads, so it is easy to follow. */
 export function targetFromElement(element: Element | null, at: { x: number; y: number }): MenuTarget {
+  const reroute = element?.closest('[data-native-reroute]');
+  if (reroute) return { kind: 'reroute', rerouteId: reroute.getAttribute('data-native-reroute') ?? '' };
   const handle = element?.closest('.react-flow__handle');
   const nodeElement = element?.closest('.react-flow__node');
   if (handle && nodeElement) {
@@ -106,6 +109,8 @@ export default function GraphContextMenu({ children, nodes: levelNodes, edges, r
   const { t } = useTranslation();
   const flow = useReactFlow();
   const [target, setTarget] = useState<MenuTarget>({ kind: 'pane', at: { x: 0, y: 0 } });
+  const [menuAt, setMenuAt] = useState({ x: 0, y: 0 });
+  const menuOrigin = useRef(captureEditOrigin());
   const rootNodes = useGraphStore((state) => state.nodes);
   const rootGroups = useGraphStore((state) => state.groups);
   const subgraphs = useGraphStore((state) => state.subgraphs);
@@ -126,7 +131,9 @@ export default function GraphContextMenu({ children, nodes: levelNodes, edges, r
       event.preventDefault();
       return;
     }
-    const next = targetFromElement(event.target as Element, flow.screenToFlowPosition({ x: event.clientX, y: event.clientY }));
+    const at = flow.screenToFlowPosition({ x: event.clientX, y: event.clientY });
+    const next = targetFromElement(event.target as Element, at);
+    setMenuAt(at); menuOrigin.current = captureEditOrigin();
     setTarget(next);
     const ref: ObjectRef | null = next.kind === 'node'
       ? nodeRef(nodes.find((node) => node.id === next.nodeId) ?? { id: next.nodeId }, activeSubgraphId)
@@ -141,7 +148,7 @@ export default function GraphContextMenu({ children, nodes: levelNodes, edges, r
   const onKeyDown = useCallback((event: React.KeyboardEvent) => {
     if (!((event.shiftKey && event.key === 'F10') || event.key === 'ContextMenu')) return;
     const active = document.activeElement;
-    if (!(active instanceof HTMLElement) || !event.currentTarget.contains(active)) return;
+    if (!(active instanceof Element) || !event.currentTarget.contains(active)) return;
     if (active.closest('input, textarea, select')) return;
     event.preventDefault();
     // A synthetic contextmenu event on the focused element opens the same Radix menu a right-click opens; the point
@@ -307,10 +314,14 @@ export default function GraphContextMenu({ children, nodes: levelNodes, edges, r
         item('flows', t('contextMenu.whatFlows'), () => void askWhatFlows(edge.id, type, say('contextMenu.askFlows', { type, source, target: targetName }), activeSubgraphId), { icon: ArrowRightLeft }),
         item('why', t('contextMenu.whyEdge'), () => askAbout(ref, say('contextMenu.askWhyEdge', { source, target: targetName })), { icon: MessageCircleQuestion }),
         separator('s1'),
+        item('native-reroute', t('editing.addNativeReroute'), () => void commitAtOrigin(menuOrigin.current, { type: 'add-native-reroute', edgeId: edge.id, ...menuAt }), { icon: Compass, disabled: !canBuild }),
         ...edgeEditingItems((key) => String(t(key)), edge.id, !canBuild),
         item('remove', t('contextMenu.disconnect'), () => void commitManual({ type: 'remove-edge', edgeId: edge.id }), { icon: Unlink, danger: true, disabled: !canBuild }),
       );
     }
+  } else if (target.kind === 'reroute') {
+    items.push(<Menu.Label key="reroute-hint" className={`${styles.groupLabel} ${styles.hint}`}>{String(t('canvas.rerouteMenuHint'))}</Menu.Label>,
+      item('remove-reroute', t('editing.removeNativeReroute'), () => void commitAtOrigin(menuOrigin.current, { type: 'remove-native-reroute', rerouteId: target.rerouteId }), { icon: Trash2, danger: true, disabled: !canBuild }));
   } else if (target.kind === 'group') {
     const group = groups.find((item) => item.id === target.groupId);
     if (group) {

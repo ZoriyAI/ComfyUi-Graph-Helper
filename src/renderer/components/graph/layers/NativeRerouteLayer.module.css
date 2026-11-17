@@ -1,0 +1,21 @@
+.point {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: calc(28px * var(--canvas-zoom-inverse, 1));
+  height: calc(28px * var(--canvas-zoom-inverse, 1));
+  border: 0;
+  border-radius: 50%;
+  padding: 0;
+  background: transparent;
+  pointer-events: auto;
+  touch-action: none;
+  cursor: grab;
+  display: grid;
+  place-items: center;
+}
+.point span { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); border: 2px solid var(--bg); pointer-events: none; }
+.point:focus-visible, .point:hover { outline: calc(2px * var(--canvas-zoom-inverse, 1)) solid var(--accent); background: color-mix(in srgb, var(--accent) 15%, transparent); }
+.point:active { cursor: grabbing; }
+@media (pointer: coarse), (max-width: 760px) {
+  .point { width: calc(44px * var(--canvas-zoom-inverse, 1)); height: calc(44px * var(--canvas-zoom-inverse, 1)); }
+}

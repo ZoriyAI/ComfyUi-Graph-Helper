@@ -43,6 +43,8 @@ import { withCollapsed } from '../../shared/workflow/comfyLook';
 import { parseNativeProject } from '../../shared/native-project';
 import { nestsItself, type GroupRecord, type SubgraphDefinition } from '../../shared/graph/subgraphs';
 import { applyGraphOp, blankDocument, GraphOpError, Ids, isGraphOp } from './graphOps';
+import { applyNativeReroute, isNativeRerouteMutation, NativeRerouteError } from './nativeReroutes';
+import { lastNativeRerouteId, rememberNativeRerouteId } from '../../shared/workflow/nativeReroutes';
 import { applyInnerEdit, keepDefinitionCounters } from './innerEdits';
 import { prepareBlueprint } from './blueprints';
 import { applyMoveNodes, classHints, nodeRectOf, placeHelperNode, placeHelperSubgraph, runCreatedNodeIds, tidyMoves } from './placement';
@@ -841,6 +843,10 @@ function applyMutation(snapshot: Snapshot, actionId: string, payload: GraphMutat
       throw error;
     }
   }
+  if (isNativeRerouteMutation(payload)) {
+    try { return applyNativeReroute(snapshot, payload) as { snapshot: Snapshot; result: Record<string, unknown> }; }
+    catch (error) { if (error instanceof NativeRerouteError) throw new CommandSignal('rejected', { error: error.message }); throw error; }
+  }
   if (isGraphOp(payload)) {
     try {
       const applied = applyGraphOp(snapshot, actionId, payload, catalog);
@@ -930,8 +936,10 @@ function restoreRevision(
   const restored = snapshotFromRow(row);
   const lastNode = nextNodeId(current) - 1;
   const lastLink = nextLinkId(current) - 1;
+  const lastReroute = lastNativeRerouteId(current.document?.raw);
   let document = restored.document;
-  if (!document && (lastNode > 0 || lastLink > 0)) document = blankDocument();
+  if (!document && (lastNode > 0 || lastLink > 0 || lastReroute > 0)) document = blankDocument();
+  if (document && lastReroute > lastNativeRerouteId(document.raw)) document = rememberNativeRerouteId(document, lastReroute);
   if (document && lastNode > 0 && nextNodeId({ ...restored, document }) - 1 < lastNode) document = rememberNodeId(document, lastNode);
   if (document && lastLink > 0 && nextLinkId({ ...restored, document }) - 1 < lastLink) document = rememberLinkId(document, lastLink);
   const currentState = current.document?.raw.state as Record<string, unknown> | undefined;

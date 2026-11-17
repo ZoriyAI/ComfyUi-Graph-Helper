@@ -50,7 +50,7 @@ The untitled graph is named after the file it came from, in the top bar and in t
 - If nodes of the file cover each other, the app moves them down so that none covers another, and says how many it moved: "Nodes moved apart so none covers another". Columns and their order stay as the author made them. `Ctrl+Z` puts them back. This is not done inside subgraphs.
 - The first view is the view saved in the file when it shows a node at a usable zoom. Otherwise the app fits the graph. A large graph opens at no less than 30 %.
 - Reroute, Primitive, Note and Markdown Note nodes are drawn as in ComfyUI. Links in a note are shown as text. Set and Get nodes: select one, and a dashed line leads to its partner.
-- Reroute points on links are drawn, but you cannot add or move them.
+- Native routing points on links can be added, dragged, moved with arrow keys and removed. Tap a point to open its menu; Delete removes only the point and keeps the links. Undo restores the previous chain. Shared points move every link through them; the same controls work inside subgraphs.
 
 ## What the message means
 

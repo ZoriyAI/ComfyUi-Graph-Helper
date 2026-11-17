@@ -88,7 +88,8 @@ export function scopedToLevel(payload: GraphMutation): GraphMutation {
   // Let main refuse it; falling back to root could edit a different group with the same local id.
   else if (payload.type === 'dissolve-subgraph' || payload.type === 'add-group' || payload.type === 'remove-group'
     || payload.type === 'rename-group' || payload.type === 'set-group-members' || payload.type === 'set-group-color'
-    || payload.type === 'set-group-bounds' || payload.type === 'move-group') edit = payload;
+    || payload.type === 'set-group-bounds' || payload.type === 'move-group'
+    || payload.type === 'add-native-reroute' || payload.type === 'move-native-reroute' || payload.type === 'remove-native-reroute') edit = payload;
   return edit ? { type: 'edit-in-subgraph', definitionId, edit } : payload;
 }
 

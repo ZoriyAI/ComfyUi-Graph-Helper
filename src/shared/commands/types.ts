@@ -169,6 +169,9 @@ export const setGroupBoundsMutation = z.object({
 });
 /** Moves the frame and its existing members together in one undoable step (including empty frames). */
 export const moveGroupMutation = z.object({ type: z.literal('move-group'), groupId: z.string().min(1), dx: z.number().finite(), dy: z.number().finite() });
+export const addNativeRerouteMutation = z.object({ type: z.literal('add-native-reroute'), edgeId: z.string().min(1), x: z.number().finite(), y: z.number().finite() });
+export const moveNativeRerouteMutation = z.object({ type: z.literal('move-native-reroute'), rerouteId: z.string().min(1), x: z.number().finite(), y: z.number().finite() });
+export const removeNativeRerouteMutation = z.object({ type: z.literal('remove-native-reroute'), rerouteId: z.string().min(1) });
 
 /** Every graph command, told apart by `type`. */
 export const mutationSchema = z.discriminatedUnion('type', [
@@ -296,6 +299,9 @@ export const mutationSchema = z.discriminatedUnion('type', [
   renameGroupMutation,
   setGroupBoundsMutation,
   moveGroupMutation,
+  addNativeRerouteMutation,
+  moveNativeRerouteMutation,
+  removeNativeRerouteMutation,
   // --- edits inside a subgraph definition (begin) ---
   z.object({
     /**
@@ -312,6 +318,9 @@ export const mutationSchema = z.discriminatedUnion('type', [
       renameGroupMutation,
       setGroupBoundsMutation,
       moveGroupMutation,
+      addNativeRerouteMutation,
+      moveNativeRerouteMutation,
+      removeNativeRerouteMutation,
       setGroupMembersMutation,
       setGroupColorMutation,
       z.object({ type: z.literal('move-node'), nodeId: z.string().min(1), x: z.number(), y: z.number() }),

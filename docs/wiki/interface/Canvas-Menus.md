@@ -41,7 +41,7 @@ A right-click on the canvas opens a menu for what is under the pointer: a node, 
 
 ## On a link
 
-**What flows here?**, **Why is it connected like this?**, **Insert node…** (puts a node on the link), **Add reroute** and **Disconnect**.
+**What flows here?**, **Why is it connected like this?**, **Insert node…** (puts a node on the link), **Add routing point**, **Add legacy Reroute node** and **Disconnect**. On touch screens, tap the link to open this menu. Tap a routing point for its own menu; removing it keeps the links. Arrow keys move a focused point; Shift uses a larger step.
 
 ## On a group
 

@@ -40,6 +40,7 @@ import ComfyNode from './nodes/ComfyNode';
 import BoundaryNodeView from './nodes/BoundaryNode';
 import TypedEdge from './edges/TypedEdge';
 import GroupLayer from './layers/GroupLayer';
+import NativeRerouteLayer from './layers/NativeRerouteLayer';
 import GhostLayer from './layers/GhostLayer';
 import ConnectAssistLayer from './layers/ConnectAssistLayer';
 import TourLayer from './layers/TourLayer';
@@ -609,6 +610,12 @@ export default function CanvasFlow() {
             onConnectEnd={onConnectEnd as never}
             isValidConnection={isValidConnection}
             onNodeClick={onNodeClick}
+            onEdgeClick={event => {
+              // A tap exposes link actions on touch screens without requiring a right mouse button.
+              if (!window.matchMedia('(pointer: coarse)').matches) return;
+              const element = event.target as Element;
+              element.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: event.clientX, clientY: event.clientY }));
+            }}
             onPaneClick={onPaneClick}
             zoomOnDoubleClick={false}
             // Delete, as the menu says, and Backspace, as in ComfyUI, remove the selection on every level.
@@ -699,6 +706,7 @@ export default function CanvasFlow() {
               />
             ) : null}
             <GroupLayer />
+            <NativeRerouteLayer />
             <GhostLayer />
             <ConnectAssistLayer />
             <DescriptionLayer />

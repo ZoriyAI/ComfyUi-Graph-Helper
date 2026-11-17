@@ -58,7 +58,6 @@ function TypedEdge({ id, source, target, sourceX, sourceY, targetX, targetY, sou
         data-flash={flashMark}
       />
       <path d={path} fill="none" strokeOpacity={0} strokeWidth={20} className="react-flow__edge-interaction" />
-      {via?.map((point) => <circle key={point.id} cx={point.x} cy={point.y} r={5} className={styles.reroutePoint} style={{ '--canvas-edge': color } as React.CSSProperties} data-reroute-point={point.id} />)}
       {flowing && !pending ? (
         <>
           <EdgePulse path={path} color={color} motion={motion} target={{ x: targetX, y: targetY }} />

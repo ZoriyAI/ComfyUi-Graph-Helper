@@ -124,6 +124,9 @@ export function describeCommand(command: RecentCommand, summary: GraphSummary | 
     case 'rename-group': return `renamed group ${safeText(str(p.groupId), 80)} to "${safeText(str(p.title), 80)}"`;
     case 'set-group-bounds': return `${p.bounding ? 'resized' : 'fitted'} group ${safeText(str(p.groupId), 80)}`;
     case 'move-group': return `moved group ${safeText(str(p.groupId), 80)} with its members`;
+    case 'add-native-reroute': return `added a native routing point on link ${safeText(str(p.edgeId), 80)}`;
+    case 'move-native-reroute': return `moved native routing point ${safeText(str(p.rerouteId), 80)}`;
+    case 'remove-native-reroute': return `removed native routing point ${safeText(str(p.rerouteId), 80)} while keeping the links connected`;
     case 'restore-revision': return `restored revision ${round(p.revSeq)}`;
     case 'move-nodes': return `arranged ${round(p.count)} nodes`;
     case 'rename-subgraph-io': return `renamed a subgraph ${p.direction === 'output' ? 'output' : 'input'} to "${safeText(str(p.name), 80)}"`;

@@ -57,7 +57,7 @@ Fields are the settings of the node: numbers, lists, switches, text and model fi
 ## Notes, Reroute, Primitive, Set and Get
 
 - A **Note** or **Markdown Note** is a warm card with text. Write in it right on the canvas: double-click or `Enter`; `Ctrl+Enter` or a click elsewhere saves, `Escape` cancels. An empty note says "Write a note…". Links in a note are shown as text.
-- A **Reroute** is a small dot coloured by the link that comes in. Reroute points that ComfyUI draws on links are shown too, but cannot be added or moved here.
+- A **Reroute** is a small dot coloured by the link that comes in. Native points on ComfyUI links can also be added from a link menu, moved by dragging or arrow keys, and removed from their tap menu. Undo restores the previous chain; node connections stay intact.
 - A **Primitive** shows its value with the same control as the field it feeds.
 - A **Set** or **Get** node: select one, and a dashed line and frame lead to its partner. The node menu and Properties have **Go to its Set** / **Go to its Get**.
 

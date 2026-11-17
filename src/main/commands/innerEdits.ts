@@ -23,6 +23,7 @@ import {
 } from '../../shared/workflow/codec';
 import { retargetDissolvedWidgets, retargetWrappedWidgets } from './dissolvedWidgets';
 import { GraphOpError, Ids, SUBGRAPH_ERRORS, instanceNode } from './graphOps';
+import { lastNativeRerouteId } from '../../shared/workflow/nativeReroutes';
 
 /**
  * Editing the inner graph of a subgraph definition (`edit-in-subgraph`).
@@ -79,23 +80,25 @@ function stateOf(definition: SubgraphDefinition): Record<string, unknown> {
 }
 
 /** The highest node and link ids a definition has used: its stored counters, or more when its graph holds more. */
-export function definitionCounters(definition: SubgraphDefinition): { lastNodeId: number; lastLinkId: number; lastGroupId: number } {
+export function definitionCounters(definition: SubgraphDefinition): { lastNodeId: number; lastLinkId: number; lastGroupId: number; lastRerouteId: number } {
   const state = stateOf(definition);
   return {
     lastNodeId: monotonicCounter(state.lastNodeId, numericIds(definition.nodes.map((node) => node.id))),
     lastLinkId: monotonicCounter(state.lastLinkId, linkIdsOf(definition.edges)),
     lastGroupId: monotonicCounter(state.lastGroupId, numericIds((definition.groups ?? liftGroups(definition.raw.groups, definition.nodes)).map((group) => group.id))),
+    lastRerouteId: lastNativeRerouteId(definition.raw),
   };
 }
 
 /** A copy of the definition whose stored counters are at least `counters`. Other native state fields stay. */
-function withCounters(definition: SubgraphDefinition, counters: { lastNodeId: number; lastLinkId: number; lastGroupId: number }): SubgraphDefinition {
+function withCounters(definition: SubgraphDefinition, counters: ReturnType<typeof definitionCounters>): SubgraphDefinition {
   const state = stateOf(definition);
   const lastNodeId = monotonicCounter(state.lastNodeId, [counters.lastNodeId]);
   const lastLinkId = monotonicCounter(state.lastLinkId, [counters.lastLinkId]);
   const lastGroupId = monotonicCounter(state.lastGroupId, [counters.lastGroupId]);
-  if (state.lastNodeId === lastNodeId && state.lastLinkId === lastLinkId && state.lastGroupId === lastGroupId) return definition;
-  return { ...definition, raw: { ...definition.raw, state: { lastRerouteId: 0, ...state, lastNodeId, lastLinkId, lastGroupId } } };
+  const lastRerouteId = Math.max(lastNativeRerouteId(definition.raw), counters.lastRerouteId);
+  if (state.lastNodeId === lastNodeId && state.lastLinkId === lastLinkId && state.lastGroupId === lastGroupId && state.lastRerouteId === lastRerouteId) return definition;
+  return { ...definition, raw: { ...definition.raw, state: { ...state, lastNodeId, lastLinkId, lastGroupId, lastRerouteId } } };
 }
 
 /**
@@ -197,7 +200,7 @@ export function applyInnerEdit(
   // The definition's graph with its own counters: the root rules allocate ids from them.
   const document: WorkflowDocumentState = {
     formatVersion: WORKFLOW_FORMAT_V1,
-    raw: { state: { ...before } },
+    raw: { ...structuredClone(definition.raw), state: { ...stateOf(definition), ...before } },
   };
   const work: GraphSnapshot = {
     nodes: definition.nodes.map((node) => ({ ...node, data: { ...node.data }, position: { ...node.position } })),
@@ -218,11 +221,13 @@ export function applyInnerEdit(
   // The counters only grow: what the edit used, or what the definition had before, whichever is higher.
   const present = new Set(nodes.map((node) => String(node.id)));
   const groups = (applied.snapshot.groups ?? work.groups ?? []).map((group) => ({ ...group, nodeIds: group.nodeIds.filter((id) => present.has(id)) }));
-  const used = definitionCounters({ ...definition, nodes, edges, groups, raw: { state: applied.snapshot.document?.raw?.state ?? {} } });
-  const updated = withCounters({ ...definition, nodes, edges, groups }, {
+  const raw = applied.snapshot.document?.raw ?? definition.raw;
+  const used = definitionCounters({ ...definition, nodes, edges, groups, raw });
+  const updated = withCounters({ ...definition, nodes, edges, groups, raw }, {
     lastNodeId: Math.max(before.lastNodeId, used.lastNodeId),
     lastLinkId: Math.max(before.lastLinkId, used.lastLinkId),
     lastGroupId: Math.max(before.lastGroupId, used.lastGroupId),
+    lastRerouteId: Math.max(before.lastRerouteId, used.lastRerouteId),
   });
   const next: GraphSnapshot = { ...snapshot, subgraphs: [
     ...definitions.map((item) => (item === definition ? updated : item)),

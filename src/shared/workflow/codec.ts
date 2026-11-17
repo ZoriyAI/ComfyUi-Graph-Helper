@@ -408,7 +408,7 @@ function coerceId(id: unknown, sample: unknown): string | number {
 }
 
 /** An edge as a link record of `formatVersion`, starting from the file's own record when it has one. */
-function edgeToLink(edge: Record<string, any>, formatVersion: WorkflowFormat): unknown {
+export function edgeToLink(edge: Record<string, any>, formatVersion: WorkflowFormat): unknown {
   const stored = edge.data?.comfyLink;
   const originSlot = slotNumber(edge.sourceHandle);
   const targetSlot = slotNumber(edge.targetHandle);

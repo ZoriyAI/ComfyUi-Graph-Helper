@@ -48,6 +48,7 @@
 .item[data-highlighted] .icon { color: var(--accent, #65d9ed); }
 .danger .icon { color: inherit; }
 .groupLabel { padding: 4px 10px 2px 32px; color: var(--text-dim, #a9b6c8); font-size: 11px; font-weight: 600; letter-spacing: 0.02em; }
+.hint { max-width: 280px; line-height: 1.5; white-space: normal; }
 
 /* Editing (editingMenu.tsx): the colour of a palette entry beside its name. */
 .swatch { display: inline-block; width: 12px; height: 12px; border-radius: var(--radius-xs); border: 1px solid var(--line, #2a3648); }
