@@ -8,7 +8,10 @@ import { assistantMemory } from './llm/memoryLifecycle';
  * The renderer never sees a key; every text that leaves through here is redacted against the held values.
  * Used by agent/turn.ts for every chat turn, by main/ipc.ts for Settings ▸ Assistant, and by many modules for redact.
  */
-import { generateText, streamText, LanguageModel, isStepCount } from 'ai';
+import { generateText, streamText, LanguageModel, isStepCount, jsonSchema } from 'ai';
+import { asSchema } from '@ai-sdk/provider-utils';
+import { AppliedActionMemory, compactToolSchema, CONTEXT_COMPACTION, ContextBudgetError, fitStepMessages } from './llm/stepBudget';
+import { compactGraphToolDescription } from '../shared/commands/toolSpecs';
 import { createOpenAI } from '@ai-sdk/openai';
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
@@ -167,7 +170,7 @@ export function clampSteps(value: number | undefined): number {
 }
 
 /** Why a turn stopped before the model finished: the step checkpoint or the failure-streak guard. */
-export type PauseReason = 'step-limit' | 'failure-streak';
+export type PauseReason = 'step-limit' | 'failure-streak' | 'answer-limit' | 'context-limit';
 /** The content of a 'turn-paused' chunk: why, after how many steps, and that Continue is offered. */
 export interface TurnPaused { reason: PauseReason; steps: number; canContinue: true; failures?: number }
 
@@ -179,6 +182,7 @@ export interface TurnPaused { reason: PauseReason; steps: number; canContinue: t
 export function pauseOf(steps: ReadonlyArray<{ finishReason?: unknown; content?: ReadonlyArray<unknown> }>, maxSteps: number): TurnPaused | null {
   if (steps.length === 0) return null;
   const last = steps[steps.length - 1];
+  if (last.finishReason === 'length') return { reason: 'answer-limit', steps: steps.length, canContinue: true };
   if (last.finishReason !== 'tool-calls') return null;
   if (failureStreakReached(FAILURE_STREAK_LIMIT)({ steps })) return { reason: 'failure-streak', steps: steps.length, canContinue: true, failures: FAILURE_STREAK_LIMIT };
   if (steps.length >= maxSteps) return { reason: 'step-limit', steps: steps.length, canContinue: true };
@@ -851,11 +855,35 @@ class MainLLMService {
       ? { role: 'system' as const, content: text, providerOptions: { anthropic: { cacheControl: { type: 'ephemeral' } } } }
       : text || undefined;
 
+    const requestWindow = () => local ? this.localContextTokens() : null;
+    const schemas = await Promise.all(Object.entries(offered).map(async ([name, definition]) => {
+      if (!definition.inputSchema) return { name, definition, schema: undefined };
+      const original = asSchema(definition.inputSchema);
+      const schema = await original.jsonSchema;
+      const compact = options.compact ? compactToolSchema(schema) : schema;
+      return { name, schema: compact, definition: options.compact ? { ...definition, description: compactGraphToolDescription(definition.description ?? ''), inputSchema: jsonSchema(compact as Record<string, unknown>, { validate: original.validate }) } : definition };
+    }));
+    const stepTools = Object.fromEntries(schemas.map(item => [item.name, item.definition]));
+    const schemaChars = JSON.stringify(schemas.map(item => ({ type: 'function', function: { name: item.name, description: item.definition.description, parameters: item.schema } }))).length;
+    let budgetPaused = false;
+    let contextWasCompacted = false;
+    const appliedActions = new AppliedActionMemory();
+
     const result = streamText({
       model,
       instructions,
       messages: dialog,
-      tools: offered,
+      tools: stepTools,
+      prepareStep: local ? ({ messages: stepMessages }) => {
+        const localWindow = requestWindow();
+        if (!localWindow) return undefined;
+        appliedActions.observe(stepMessages);
+        const receipts = appliedActions.text();
+        const fitted = fitStepMessages(stepMessages, localWindow, text.length + CONTEXT_COMPACTION.length + receipts.length + schemaChars);
+        if (fitted.omitted) trace?.note('context-budget', { omitted: fitted.omitted, inputTokens: fitted.inputTokens, window: localWindow });
+        contextWasCompacted ||= fitted.omitted > 0;
+        return { messages: fitted.messages, instructions: [text, contextWasCompacted ? CONTEXT_COMPACTION : '', receipts].filter(Boolean).join('\n\n'), maxOutputTokens: fitted.outputTokens };
+      } : undefined,
       // Default stopWhen is one step, which never feeds tool results back to the model.
       // A teaching turn reads the catalog, maybe the web, then proposes: allow a few rounds.
       // Both guards end the stream with a visible 'turn-paused' chunk (below), never silently.
@@ -875,12 +903,19 @@ class MainLLMService {
     });
 
     let partCount = 0;
+    let completedSteps = 0;
     // A reply with no words, no tool calls and no error is not a model's answer (an HTML page, a proxy).
     let answered = false;
     let wroteText = false;
     let breakBeforeText = false;
     for await (const part of result.fullStream) {
       partCount++;
+      if (part.type === 'finish-step') completedSteps++;
+      if (part.type === 'error' && part.error instanceof ContextBudgetError) {
+        budgetPaused = true;
+        trace?.note('context-budget', { state: 'paused', window: requestWindow() });
+        continue;
+      }
       if (part.type === 'error') this.markProviderError((part as { error?: unknown }).error);
       trace?.part(part as unknown as { type: string } & Record<string, unknown>);
       if (part.type === 'start-step') breakBeforeText = wroteText;
@@ -911,6 +946,10 @@ class MainLLMService {
     }
     turnLog(`[MainLLMService] fullStream complete, ${partCount} parts yielded`);
     if (options.abortSignal?.aborted) return;
+    if (budgetPaused) {
+      yield { type: 'turn-paused', content: { reason: 'context-limit', steps: completedSteps, canContinue: true } satisfies TurnPaused };
+      return;
+    }
     if (!answered) {
       trace?.part({ type: 'error', error: { message: NOT_A_MODEL } });
       yield { type: 'error', content: { type: 'error', error: { message: NOT_A_MODEL, kind: 'not-a-model', details: NOT_A_MODEL } } };

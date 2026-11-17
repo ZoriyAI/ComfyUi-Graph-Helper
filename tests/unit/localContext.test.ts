@@ -157,6 +157,7 @@ describe('the window a local server loaded the model with', () => {
     expect(contextFit(4096, 19_656, null).state).toBe('cut');
     // The server counted right up to the edge: it stopped there, whatever the estimate says.
     expect(contextFit(8192, 12_000, 8190).state).toBe('cut');
+    expect(contextFit(8192, 27_271, 7212)).toEqual({ window: 8192, needed: 7212, state: 'tight' });
     // 8k holds the request but leaves little room for a build's steps.
     expect(contextFit(8192, 23_000, 6_800).state).toBe('tight');
     expect(contextFit(8192, 11_900, 3_400).state).toBe('ok');
@@ -206,7 +207,7 @@ describe('a turn with a local model and a small window', () => {
     expect(watched).toEqual([{ base: 'http://127.0.0.1:21435/v1', model: 'example-model:4b' }]);
     const notice = chunks.find((part) => part.type === 'notice');
     expect(notice?.content).toMatchObject({ code: 'context-window', state: 'cut', window: 4096, model: 'example-model:4b', compact: false });
-    expect(notice?.content.needed).toBeGreaterThan(4096);
+    expect(notice?.content.needed).toBe(4090);
     expect(service.localContextTokens()).toBe(4096);
     // The answer still arrives: the notice explains it, it does not replace it.
     expect(chunks.some((part) => part.type === 'text-delta')).toBe(true);

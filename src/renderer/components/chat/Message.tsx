@@ -13,6 +13,7 @@ import { formatClock, redactDiagnostic, type AppLanguage } from '../../../shared
 import { useGraphStore } from '../../state/graphState';
 import { useUiStore } from '../../state/uiState';
 import { useChatStore } from '../../state/chatState';
+import { useProviderStore } from '../../state/providerState';
 import { getChatService } from '../../services/llm/chatService';
 import { openModelLog } from '../../state/modelLogState';
 import type { ChatMessage, TurnCheckpoint, TurnNotice } from '../../types/chat';
@@ -51,11 +52,13 @@ const CARD_MOTION = {
 function CheckpointCard({ messageId, checkpoint }: { messageId: string; checkpoint: TurnCheckpoint }) {
   const { t } = useTranslation();
   const busy = useChatStore((state) => state.isStreaming);
+  const localModel = useProviderStore(state => state.provider === 'local' && state.stored.provider === 'local' ? state.stored.model : '');
   const graphKey = useProjectionStore(state => state.graphKey);
   const needsReview = Boolean(checkpoint.taskTruncated || (checkpoint.graphKey && checkpoint.graphKey !== graphKey)
     || (checkpoint.recovered && (!checkpoint.task || !checkpoint.graphKey)));
   const reason = checkpoint.reason === 'failure-streak'
     ? t('chat.checkpointFailures', { failures: checkpoint.failures ?? 3, steps: checkpoint.steps })
+    : checkpoint.reason === 'answer-limit' || checkpoint.reason === 'context-limit' ? t('chat.checkpointContext')
     : t('chat.checkpointSteps', { steps: checkpoint.steps });
   const outcome = checkpoint.state === 'continued' ? t('chat.checkpointContinued') : checkpoint.state === 'stopped' ? t('chat.checkpointStopped') : '';
   return (
@@ -66,7 +69,8 @@ function CheckpointCard({ messageId, checkpoint }: { messageId: string; checkpoi
       </div>
       {checkpoint.state === 'open' ? (
         <>
-          <p className={styles.checkpointHint}>{checkpoint.reason === 'failure-streak' ? t('chat.checkpointFailuresHint') : t('chat.checkpointStepsHint')}</p>
+          <p className={styles.checkpointHint}>{checkpoint.reason === 'failure-streak' ? t('chat.checkpointFailuresHint') : checkpoint.reason === 'answer-limit' || checkpoint.reason === 'context-limit' ? t('chat.checkpointContextHint') : t('chat.checkpointStepsHint')}</p>
+          {checkpoint.reason === 'context-limit' && localModel ? <ContextRepair model={localModel} /> : null}
           {checkpoint.recovered ? <p className={styles.checkpointHint}>{t('chat.checkpointRestored')}</p> : null}
           {needsReview ? <p className={styles.checkpointHint}>{t('chat.checkpointNeedsReview')}</p> : null}
           <div className={styles.checkpointActions}>

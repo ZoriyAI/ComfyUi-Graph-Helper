@@ -236,7 +236,7 @@ export interface ContextFit {
   /** The window the model is loaded with on the server. */
   window: number;
   /**
-   * Tokens the helper's request needs: the larger of the estimate from its size and what the server counted.
+   * Tokens the server counted, or the estimate when the server supplies no count.
    * When the server stopped at the window's edge the real need is unknown and this is not above the window.
    */
   needed: number;
@@ -252,8 +252,8 @@ export function contextFit(window: number, bodyChars: number, counted: number | 
   const estimated = estimateRequestTokens(bodyChars);
   // 64 tokens of slack: a server that cut the prompt reports a count at or just under the window.
   const filled = counted !== null && counted >= window - 64;
-  const needed = Math.max(estimated, counted ?? 0);
-  if (estimated > window || filled) return { window, needed, state: 'cut' };
+  const needed = counted ?? estimated;
+  if ((counted === null && estimated > window) || filled) return { window, needed, state: 'cut' };
   // A turn needs room for tool results and the answer, and a build adds a few hundred tokens per step.
   if (needed > window * 0.8 || window - needed < WORKING_ROOM) return { window, needed, state: 'tight' };
   return { window, needed, state: 'ok' };

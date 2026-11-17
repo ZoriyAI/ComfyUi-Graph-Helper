@@ -65,6 +65,8 @@ export interface AgentToolDeps {
   allowFetchPage?: boolean;
   /** Preferences ▸ Privacy: true makes getGraph omit every widget value. */
   omitValues?: boolean;
+  /** Smaller default page for a small local context; explicit paging still exposes the full graph. */
+  graphPageSize?: number;
   /**
    * The addresses of this conversation (what the person wrote, what a search returned). fetchPage opens only
    * those; without it fetchPage opens nothing. searchWeb adds the addresses it returns.
@@ -246,7 +248,9 @@ export function createAgentTools(deps: AgentToolDeps): Record<string, AgentToolD
 
   /** One tool from its spec, its argument check and its body; a thrown error becomes a plain failure result. */
   const define = <T>(name: keyof typeof MAIN_TOOL_SPECS, schema: z.ZodType<T>, run: (args: T) => unknown | Promise<unknown>): AgentToolDefinition => ({
-    description: MAIN_TOOL_SPECS[name].description,
+    description: name === 'getGraph' && deps.graphPageSize
+      ? MAIN_TOOL_SPECS[name].description.replace(`Pages of ${GRAPH_PAGE_LIMIT} nodes by default`, `Pages of ${deps.graphPageSize} nodes by default`)
+      : MAIN_TOOL_SPECS[name].description,
     inputSchema: jsonSchema(MAIN_TOOL_SPECS[name].parameters as any),
     execute: async (args: unknown) => {
       const parsed = parse(schema, args);
@@ -323,7 +327,7 @@ export function createAgentTools(deps: AgentToolDeps): Record<string, AgentToolD
         notice: OUTSIDE_DATA,
         revisionId: projection.currentRevisionId,
         ...(inner ? { definitionId: inner.id, inputs: inner.inputs, outputs: inner.outputs } : {}),
-        ...summarizeGraph(snapshot, { offset: args.offset, limit: args.limit ?? GRAPH_PAGE_LIMIT, ids: args.ids, omitValues: deps.omitValues === true, fullText: true, widgetNames: widgetNamesOf(context()?.catalog) }),
+        ...summarizeGraph(snapshot, { offset: args.offset, limit: args.limit ?? deps.graphPageSize ?? GRAPH_PAGE_LIMIT, ids: args.ids, omitValues: deps.omitValues === true, fullText: true, widgetNames: widgetNamesOf(context()?.catalog) }),
       };
     }),
     searchNodeTypes: define('searchNodeTypes', schemas.searchNodeTypes, (args) => {

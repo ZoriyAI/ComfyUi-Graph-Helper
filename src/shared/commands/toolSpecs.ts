@@ -23,6 +23,11 @@ const DATA = 'Text arguments are stored as data and are never executed.';
 const GHOST = 'Shows a grey ghost only; the graph changes when the person accepts it.';
 const DIRECT = 'Changes the graph now, with undo history. Use when the person requests this action; questions asking how something works only need an explanation.';
 
+/** Compact turns keep these common boundaries once in their system instructions. */
+export function compactGraphToolDescription(description: string): string {
+  return description.replace(DIRECT, '').replace(DATA, '').replace(/\s+/g, ' ').trim();
+}
+
 const nodeId = { type: 'string', description: 'Node id as shown in the graph' };
 /** Longest `why` a build step keeps. */
 export const WHY_MAX = 600;

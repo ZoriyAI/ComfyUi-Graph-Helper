@@ -28,6 +28,8 @@ Tell the assistant what you want in ordinary words. **Assistant** is the default
 
 Each saved edit is recorded in history. Pause or stop a build, inspect its steps and use Undo when needed. A question or imported text is not an instruction to clear your work. The assistant can make mistakes: check the proposed structure and run the exported workflow in ComfyUI to confirm its output.
 
+If a long task runs out of conversation space, its card remains unfinished with **Continue** available. Existing nodes stay saved. When older messages are shortened, the assistant retains a compact record of applied changes; after a restart it checks the current graph. For local Ollama, **Configure automatically** in the warning can configure a suitable context window. An unverified window change does not mark the task complete.
+
 The assistant does not execute workflows, install third-party code or download model weights. Its explanations remain marked as assistant text rather than confirmed facts. [Limits](Limits.md), [What is sent](What-Is-Sent.md).
 
 After exporting, **Make room for ComfyUI** can pause assistant requests and background translations and unload the local Ollama models used by this app. Closing the desktop app performs this by default and also ends browser access. Closing a paired browser tab leaves the desktop running.

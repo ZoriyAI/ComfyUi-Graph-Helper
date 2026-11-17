@@ -4,7 +4,7 @@ import { agentTurnContextSchema } from './turnContext';
 
 export const TASK_TEXT_LIMIT = 100_000;
 export const checkpointSchema = z.object({
-  reason: z.enum(['step-limit', 'failure-streak']),
+  reason: z.enum(['step-limit', 'failure-streak', 'answer-limit', 'context-limit']),
   steps: z.number().int().min(0).max(1_000_000),
   failures: z.number().int().min(0).max(1_000_000).optional(),
   state: z.enum(['open', 'continued', 'stopped', 'closed']),

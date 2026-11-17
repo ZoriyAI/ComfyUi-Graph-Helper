@@ -343,6 +343,7 @@ export async function runAgentTurn(options: AgentTurnOptions): Promise<void> {
       omitValues: !privacy.sendFieldValues,
       toolContext,
       signal,
+      graphPageSize: compact ? 10 : undefined,
     });
     const tools: Record<string, unknown> = { ...mainTools };
     if (buildAllowed) {

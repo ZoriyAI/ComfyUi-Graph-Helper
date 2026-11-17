@@ -125,7 +125,7 @@ export function parseBuildStep(content: unknown): AgentBuildStep | null {
 /** Reads a turn-paused chunk without trusting its shape; null when it is not one. */
 export function parseTurnPaused(content: unknown): Omit<TurnCheckpoint, 'state' | 'context'> | null {
   if (!isRecord(content)) return null;
-  const reason = content.reason === 'step-limit' || content.reason === 'failure-streak' ? content.reason : null;
+  const reason = content.reason === 'step-limit' || content.reason === 'failure-streak' || content.reason === 'answer-limit' || content.reason === 'context-limit' ? content.reason : null;
   if (!reason) return null;
   const steps = typeof content.steps === 'number' && Number.isFinite(content.steps) ? Math.max(0, Math.round(content.steps)) : 0;
   const failures = typeof content.failures === 'number' && Number.isFinite(content.failures) ? Math.round(content.failures) : undefined;
