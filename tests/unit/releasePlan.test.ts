@@ -126,7 +126,12 @@ it('retains release gates, permission boundaries and pinned tested source in par
   }
   for (const job of [e2e, walks, packaging]) expect(job.if).toBe("needs.plan.outputs.run == 'true'");
   expect(rpm.needs).toEqual(['plan', 'package']);
-  expect(walks.strategy.matrix.include).toHaveLength(3);
+  const screens = walks.strategy.matrix.include as Array<{ lang?: string; text?: string; dpr?: string; sizes: string }>;
+  // Splitting jobs must preserve both languages, all supported desktop sizes and the enlarged-text proof.
+  expect(screens.filter(row => !row.lang && !row.text).flatMap(row => row.sizes.split(',')).sort())
+    .toEqual(['1024x700', '1280x800', '1400x860', '1920x1080', '800x560']);
+  expect(screens.filter(row => row.lang === 'en').flatMap(row => row.sizes.split(',')).sort()).toEqual(['1400x860', '800x560']);
+  expect(screens.filter(row => row.text === 'wide' && row.dpr === '1.25').flatMap(row => row.sizes.split(',')).sort()).toEqual(['1400x860', '800x560']);
   expect(planning.steps.some((s: any) => s.run === 'node scripts/changelog.js --check')).toBe(true);
   expect(planning.steps.some((s: any) => s.run === 'node scripts/public-tree-check.js')).toBe(true);
   const names = packaging.steps.map((s: any) => s.name).filter(Boolean);

@@ -210,6 +210,13 @@ export interface TopicTexts {
  * messages of PyTorch underneath). Patterns are case-insensitive and match a piece of the message a person pastes.
  */
 export const COMFY_ERRORS = [
+  { id: 'native-resource-wait', pattern: /NATIVE_RESOURCE_AUTHORITY_WAIT/ },
+  { id: 'vram-capacity-wait', pattern: /VRAM_CAPACITY_WAIT/ },
+  { id: 'ram-capacity-wait', pattern: /RAM_CAPACITY_WAIT/ },
+  { id: 'gpu-lease-busy', pattern: /GPU_LEASE_BUSY/ },
+  { id: 'foreign-gpu-busy', pattern: /FOREIGN_GPU_COMPUTE_BUSY/ },
+  { id: 'endpoint-refused', pattern: /ECONNREFUSED|Connection refused|Errno 111/i },
+  { id: 'mcp-child-lost', pattern: /MCP[^\n]*Not connected|Not connected[^\n]*MCP|^Not connected\s*$/im },
   { id: 'oom', pattern: /out of memory|OutOfMemoryError|Allocation on device|Got an OOM/i },
   { id: 'validation-failed', pattern: /Prompt outputs failed validation/i },
   { id: 'value-not-in-list', pattern: /Value not in list/i },

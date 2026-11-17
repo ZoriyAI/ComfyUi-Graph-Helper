@@ -76,6 +76,25 @@ describe('automatic context and explained model presets', () => {
 });
 
 describe('model monitoring and lifecycle', () => {
+  it('never confirms an unload from malformed residency, and keeps models beyond the old 100-row cut', async () => {
+    for (const models of [[null], [{ name: '' }], [{ model: 'loaded:latest' }], [{ name: 'valid' }, null]]) {
+      const fake = (async () => json({ models })) as typeof fetch;
+      expect((await localModelStatus(base, fake)).ok).toBe(false);
+      expect((await controlLocalModel(base, 'fixture', 'unload', fake)).ok).toBe(false);
+    }
+    const models = Array.from({ length: 101 }, (_, i) => ({ name: `model-${i}` }));
+    const status = await localModelStatus(base, (async () => json({ models })) as typeof fetch);
+    expect(status.ok && status.models).toHaveLength(101);
+    let calls = 0;
+    const malformedAfter = (async () => {
+      calls++;
+      return calls === 1 ? json({ models: [{ name: 'fixture:latest' }] }) : calls === 2 ? json({ done: true }) : json({ models: [null] });
+    }) as typeof fetch;
+    expect((await controlLocalModel(base, 'fixture', 'unload', malformedAfter)).ok).toBe(false);
+    expect(calls).toBe(3);
+    const refused = (async () => { throw Object.assign(new Error('refused'), { cause: { code: 'ECONNREFUSED' } }); }) as typeof fetch;
+    expect((await localModelStatus(base, refused)).ok).toBe(false);
+  });
   it('status is read-only and returns real memory and context; unloading and loading require matching readback', async () => {
     const f = fixture();
     expect(await localModelStatus(base, f.fetchImpl)).toMatchObject({ ok: true, models: [{ name: 'fixture:latest', bytes: 8_000_000_000, vramBytes: 7_000_000_000, contextTokens: 8192 }] });

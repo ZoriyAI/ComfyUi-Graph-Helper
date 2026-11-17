@@ -35,7 +35,7 @@ test('preferences window: sections, appearance, a recorded shortcut, a canvas to
   await expect(dialog).toHaveAttribute('data-state', 'open');
   const nav = dialog.getByRole('tablist', { name: 'Settings sections' });
   await expect(nav.getByRole('tab')).toHaveText([
-    'Assistant', 'Services', 'Connection', 'Browser access', 'Sync', 'Canvas', 'Appearance & Motion', 'Shortcuts', 'Privacy', 'About',
+    'Assistant', 'Computer', 'Services', 'Connection', 'Browser access', 'Sync', 'Canvas', 'Appearance & Motion', 'Shortcuts', 'Privacy', 'About',
   ]);
   const box = await dialog.boundingBox();
   expect(box!.width).toBeGreaterThanOrEqual(760);

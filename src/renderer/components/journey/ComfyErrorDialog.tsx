@@ -23,6 +23,7 @@ import { getChatService } from '../../services/llm/chatService';
 import { comfyErrorNotes } from '../../../shared/knowledge/sets/foundations';
 import { errorNodeRefs } from '../../../shared/journey/comfyError';
 import styles from './Journey.module.css';
+import ComfyExecutionPanel from './ComfyExecutionPanel';
 
 /** The error card; JourneyHost.tsx mounts it, journeyState's dialog 'error' opens it. */
 export default function ComfyErrorDialog() {
@@ -69,6 +70,7 @@ export default function ComfyErrorDialog() {
             <DialogDescription id="journey-error-lead" className={styles.lead}>{t('journey.error.lead')}</DialogDescription>
           </header>
           <div className={styles.body}>
+            {open ? <ComfyExecutionPanel /> : null}
             <label className={styles.label} htmlFor="journey-error-text">{t('journey.error.field')}</label>
             <textarea
               id="journey-error-text"

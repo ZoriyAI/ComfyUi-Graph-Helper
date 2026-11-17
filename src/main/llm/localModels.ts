@@ -13,10 +13,11 @@ export async function localModelStatus(base: string, fetchImpl: typeof fetch): P
   if (!origin) return { ok: false, error: UNAVAILABLE };
   const result = await getJson(fetchImpl, `${origin}/api/ps`, {}, 5000);
   const models: unknown = result.ok ? (result.json as { models?: unknown })?.models : null;
-  if (!Array.isArray(models)) return { ok: false, error: UNAVAILABLE };
-  return { ok: true, at: Date.now(), models: models.slice(0, 100).flatMap(item => {
-    if (!item || typeof item !== 'object' || typeof item.name !== 'string' || !item.name.trim() || item.name.length > 300) return [];
-    return [{ name: item.name, bytes: size(item.size), vramBytes: size(item.size_vram), contextTokens: size(item.context_length) }];
+  // A malformed or truncated observation cannot prove that a model was unloaded.
+  if (!Array.isArray(models) || models.length > 1000 || models.some(item => !item || typeof item !== 'object'
+    || typeof item.name !== 'string' || !item.name.trim() || item.name.length > 300)) return { ok: false, error: UNAVAILABLE };
+  return { ok: true, at: Date.now(), models: models.map(item => {
+    return { name: item.name, bytes: size(item.size), vramBytes: size(item.size_vram), contextTokens: size(item.context_length) };
   }) };
 }
 

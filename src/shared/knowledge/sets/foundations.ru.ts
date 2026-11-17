@@ -3,6 +3,7 @@
  * same things. Each text explains its own terms or uses a plain word instead: a newcomer reads one text at a time.
  */
 import type { FoundationsPack } from './foundations';
+import { comfyExecutionRu } from '../../i18n/comfyExecution';
 
 export const FOUNDATIONS_RU: FoundationsPack = {
   nodes: {
@@ -675,6 +676,13 @@ export const FOUNDATIONS_RU: FoundationsPack = {
     },
   },
   errors: {
+    'native-resource-wait': { title: 'Ожидание допуска к ресурсам', meaning: comfyExecutionRu.reason.guard, fix: 'Нажмите «Проверить ComfyUI» выше. До действия прочитайте точную причину, объёмы, prompt ID и время. Сохраните уже принятое задание.' },
+    'vram-capacity-wait': { title: 'Ожидание памяти GPU', meaning: comfyExecutionRu.reason.vram, fix: 'Сопоставьте измерения guard и загруженные модели. Модель, установленная на диске, не занимает память GPU сама по себе.' },
+    'ram-capacity-wait': { title: 'Ожидание оперативной памяти', meaning: comfyExecutionRu.reason.ram, fix: 'Проверьте активное резервирование Studio и его владельца. Настроенные ограничения ресурсов сохраняйте.' },
+    'gpu-lease-busy': { title: 'GPU зарезервирована другой задачей', meaning: comfyExecutionRu.reason.lease, fix: 'Дождитесь конечного результата той же задачи-владельца. Файл её блокировки не удаляйте.' },
+    'foreign-gpu-busy': { title: 'На GPU выполняется другой процесс', meaning: comfyExecutionRu.reason.foreign, fix: 'Определите процесс и убедитесь, что его владелец закончил работу, прежде чем освобождать ресурсы.' },
+    'endpoint-refused': { title: 'Служба отказала в соединении', meaning: 'Указанный сервер недоступен. Само по себе это не означает нехватку памяти GPU.', fix: 'Проверьте, какой адрес отказал. В необязательной проверке Ollama /api/ps только отказ соединения означает отсутствие службы; таймауты, HTTP-ошибки и неверные данные остаются неизвестным состоянием. Для настоящего запроса Ollama нужна работающая служба.' },
+    'mcp-child-lost': { title: 'MCP потерял соединение чтения', meaning: 'Обёртка могла потерять дочернюю сессию, хотя сам ComfyUI продолжает работать.', fix: 'Сначала прочитайте нативную очередь. Восстанавливайте только потерянную сессию чтения. Сохраните prompt ID: переподключение не означает повторную генерацию или перезапуск ComfyUI.' },
     oom: {
       title: 'Не хватило памяти',
       meaning: 'У видеокарты кончилась память в ноде, которую называет ошибка. ComfyUI добавляет: «If the workflow worked before you might have accidentally set the batch_size to a large number» (если граф раньше работал, возможно, вы случайно поставили большой batch_size).',

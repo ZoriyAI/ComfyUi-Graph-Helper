@@ -12,11 +12,13 @@ import { servicesEn, servicesRu } from './services';
 import { guidanceEn, guidanceRu } from './guidance';
 import { classroomEn, classroomRu } from './classroom';
 import { hostHardwareEn, hostHardwareRu } from './hostHardware';
+import { comfyExecutionEn, comfyExecutionRu } from './comfyExecution';
 
 // ── English ──
 export const en = {
   classroom: classroomEn,
   hostHardware: hostHardwareEn,
+  comfyExecution: comfyExecutionEn,
   translationQueue: translationQueueEn,
   historyStorage: {"title": "Graph history storage", "loading": "Measuring saved versions…", "size": "{{count}} saved versions use {{size}} of graph and command data.", "range": "Undo and replay can browse {{count}} versions, from {{from}} to {{to}}. An assistant operation may combine several versions into one Undo.", "policy": "Automatic cleanup currently aims to keep {{keep}} recent versions. The {{size}} target is soft: at least {{minimum}} recent versions and {{protected}} protected versions are retained. The current graph, open tasks and suggestions stay protected.", "disk": "These are measured stored data sizes, not the size of the entire profile. After cleanup the database file may stay the same size; future saves reuse the freed space.", "refresh": "Refresh size", "review": "Review old-version cleanup", "confirmTitle": "Remove old graph versions?", "confirm": "Remove {{count}} old versions ({{size}}). Keep {{remaining}} versions: at least the newest {{minimum}} plus any protected versions. Current graphs, other projects, chat and saved files remain.", "irreversible": "Removed versions cannot be recovered with Undo. Save a project copy before removing history you may need.", "trim": "Remove old versions", "done": "Removed {{count}} old versions and released {{size}} of stored data for reuse.", "changed": "The graph or protected work changed. Removed {{count}} versions before stopping; review the updated figures before another cleanup.", "failed": "History cleanup or measurement did not finish. Refresh the figures before trying again."},
   fileReading: { title: "Reading the selected file…", description: "For video, only metadata is read; frames stay on your device. You can cancel before the graph is replaced.", cancel: "Cancel reading" },
@@ -372,7 +374,7 @@ export const en = {
     },
     error: {
       title: 'Explain a ComfyUI error',
-      lead: 'Copy the red text ComfyUI showed (or the error from its terminal) and paste it here. The app explains it and shows the node it names. Nothing is sent anywhere.',
+      lead: 'Check a waiting job, or paste an error to understand it and find its node. A check only reads the configured server. Text is sent to the assistant only when you choose to ask.',
       field: 'Text of the ComfyUI error',
       placeholder: 'For example: Prompt outputs failed validation…',
       explain: 'Explain',
@@ -3533,6 +3535,7 @@ export type Catalog = MessageTree<typeof en>;
 export const ru = {
   classroom: classroomRu,
   hostHardware: hostHardwareRu,
+  comfyExecution: comfyExecutionRu,
   translationQueue: translationQueueRu,
   historyStorage: {"title": "Место для истории графа", "loading": "Считаем сохранённые версии…", "size": "Сохранено версий: {{count}}. Данные графов и команд занимают {{size}}.", "range": "Для отмены и повтора доступны {{count}} версий: с {{from}} по {{to}}. Одна операция помощника может объединять несколько версий в одну отмену.", "policy": "Автоочистка сейчас стремится оставить {{keep}} последних версий. Ориентир {{size}} мягкий: остаются минимум {{minimum}} последних версий и {{protected}} защищённых. Текущий граф, открытые задачи и предложения защищены.", "disk": "Это измеренный объём сохранённых данных, а не всего профиля. После очистки размер файла базы может не измениться: следующие сохранения используют освобождённое место.", "refresh": "Обновить размер", "review": "Проверить очистку старых версий", "confirmTitle": "Удалить старые версии графа?", "confirm": "Будут удалены {{count}} старых версий ({{size}}). Останется {{remaining}}: минимум {{minimum}} последних и все защищённые версии. Текущие графы, другие проекты, чат и сохранённые файлы останутся.", "irreversible": "Удалённые версии нельзя вернуть отменой. Сохраните копию проекта, если прежняя история может понадобиться.", "trim": "Удалить старые версии", "done": "Удалено старых версий: {{count}}. Для повторного использования освобождено {{size}} сохранённых данных.", "changed": "Граф или защищённая работа изменились. До остановки удалено версий: {{count}}. Перед новой очисткой проверьте обновлённые цифры.", "failed": "Не удалось завершить очистку или измерение истории. Обновите цифры перед повтором."},
   fileReading: { title: "Читаем выбранный файл…", description: "У видео читаются только метаданные; кадры остаются на устройстве. Можно отменить чтение до замены графа.", cancel: "Отменить чтение" },
@@ -3885,7 +3888,7 @@ export const ru = {
     },
     error: {
       title: 'Разобрать ошибку ComfyUI',
-      lead: 'Скопируйте красный текст, который показал ComfyUI (или ошибку из его терминала), и вставьте сюда. Приложение объяснит её и покажет ноду, о которой она говорит. Ничего никуда не отправляется.',
+      lead: 'Проверьте ожидающее задание или вставьте ошибку, чтобы понять её и найти ноду. Проверка только читает настроенный сервер. Текст отправляется помощнику, когда вы сами выбираете разбор с ним.',
       field: 'Текст ошибки ComfyUI',
       placeholder: 'Например: Prompt outputs failed validation…',
       explain: 'Разобрать',

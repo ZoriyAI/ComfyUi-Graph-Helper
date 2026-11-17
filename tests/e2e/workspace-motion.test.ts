@@ -158,7 +158,7 @@ test('motion policy, dialog focus, and real workspace captures', async () => {
   // The section list is Assistant · Connection · Sync · Canvas · Appearance & Motion · …
   await window.keyboard.press('Home');
   await expect.poll(async () => window.evaluate(() => document.activeElement?.textContent?.trim() ?? '')).toBe('Assistant');
-  for (const label of ['Services', 'Connection', 'Browser access', 'Sync', 'Canvas', 'Appearance & Motion']) {
+  for (const label of ['Computer', 'Services', 'Connection', 'Browser access', 'Sync', 'Canvas', 'Appearance & Motion']) {
     await window.keyboard.press('ArrowDown');
     await expect.poll(async () => window.evaluate(() => document.activeElement?.textContent?.trim() ?? '')).toBe(label);
   }

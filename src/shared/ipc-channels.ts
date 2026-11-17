@@ -67,6 +67,7 @@ export const IPC_CHANNELS = {
   EXTENSION_STARTER: 'extension:starter',
   KNOWLEDGE_GRAPH_RESOURCES: 'knowledge:graph-resources',
   KNOWLEDGE_HOST_HARDWARE: 'knowledge:host-hardware',
+  KNOWLEDGE_COMFY_EXECUTION: 'knowledge:comfy-execution',
   COMFY_UPLOAD_MEDIA: 'comfy:upload-media',
   COMFY_INPUT_PREVIEW: 'comfy:input-preview',
   MCP_READ: 'mcp:read',

@@ -4,6 +4,7 @@
  * its own terms or uses a plain word instead: a newcomer reads one text at a time.
  */
 import type { FoundationsPack } from './foundations';
+import { comfyExecutionEn } from '../../i18n/comfyExecution';
 
 export const FOUNDATIONS_EN: FoundationsPack = {
   nodes: {
@@ -676,6 +677,13 @@ export const FOUNDATIONS_EN: FoundationsPack = {
     },
   },
   errors: {
+    'native-resource-wait': { title: 'Waiting at the native resource guard', meaning: comfyExecutionEn.reason.guard, fix: 'Use Check ComfyUI above. Read the exact reason, budgets, prompt ID and timestamp before taking action. Preserve an already accepted prompt.' },
+    'vram-capacity-wait': { title: 'Waiting for GPU memory', meaning: comfyExecutionEn.reason.vram, fix: 'Compare the guard measurement with the loaded models. A model installed on disk does not occupy GPU memory.' },
+    'ram-capacity-wait': { title: 'Waiting for system memory', meaning: comfyExecutionEn.reason.ram, fix: 'Inspect the active Studio reservation and its owner. Keep the configured resource limits.' },
+    'gpu-lease-busy': { title: 'GPU reserved by another task', meaning: comfyExecutionEn.reason.lease, fix: 'Follow the same holder job to its terminal result. Do not remove its lease file.' },
+    'foreign-gpu-busy': { title: 'Another process is computing', meaning: comfyExecutionEn.reason.foreign, fix: 'Identify the process and confirm that its owner has finished before releasing it.' },
+    'endpoint-refused': { title: 'A service refused the connection', meaning: 'The named endpoint is unavailable. This alone does not indicate low GPU memory.', fix: 'Check which address failed. For an optional Ollama /api/ps idle probe, only connection refused means the service is absent; timeouts, HTTP errors and invalid data remain unknown. Actual Ollama requests require a running service.' },
+    'mcp-child-lost': { title: 'MCP lost its reader connection', meaning: 'The wrapper may have lost its child session while ComfyUI itself remains healthy.', fix: 'Read the native queue first. Recover only the dead reader session. Preserve existing prompt IDs; reconnecting does not authorize resubmitting a generation or restarting ComfyUI.' },
     oom: {
       title: 'Out of memory',
       meaning: 'The graphics card ran out of memory in the node the error names. ComfyUI adds: "If the workflow worked before you might have accidentally set the batch_size to a large number."',

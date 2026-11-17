@@ -30,13 +30,14 @@ describe('the read-only gate for ComfyUI', () => {
       COMFY_ROUTES.modelFiles('loras'), COMFY_ROUTES.modelFilesLegacy('text_encoders'),
       COMFY_ROUTES.viewMetadata('loras', 'sdxl\\style.safetensors'), COMFY_ROUTES.modelPreview('loras', 1, 'sdxl/style.safetensors'),
       COMFY_ROUTES.installedPacks(), COMFY_ROUTES.translations(),
+      COMFY_ROUTES.queue(), COMFY_ROUTES.executionGuard(), COMFY_ROUTES.promptHistory('prompt_123'),
     ];
     for (const route of allowed) expect(comfyPathAllowed(route.path), route.path).toBe(true);
   });
 
   it('refuses every route that queues, uploads, frees, interrupts, deletes, writes or installs, and any climb', () => {
     for (const route of [
-      '/prompt', '/api/prompt', '/queue', '/interrupt', '/free', '/history', '/history/abc', '/upload/image', '/upload/mask',
+      '/prompt', '/api/prompt', '/queue?delete=1', '/interrupt', '/free', '/history', '/history/abc?clear=1', '/upload/image', '/upload/mask',
       '/userdata/workflows%2Fa.json', '/v2/userdata', '/settings', '/settings/Comfy.Locale', '/users', '/internal/logs',
       '/manager/reboot', '/customnode/install', '/customnode/getlist', '/customnode/getmappings', '/manager/queue/start',
       '/model/install', '/view?filename=a.png', '/extensions', '/', '/object_info/KSampler', '/system_stats?x=1',

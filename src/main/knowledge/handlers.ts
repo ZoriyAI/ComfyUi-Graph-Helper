@@ -5,6 +5,7 @@
  * Every argument is validated with zod, and every error leaving here is one of a few fixed messages.
  */
 import type Database from 'better-sqlite3';
+import { readComfyExecution } from '../comfy/execution';
 import { ZodError } from 'zod';
 import { IPC_CHANNELS } from '../../shared/ipc-channels';
 import type { ExplanationInput, ListExplanationsRequest, ModelLookupResult, ModelPreview, SearchModelsRequest, SearchNodesRequest } from '../../shared/contracts/knowledge';
@@ -94,6 +95,7 @@ export function knowledgeHandlers(deps: {
 }): Record<string, KnowledgeHandler> {
   const { db, sync } = deps;
   const table: Record<string, KnowledgeHandler> = {
+    [IPC_CHANNELS.KNOWLEDGE_COMFY_EXECUTION]: (request) => readComfyExecution(db(), request, deps.fetchImpl ?? globalThis.fetch),
     [IPC_CHANNELS.KNOWLEDGE_HOST_HARDWARE]: () => {
       if (!deps.hostHardware) throw new Error('Hardware reader is unavailable.');
       return deps.hostHardware();

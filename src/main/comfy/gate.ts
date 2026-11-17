@@ -55,6 +55,13 @@ function fileOk(name: string): string {
 export const COMFY_ROUTES = {
   /** Version, operating system, memory and devices. */
   systemStats: (): ComfyRoute => ({ path: '/system_stats', ...SMALL }),
+  /** Inspect existing execution only. No queue, history, interrupt or free mutation is permitted. */
+  queue: (): ComfyRoute => ({ path: '/queue', maxBytes: 4 * MB, timeoutMs: 5000, kind: 'json' }),
+  executionGuard: (): ComfyRoute => ({ path: '/reference_studio/ollama/status', maxBytes: 256 * 1024, timeoutMs: 5000, kind: 'json' }),
+  promptHistory: (id: string): ComfyRoute => {
+    if (!/^[A-Za-z0-9_-]{1,128}$/.test(id)) throw new ComfyGateError('prompt');
+    return { path: `/history/${id}`, maxBytes: 4 * MB, timeoutMs: 5000, kind: 'json' };
+  },
   /** Every node class: inputs, outputs, defaults, names, descriptions, category, python_module. Can be tens of MB. */
   objectInfo: (): ComfyRoute => ({ path: '/object_info', maxBytes: 128 * MB, timeoutMs: 180_000, kind: 'json' }),
   /** Model folders with their paths and file extensions (newer ComfyUI). */
@@ -92,6 +99,9 @@ export const COMFY_ROUTES = {
 /** Paths the gate lets out, as patterns over the encoded path (the second line of defence, checked on every request). */
 const ALLOWED_PATHS: RegExp[] = [
   /^\/system_stats$/,
+  /^\/queue$/,
+  /^\/reference_studio\/ollama\/status$/,
+  /^\/history\/[A-Za-z0-9_-]{1,128}$/,
   /^\/object_info$/,
   /^\/experiment\/models$/,
   /^\/models$/,

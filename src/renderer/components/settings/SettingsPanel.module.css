@@ -32,6 +32,8 @@
 .nav { overflow-y: auto; }
 .tab {
   display: flex;
+  /* Let wrapped/zoomed labels set their height; the navigation scrolls instead of squeezing tabs. */
+  flex: 0 0 auto;
   align-items: center;
   gap: 8px;
   font-size: var(--text-sm);

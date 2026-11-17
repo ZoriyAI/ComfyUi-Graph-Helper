@@ -143,18 +143,41 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: every size, Russian
-            out: test-results/layout-ru
-          - name: two sizes, English
+          # Each window size gets its own runner: preserve every screen while reducing release latency.
+          - name: 800x560, Russian
+            sizes: 800x560
+            out: test-results/layout-ru-small
+          - name: 1024x700, Russian
+            sizes: 1024x700
+            out: test-results/layout-ru-laptop
+          - name: 1280x800, Russian
+            sizes: 1280x800
+            out: test-results/layout-ru-medium
+          - name: 1400x860, Russian
+            sizes: 1400x860
+            out: test-results/layout-ru-default
+          - name: 1920x1080, Russian
+            sizes: 1920x1080
+            out: test-results/layout-ru-large
+          - name: 800x560, English
             lang: en
-            sizes: 800x560,1400x860
-            out: test-results/layout-en
+            sizes: 800x560
+            out: test-results/layout-en-small
+          - name: 1400x860, English
+            lang: en
+            sizes: 1400x860
+            out: test-results/layout-en-default
           # A person's desktop draws text a little wider than this machine and often at a screen scale above 100 %.
-          - name: wider text at 125 %, Russian
+          - name: wider text at 125 %, 800x560, Russian
             text: wide
             dpr: '1.25'
-            sizes: 800x560,1400x860
-            out: test-results/layout-desktop
+            sizes: 800x560
+            out: test-results/layout-desktop-small
+          - name: wider text at 125 %, 1400x860, Russian
+            text: wide
+            dpr: '1.25'
+            sizes: 1400x860
+            out: test-results/layout-desktop-default
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

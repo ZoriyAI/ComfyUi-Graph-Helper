@@ -114,6 +114,7 @@ const IPC_CHANNELS = {
   EXTENSION_STARTER: 'extension:starter',
   KNOWLEDGE_GRAPH_RESOURCES: 'knowledge:graph-resources',
   KNOWLEDGE_HOST_HARDWARE: 'knowledge:host-hardware',
+  KNOWLEDGE_COMFY_EXECUTION: 'knowledge:comfy-execution',
   COMFY_UPLOAD_MEDIA: 'comfy:upload-media',
   COMFY_INPUT_PREVIEW: 'comfy:input-preview',
   MCP_READ: 'mcp:read',
@@ -344,6 +345,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   extensionStarter: () => ipcRenderer.invoke(IPC_CHANNELS.EXTENSION_STARTER) as Promise<import('../shared/contracts/extensions').ExtensionDraft>,
   graphResources: (projectId: string, refresh = false) => ipcRenderer.invoke(IPC_CHANNELS.KNOWLEDGE_GRAPH_RESOURCES, projectId, refresh) as Promise<import('../shared/contracts/resources').GraphResources>,
   hostHardware: () => ipcRenderer.invoke(IPC_CHANNELS.KNOWLEDGE_HOST_HARDWARE) as Promise<import('../shared/contracts/resources').HostHardwareSnapshot>,
+  comfyExecution: (request: import('../shared/contracts/comfyExecution').ComfyExecutionRequest = {}) => ipcRenderer.invoke(IPC_CHANNELS.KNOWLEDGE_COMFY_EXECUTION, request) as Promise<import('../shared/contracts/comfyExecution').ComfyExecutionSnapshot>,
   inputImagePreview: (name: string) => ipcRenderer.invoke(IPC_CHANNELS.COMFY_INPUT_PREVIEW, name) as Promise<string | null>,
   uploadNodeFile: (name: string, data: ArrayBuffer) => ipcRenderer.invoke(IPC_CHANNELS.COMFY_UPLOAD_MEDIA, name, data) as Promise<import('../shared/contracts/media').MediaUploadResult>,
   mcpSetToken: (value: string, forUrl?: string) => ipcRenderer.invoke(IPC_CHANNELS.MCP_SET_TOKEN, value, forUrl) as Promise<{ held: boolean }>,
@@ -665,6 +667,7 @@ export interface ElectronAPI {
   extensionStarter: () => Promise<import('../shared/contracts/extensions').ExtensionDraft>;
   graphResources: (projectId: string, refresh?: boolean) => Promise<import('../shared/contracts/resources').GraphResources>;
   hostHardware: () => Promise<import('../shared/contracts/resources').HostHardwareSnapshot>;
+  comfyExecution: (request?: import('../shared/contracts/comfyExecution').ComfyExecutionRequest) => Promise<import('../shared/contracts/comfyExecution').ComfyExecutionSnapshot>;
   inputImagePreview: (name: string) => Promise<string | null>;
   uploadNodeFile: (name: string, data: ArrayBuffer) => Promise<import('../shared/contracts/media').MediaUploadResult>;
   /** `forUrl`: the MCP URL the token is for (e.g. the draft being saved); defaults to the saved URL. */
