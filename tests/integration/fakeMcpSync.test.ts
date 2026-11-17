@@ -25,6 +25,14 @@ import {
 const TOKEN = 'fake-token-not-a-secret';
 let fake: FakeMcp | null = null;
 
+/** Header prefix reads use the dedicated bounded capability; generic callers still cannot read model weights. */
+function isReadOnlyCall(call: FakeMcp['calls'][number]): boolean {
+  if (call.tool === 'workspace_files' && /\.(safetensors|sft)$/i.test(String(call.args?.absolute_path))) {
+    return call.args?.action === 'read' && call.args.encoding === 'base64' && call.args.offset === 0 && call.args.length === 8;
+  }
+  return READ_ONLY_TOOLS[call.tool!]?.(call.args ?? {}) === true;
+}
+
 afterEach(async () => {
   setKnownRootsSource(null);
   await fake?.close();
@@ -63,7 +71,7 @@ describe('sync against the fake MCP server', () => {
     expect(tools.length).toBeGreaterThan(0);
     for (const call of tools) {
       expect(Object.keys(READ_ONLY_TOOLS)).toContain(call.tool);
-      expect(READ_ONLY_TOOLS[call.tool!](call.args ?? {})).toBe(true);
+      expect(isReadOnlyCall(call)).toBe(true);
       expect(WRITE_TOOLS as readonly string[]).not.toContain(call.tool);
     }
     // Full native definitions already supplied the registry: avoid asking discovery to rebuild it per page.
@@ -122,7 +130,7 @@ describe('sync lifecycle against the fake MCP server', () => {
     expect(fake.calls.filter((call) => call.method === 'initialize')).toHaveLength(1);
     expect(fake.calls.filter((call) => call.method === 'DELETE').length).toBeLessThanOrEqual(1);
     for (const call of fake.calls.filter((item) => item.method === 'tools/call')) {
-      expect(READ_ONLY_TOOLS[call.tool!](call.args ?? {})).toBe(true);
+      expect(isReadOnlyCall(call)).toBe(true);
     }
     sync.stop();
   }, 60_000);
@@ -167,7 +175,8 @@ describe('mcpUrlNeedsHttps (Settings ▸ Connection warning)', () => {
 describe('what a model manager keeps next to a model', () => {
   // Reads of the files next to models; what node packs say about themselves is read too, and counted apart.
   const sideReads = () => fake!.calls.filter((call) => call.method === 'tools/call' && call.tool === 'workspace_files'
-    && !String(call.args?.absolute_path).startsWith(`${CUSTOM_NODE_ROOT}/`));
+    && !String(call.args?.absolute_path).startsWith(`${CUSTOM_NODE_ROOT}/`)
+    && !/\.(safetensors|sft)$/i.test(String(call.args?.absolute_path)));
   const sideBytes = (name: string) => SIDE_FILES.find((file) => file.filename === name)!.bytes;
 
   it('reads the description next to a file and says what it is for: name, words, tags, usage, examples', async () => {
@@ -313,7 +322,7 @@ describe('what a model manager keeps next to a model', () => {
       expect(missing).toBeNull();
       expect(opened).toBe(1);
       expect(sideReads().length).toBe(before + 3);
-      for (const call of sideReads()) expect(READ_ONLY_TOOLS.workspace_files(call.args ?? {})).toBe(true);
+      for (const call of sideReads()) expect(isReadOnlyCall(call)).toBe(true);
       // Kept in the app's folder: asked again, the server hears nothing.
       expect(fs.readdirSync(cacheDir).map((name) => path.extname(name)).sort()).toEqual(['.mp4', '.png', '.webp']);
       const second = await reader.get('loras', 'pixel-art-xl.safetensors');

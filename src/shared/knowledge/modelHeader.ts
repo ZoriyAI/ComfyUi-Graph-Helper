@@ -18,7 +18,7 @@ interface HeaderFile {
 }
 
 export class ModelHeaderError extends Error {
-  constructor(readonly code: HeaderReadError) { super(code); }
+  constructor(readonly code: HeaderReadError, cause?: unknown) { super(code, { cause }); }
 }
 
 /** Filename and tensor bounds are checked before a header can repair a catalogue entry. */
@@ -56,6 +56,6 @@ export async function readSelectedModelHeader(file: HeaderFile, expectedName: st
       metadata: Object.fromEntries(Object.entries(cleaned).filter(([key]) => key.length <= 256 && !['__proto__', 'prototype', 'constructor'].includes(key))) };
   } catch (error) {
     if (error instanceof ModelHeaderError) throw error;
-    throw new ModelHeaderError(error instanceof SyntaxError || error instanceof TypeError ? 'invalid' : 'readFailed');
+    throw new ModelHeaderError(error instanceof SyntaxError || error instanceof TypeError ? 'invalid' : 'readFailed', error);
   }
 }

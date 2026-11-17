@@ -120,16 +120,16 @@ describe('MCP catalog source', () => {
     expect(comfyUrlFromStudioInfo({})).toBeNull();
   });
 
-  it('refuses a remote MCP redirect to a local native object_info endpoint', async () => {
+  it.each([false, true])('refuses a remote MCP redirect to a local native endpoint (MCP definitions available: %s)', async (comfyApiWorks) => {
     // A remote server must not steer the app into reading a port on this machine: zero requests may reach it.
     const db = new Database(':memory:');
     migrate(db);
     let requests = 0;
     const server = await listen((_req, res) => { requests += 1; res.end('{}'); });
     const result = await readCatalogViaMcp(db, { url: 'https://mcp.example.test/mcp', token: null }, globalThis.fetch,
-      async () => fakeSession({ comfyUrl: server.origin, comfyApiWorks: false, calls: [] }));
+      async () => fakeSession({ comfyUrl: server.origin, comfyApiWorks, calls: [] }));
     await server.close();
-    expect(result).toMatchObject({ ok: true, objectInfo: 'none', nativeComfy: 'notAllowed' });
+    expect(result).toMatchObject({ ok: true, objectInfo: comfyApiWorks ? 'mcp' : 'none', nativeComfy: comfyApiWorks ? 'notTried' : 'notAllowed' });
     expect(requests).toBe(0);
     db.close();
   });

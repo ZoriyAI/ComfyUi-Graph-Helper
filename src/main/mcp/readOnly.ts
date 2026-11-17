@@ -412,14 +412,21 @@ export function readOnlySession(session: McpSession, options: ReadOnlySessionOpt
         const chunks: Buffer[] = [];
         for (let offset = start; offset < end;) {
           check();
-          const length = Math.min(SIDE_FILE_CHUNK_BYTES, end - offset);
+          // Some servers include base64 in both data and data_base64 under a 2 MiB result cap.
+          // 256 KiB leaves room for both copies and the MCP envelope, including nested text content.
+          const length = Math.min(256 * 1024, end - offset);
           const result = await invoke('workspace_files', { action: 'read', absolute_path: path, encoding: 'base64', offset, length });
           check();
           const payload = toolPayload(result);
           const row = payload && typeof payload === 'object' ? payload as Record<string, unknown> : null;
           const text = row?.data_base64;
           if (result.isError || typeof text !== 'string' || text.length !== Math.ceil(length / 3) * 4
-            || !/^[A-Za-z0-9+/]*={0,2}$/.test(text)) throw new ModelHeaderError('readFailed');
+            || !/^[A-Za-z0-9+/]*={0,2}$/.test(text)) {
+            // Only the initial prefix can establish that an older server lacks range reads. Once a header
+            // has started, never fall back to an unbounded metadata response after a truncated chunk.
+            if (offset === 0) throw new McpHeaderRangesUnavailableError();
+            throw new ModelHeaderError('readFailed');
+          }
           const chunk = Buffer.from(text, 'base64');
           const total = row?.size_bytes ?? row?.total;
           if (chunk.length !== length || chunk.toString('base64') !== text
@@ -437,6 +444,11 @@ export function readOnlySession(session: McpSession, options: ReadOnlySessionOpt
 
 type HeaderReader = (path: string, expectedName: string, size: number, signal?: AbortSignal) => Promise<SelectedModelHeader>;
 const headerReaders = new WeakMap<McpSession, HeaderReader>();
+
+/** The server answered the prefix request without the byte-range format; legacy metadata can still work. */
+export class McpHeaderRangesUnavailableError extends ModelHeaderError {
+  constructor() { super('readFailed'); }
+}
 
 /** Only a wrapped read-only session can read a model's declared JSON header; arbitrary byte reads stay denied. */
 export async function readSessionModelHeader(session: McpSession, path: string, expectedName: string, size: number, signal?: AbortSignal): Promise<SelectedModelHeader | null> {

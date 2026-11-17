@@ -5,6 +5,12 @@
 Releases, newest first. Each release has full notes in `docs/releases/`.
 This file is written by `node scripts/changelog.js`: change the notes, not this file.
 
+## 1.3.1
+
+Model synchronization now reads large safetensors headers in small portions before asking the legacy metadata reader. This fixes a reproducible MCP disconnect caused by a 14 MB embedded header and a separate server response limit that rejected larger portions.
+
+Notes: [docs/releases/v1.3.1.md](docs/releases/v1.3.1.md)
+
 ## 1.3.0
 
 This release completes the lesson upgrade, preserves work across assistant interruptions, improves current ComfyUI workflow compatibility and makes large graphs easier to edit. Synchronization can continue directly through ComfyUI when MCP is unavailable, with separate progress for model descriptions and translations.

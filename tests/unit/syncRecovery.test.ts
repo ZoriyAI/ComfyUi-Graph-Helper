@@ -14,7 +14,7 @@ import { headerBytes } from '../fixtures/modelHeader';
 const origin = 'http://127.0.0.1:8188';
 
 /** Labelled fixture: reproduces the owner's paged catalog and a permanently disconnected MCP metadata reader. */
-function fixture(options: { native?: boolean; disconnected?: boolean; reportedOrigin?: string; metadataMissing?: boolean; missingFiles?: string[]; batch?: number; files?: string[]; headers?: Record<string, Buffer>; sidecars?: boolean; invalidMetadata?: boolean } = {}) {
+function fixture(options: { native?: boolean; disconnected?: boolean; comfyApiWorks?: boolean; reportedOrigin?: string; metadataMissing?: boolean; missingFiles?: string[]; batch?: number; files?: string[]; headers?: Record<string, Buffer>; truncatedHeader?: string; sidecars?: boolean; invalidMetadata?: boolean } = {}) {
   const db = new Database(':memory:');
   migrate(db);
   const classes = Object.fromEntries(Array.from({ length: 3375 }, (_, i) => [`Node${i}`, {
@@ -32,7 +32,7 @@ function fixture(options: { native?: boolean; disconnected?: boolean; reportedOr
       callTool: async (name, args) => {
         calls.push({ name, args });
         if (name === 'studio_info') return json({ installation_id: 'fixture', comfyui_url: options.native === false ? null : options.reportedOrigin ?? origin });
-        if (name === 'comfy_api') return json({ error: 'catalog_available_via_native' });
+        if (name === 'comfy_api') return json(options.comfyApiWorks ? classes : { error: 'catalog_available_via_native' });
         if (name === 'studio_capabilities' && args.kind === 'packs') return json({ items: [{ name: 'fixture', installed_state: 'installed', import_state: 'imported' }] });
         if (name === 'studio_capabilities') {
           const start = Number(args.cursor ?? 0), limit = Number(args.limit ?? 100);
@@ -47,6 +47,9 @@ function fixture(options: { native?: boolean; disconnected?: boolean; reportedOr
           const bytes = file.endsWith('.metadata.json') ? Buffer.from(JSON.stringify({ description: 'Author description', baseModel: 'SDXL 1.0', trainedWords: ['flower'] })) : options.headers?.[file.replace('.safetensors', '')];
           if (!bytes) throw new Error('Missing fixture file');
           const start = Number(args.offset), length = Number(args.length);
+          // Actual gateway duplicates base64 fields and caps the complete tool result at 2 MiB.
+          if (Math.min(length, bytes.length - start) > 512 * 1024) return { isError: true, structuredContent: { error: { code: 'RESULT_TOO_LARGE', details: { max_bytes: 2 * 1024 * 1024 } } } };
+          if (file === options.truncatedHeader && start >= 8) return json({ data_base64: '', size_bytes: bytes.length });
           return json({ data_base64: bytes.subarray(start, start + length).toString('base64'), size_bytes: bytes.length, next_offset: Math.min(bytes.length, start + length), complete: start + length >= bytes.length });
         }
         if (name === 'model_metadata') {
@@ -214,13 +217,50 @@ describe('owner-reported sync scan amplification and disconnected metadata reade
 
 
 describe('metadata-free headers and independent descriptions', () => {
+  it('reads a 14 MiB header in bounded chunks before the metadata tool can break its 10 MiB transport', async () => {
+    const f = fixture({ native: false, disconnected: true, comfyApiWorks: true, files: ['a', 'b'], headers: {
+      a: headerBytes({ _: 'x'.repeat(14 * 1024 * 1024), description: 'Large header' }),
+      b: headerBytes({ description: 'Next model' }),
+    } });
+    try {
+      await f.sync.runSync(f.db); await f.sync.whenEnrichmentDone();
+      expect(f.calls.filter(c => c.name === 'model_metadata')).toHaveLength(0);
+      expect(f.sync.status(f.db)).toMatchObject({ metadata: { done: 2, total: 2 }, metadataReport: { pending: 0, failed: 0, skipped: 0 } });
+      const chunks = f.calls.filter(c => c.name === 'workspace_files');
+      expect(chunks.length).toBeGreaterThan(14);
+      expect(chunks.every(c => Number(c.args.length) <= 256 * 1024)).toBe(true);
+      const stored = f.db.prepare('SELECT metadata_json FROM model_catalog ORDER BY name').all() as { metadata_json: string }[];
+      expect(stored.map(row => JSON.parse(row.metadata_json).description)).toEqual(['Large header', 'Next model']);
+      expect(stored.every(row => row.metadata_json.length < 100_000)).toBe(true);
+      expect(f.connections()).toBe(1);
+    } finally { f.sync.stop(); f.db.close(); }
+  });
+  it('keeps native metadata recovery available when node definitions arrived successfully through MCP', async () => {
+    const f = fixture({ disconnected: true, comfyApiWorks: true });
+    try {
+      await f.sync.runSync(f.db); await f.sync.whenEnrichmentDone();
+      expect(f.sync.status(f.db)).toMatchObject({ metadata: { done: 3, total: 3 }, metadataReport: { pending: 0, failed: 0, skipped: 0 } });
+      expect(f.urls.filter(url => url.endsWith('/object_info'))).toHaveLength(0);
+      expect(f.urls.filter(url => url.includes('/view_metadata/'))).toHaveLength(3);
+    } finally { f.sync.stop(); f.db.close(); }
+  });
+  it('does not request an unbounded header after a truncated chunk, and still reads the next model', async () => {
+    const f = fixture({ native: false, comfyApiWorks: true, files: ['a', 'b'],
+      headers: { a: headerBytes({ _: 'x'.repeat(14 * 1024 * 1024) }), b: headerBytes() }, truncatedHeader: 'a.safetensors' });
+    try {
+      await f.sync.runSync(f.db); await f.sync.whenEnrichmentDone();
+      expect(f.calls.filter(c => c.name === 'model_metadata')).toHaveLength(0);
+      expect(f.sync.status(f.db)).toMatchObject({ metadata: { done: 1, total: 2 }, metadataReport: { pending: 0, failed: 1, skipped: 0 } });
+      expect(f.db.prepare("SELECT enriched_at IS NOT NULL AS read FROM model_catalog WHERE name = 'b.safetensors'").get()).toEqual({ read: 1 });
+    } finally { f.sync.stop(); f.db.close(); }
+  });
   it('recovers a disconnected metadata endpoint without reconnect loops, including metadata-free and large headers', async () => {
     const f = fixture({ disconnected: true, metadataMissing: true, headers: { a: headerBytes(), b: headerBytes({ description: 'x'.repeat(2 * 1024 * 1024) }), c: headerBytes() }, sidecars: true });
     try {
       await f.sync.runSync(f.db); await f.sync.whenEnrichmentDone();
       expect(f.sync.status(f.db)).toMatchObject({ metadata: { done: 3, total: 3 }, metadataReport: { pending: 0, failed: 0, skipped: 0 }, unreadable: [] });
       expect(f.sync.status(f.db).warnings).not.toContain(METADATA_CONNECTION_LOST);
-      expect(f.calls.filter(c => c.name === 'model_metadata')).toHaveLength(1);
+      expect(f.calls.filter(c => c.name === 'model_metadata')).toHaveLength(0);
       expect(f.db.prepare('SELECT description FROM model_catalog ORDER BY name').all()).toEqual(Array(3).fill({ description: 'Author description' }));
     } finally { f.sync.stop(); f.db.close(); }
   });

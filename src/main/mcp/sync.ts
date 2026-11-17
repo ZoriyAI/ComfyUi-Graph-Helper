@@ -25,14 +25,14 @@ import { readPreferences, readSettings } from '../settings/repository';
 import type { McpAuthMode } from '../../shared/config/schema';
 import type { OAuthClientProvider } from '@modelcontextprotocol/client';
 import {
-  connectStreamableHttp, failure, isNetworkError, MCP_NEEDS_SIGN_IN, MCP_SIGN_IN_AGAIN, mcpUnreachableError, openReadOnlySession,
+  connectStreamableHttp, MCP_NEEDS_SIGN_IN, MCP_SIGN_IN_AGAIN, openReadOnlySession,
   readCatalogWithSession, type McpReadSuccess, type McpSessionFactory,
 } from './client';
 
 export { isNetworkError, mcpUnreachableError } from './client';
 import { explainConnectFailure, explainFailureNow } from './connectError';
 import { mcpOAuth } from './oauth';
-import { McpRefusedError, readSessionModelHeader } from './readOnly';
+import { McpHeaderRangesUnavailableError, McpRefusedError, readSessionModelHeader } from './readOnly';
 import { joinServerPath } from '../../shared/mcp/serverPaths';
 import { ModelHeaderError } from '../../shared/knowledge/modelHeader';
 import { packFilePath, PYPROJECT_MAX_BYTES, readPackFile, README_HEAD_BYTES, readSideFile, SIDECAR_MAX_BYTES, sideFilePath } from './sideFiles';
@@ -372,7 +372,6 @@ interface EnrichRun {
   /** Read-only native fallback, only after this run verified the accepted ComfyUI origin. */
   metadataFallback?: McpSession;
   nativeMetadata?: boolean;
-  fileMetadata?: boolean;
   /** Bounded recovery lookahead, consumed in ordinary order (including across metadata batches). */
   metadataProbes?: Map<string, MetadataOutcome>;
   /** When the sync this reading belongs to began. */
@@ -1506,24 +1505,22 @@ export class SyncService {
         let headerFailure: ReadFailure | null = null;
         let stopAfterFile = false;
         if (headerDue && run.hasTool && isHeaderFile(row.name)) {
-          let outcome = (run.fileMetadata ? await readFileMetadata(run, row) : null) ?? run.metadataProbes?.get(key) ?? await readMetadata(run.nativeMetadata && run.metadataFallback ? run.metadataFallback : run.session, row.directory, row.name);
+          // Some MCP backends return the entire embedded header through a smaller stdio transport.
+          // Read bounded file chunks first, before a large model_metadata reply can disconnect that backend.
+          const fileOutcome = await readFileMetadata(run, row);
+          if (run.cancelled || !run.isCurrent()) break;
+          let outcome = fileOutcome ?? run.metadataProbes?.get(key) ?? await readMetadata(run.nativeMetadata && run.metadataFallback ? run.metadataFallback : run.session, row.directory, row.name);
           run.metadataProbes?.delete(key);
           if (run.cancelled || !run.isCurrent()) break;
           run.attempted += 1;
-          if (!outcome.ok && !run.fileMetadata) {
-            const recovered = await readFileMetadata(run, row);
-            if (run.cancelled || !run.isCurrent()) break;
-            if (recovered?.ok) {
-              if (isConnectionLoss(outcome.failure)) run.fileMetadata = true;
-              outcome = recovered;
-            }
-          }
-          if (!outcome.ok && isConnectionLoss(outcome.failure) && !run.nativeMetadata && !run.fileMetadata) {
+          if (!outcome.ok && isConnectionLoss(outcome.failure) && !run.nativeMetadata) {
             const droppedHere = outcome.failure.reason === 'dropped';
             const restored = await this.restoreConnection(run);
             if (run.cancelled || !run.isCurrent()) break;
             if (restored) {
-              outcome = await readMetadata(run.session, row.directory, row.name);
+              const restoredHeader = await readFileMetadata(run, row);
+              if (run.cancelled || !run.isCurrent()) break;
+              outcome = restoredHeader ?? await readMetadata(run.session, row.directory, row.name);
               if (run.cancelled || !run.isCurrent()) break;
             }
             if (!outcome.ok && isConnectionLoss(outcome.failure) && run.metadataFallback) {
@@ -1561,11 +1558,6 @@ export class SyncService {
                 run.nativeMetadata = true;
                 (this.deps.log ?? console.info)('[Sync] Model metadata reading recovered through ComfyUI; unavailable headers are reported separately');
               }
-            }
-            if (!outcome.ok && isConnectionLoss(outcome.failure)) {
-              const recovered = await readFileMetadata(run, row);
-              if (run.cancelled || !run.isCurrent()) break;
-              if (recovered?.ok) { outcome = recovered; run.fileMetadata = true; }
             }
             if (!outcome.ok && isConnectionLoss(outcome.failure)) {
               // The file broke a connection and fails again on a new one: it is the one that breaks it. It alone
@@ -1811,7 +1803,7 @@ function enrichmentOver(row: EnrichRow, facts: SidecarFacts) {
 /** One metadata read: the parsed header, or why it failed (unreadable.ts sorts the reasons). */
 type MetadataOutcome = { ok: true; parsed: ParsedModelMetadata } | { ok: false; failure: ReadFailure };
 
-/** Recovery when the metadata endpoint omits a valid header or its internal reader is disconnected. */
+/** Preferred bounded header read; null means this server/catalog cannot supply file ranges. */
 async function readFileMetadata(run: EnrichRun, row: EnrichRow): Promise<MetadataOutcome | null> {
   if (!run.hasFiles || !row.root_path || !Number.isSafeInteger(row.size_bytes) || row.size_bytes! < 10) return null;
   const path = joinServerPath(row.root_path, row.name);
@@ -1820,7 +1812,11 @@ async function readFileMetadata(run: EnrichRun, row: EnrichRow): Promise<Metadat
     const header = await readSessionModelHeader(run.session, path, row.name, row.size_bytes!, run.signal);
     return header ? { ok: true, parsed: { metadata: header.metadata, sidecar: null } } : null;
   } catch (error) {
-    if (error instanceof ModelHeaderError) return { ok: false, failure: { reason: error.code === 'tooLarge' ? 'tooLarge' : error.code === 'invalid' ? 'unreadable' : 'failed' } };
+    // Older workspace_files implementations expose sidecars but not base64 ranges. Keep their metadata API.
+    if (error instanceof McpHeaderRangesUnavailableError) return null;
+    if (error instanceof ModelHeaderError) return { ok: false, failure: error.code === 'readFailed' && error.cause
+      ? classifyReadError(error.cause)
+      : { reason: error.code === 'tooLarge' ? 'tooLarge' : error.code === 'invalid' ? 'unreadable' : 'failed' } };
     if (error instanceof McpRefusedError) return null;
     return { ok: false, failure: classifyReadError(error) };
   }

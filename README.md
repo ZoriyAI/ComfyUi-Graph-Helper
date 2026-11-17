@@ -2,7 +2,7 @@
 
 # NodeWise Studio
 
-**Build ComfyUI workflows, understand them and learn by doing**
+**Create with AI, explore your options and learn ComfyUI by doing**
 
 [![Checks](https://github.com/ZoriyAI/nodewise-studio/actions/workflows/ci.yml/badge.svg)](https://github.com/ZoriyAI/nodewise-studio/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/ZoriyAI/nodewise-studio)](https://github.com/ZoriyAI/nodewise-studio/releases/latest)
@@ -10,9 +10,11 @@
 
 NodeWise Studio is a visual workspace for ComfyUI. Choose a task, start from a template or your own workflow, configure its nodes, and save the result to run in ComfyUI. Wizards and explanations guide you through each step; a configured AI assistant can build and edit the graph when you ask.
 
+NodeWise teaches, recommends and explains. It helps you choose a starting workflow, understand dependencies and compare ways forward. You can accept, change or skip a recommendation; you decide what to create and how.
+
 Work on the desktop or open its interface in a phone or tablet browser over Wi-Fi. No separate mobile app is needed. Lessons, manual editing and wizards work without an AI model.
 
-**[Download the latest release](https://github.com/ZoriyAI/nodewise-studio/releases/latest)** · **[Quick start](docs/wiki/start/Quick-Start.md)** · **[New in 1.3.0](docs/releases/v1.3.0.md)** · **[Phone and tablet access](docs/wiki/start/Browser-Access.md)**
+**[Download the latest release](https://github.com/ZoriyAI/nodewise-studio/releases/latest)** · **[Quick start](docs/wiki/start/Quick-Start.md)** · **[New in 1.3.1](docs/releases/v1.3.1.md)** · **[Phone and tablet access](docs/wiki/start/Browser-Access.md)**
 
 NodeWise is an independent, experimental project, unaffiliated with Comfy Org. It reads the running ComfyUI catalog and uploads media you explicitly select to its input folder. Generation runs in ComfyUI after workflow export.
 
@@ -129,7 +131,7 @@ The same documentation is in the app: Help ▸ User guide.
 
 ## Build from source
 
-For **1.3.0** source, use [tag v1.3.0](https://github.com/ZoriyAI/nodewise-studio/tree/v1.3.0) or the source archive on the release page. The `main` branch can differ from the published application; this documentation describes the release.
+For **1.3.1** source, use [tag v1.3.1](https://github.com/ZoriyAI/nodewise-studio/tree/v1.3.1) or the source archive on the release page. The `main` branch can differ from the published application; this documentation describes the release.
 
 On Linux: [Building from source](docs/wiki/dev/Building-From-Source.md). On Windows and macOS, the steps the install
 scripts take, by hand: [Windows](docs/wiki/dev/Building-On-Windows.md), [macOS](docs/wiki/dev/Building-On-macOS.md).

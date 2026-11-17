@@ -35,6 +35,7 @@ import { identityFromStudioInfo, readModelFilesWithRoots, readNodePacks, type Se
 import { McpRefusedError, readOnlySession } from './readOnly';
 import { parseObjectInfo } from '../../shared/catalog/objectInfo';
 import { acceptedComfyUrl, applyComfyRead, isLoopbackHost } from '../comfy/read';
+import { COMFY_ROUTES, comfyGet } from '../comfy/gate';
 import { readSettings } from '../settings/repository';
 import { comfyAddress, collectComfyDirect, type DirectReadSuccess } from '../comfy/direct';
 import { readProfileModels, recognizeProfile, type McpProfile } from './profiles';
@@ -552,16 +553,26 @@ export async function readCatalogWithSession(
   }
   let actualComfyOrigin: string | null = null;
   let nativeComfy: NonNullable<McpReadSuccess['nativeComfy']> = 'notTried';
-  if (objectInfo === 'none' && (comfyUrl || comfyOrigin)) {
+  let metadataOrigin: string | null = null;
+  if (comfyUrl || comfyOrigin) {
     // The address the server named, when it is the saved one or both are on this computer; else the saved one.
     // The server must not steer reads elsewhere.
     const nativeUrl = (comfyUrl ? acceptedComfyUrl(comfyUrl, comfyOrigin, context.mcpUrl) : null) ?? (comfyOrigin || null);
     const checkedNative = comfyAddress(nativeUrl ?? '');
     actualComfyOrigin = checkedNative.ok ? checkedNative.origin.origin : null;
-    const native = nativeUrl ? await applyComfyRead(db, nativeUrl, fetchImpl, { signal: context.signal, collect: (parsed, document) => { captureClasses(document); definitionWrites.push(() => { upsertObjectInfo(db, parsed, now); }); } }) : null;
-    if (native?.ok) { objectInfo = 'native'; actualComfyOrigin = new URL(nativeUrl!).origin; }
-    else skipped.push('nodeDetailsNative');
-    nativeComfy = native?.ok ? 'ok' : nativeUrl ? 'unreachable' : 'notAllowed';
+    if (objectInfo === 'none') {
+      const native = nativeUrl ? await applyComfyRead(db, nativeUrl, fetchImpl, { signal: context.signal, collect: (parsed, document) => { captureClasses(document); definitionWrites.push(() => { upsertObjectInfo(db, parsed, now); }); } }) : null;
+      if (native?.ok) { objectInfo = 'native'; metadataOrigin = actualComfyOrigin; }
+      else skipped.push('nodeDetailsNative');
+      nativeComfy = native?.ok ? 'ok' : nativeUrl ? 'unreachable' : 'notAllowed';
+    } else if (checkedNative.ok) {
+      // MCP catalog success says nothing about its separate file-reader connection. Keep an independently
+      // verified recovery origin without fetching /object_info twice or changing the catalog's source.
+      const stats = await comfyGet(checkedNative.origin, COMFY_ROUTES.systemStats(), fetchImpl, context.signal);
+      if (stats.ok && 'json' in stats && stats.json && typeof stats.json === 'object' && 'system' in stats.json) {
+        metadataOrigin = actualComfyOrigin;
+      }
+    }
   }
   // Rows this run stores carry `now`; after a complete listing, older synced rows are gone from the server.
   let nodes = 0;
@@ -630,7 +641,7 @@ export async function readCatalogWithSession(
     identity,
     profile,
     direct: null,
-    ...(nativeComfy === 'ok' && actualComfyOrigin ? { metadataOrigin: actualComfyOrigin } : {}),
+    ...(metadataOrigin ? { metadataOrigin } : {}),
     warnings: [],
   };
   publish(detail, actualComfyOrigin);
