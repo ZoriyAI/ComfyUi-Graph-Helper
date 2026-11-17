@@ -31,7 +31,22 @@ If even RAM runs out (the computer swaps or ComfyUI is killed), the model files 
 - Two copies of the same large model loaded under different nodes.
 
 ## How the app helps
-The app does not measure your card. Lessons name fp8 files and tell you to lower size or length when memory runs out. The lessons [When the graph does not fit the graphics card](../lessons/Graph-Too-Big.md), [When a video does not fit in memory](../lessons/Video-Memory.md) and [A quantised model: GGUF](../lessons/GGUF.md) are about memory; the WanVideoWrapper lesson explains BlockSwap and fp8 quantization.
+Check graph shows known file sizes, processing stages, the largest recognized dimensions/batch and a snapshot of free RAM/VRAM reported by the connected ComfyUI. Refresh reads its statistics again. This is a free-memory snapshot and file-based estimate, not the execution peak of your graph. External Ollama model sizes can remain unknown.
+
+## Measured example: two models in sequence
+On 17 November 2026 an RTX 4060 executed: image → local vision model → description → CLIP → KSampler → VAE Decode. The vision model `huihui_ai/qwen3-vl-abliterated:4b-instruct` was released before generation (`keep_alive=0`). ComfyUI 0.45.3 used `XenoMORPH-v2.safetensors`, 512 × 512, batch 1, four Euler steps, CFG 5.
+
+| Measurement | Result |
+| --- | --- |
+| Checkpoint file size | 2.14 GB (1.99 GiB) |
+| Sampled VRAM peak of the entire sequence | 5537 MiB (about 5.4 GiB) |
+| Background before/after process exit | 105 MiB |
+| Peak allocated PyTorch tensors while sampling | 2036 MiB |
+| Peak RAM of the ComfyUI process | 5067 MiB |
+
+A real 512 × 512 image was produced. This checks execution, not artistic quality: four steps do not guarantee prompt fidelity. The overall peak includes a different vision model and background use; PyTorch accounts for only part of memory. VRAM sampling every 250 ms can miss shorter peaks. Ollama server RAM is excluded from the ComfyUI process RAM figure.
+
+For your graph, start small with batch 1, run the entire sequence including Decode, then raise one setting at a time. If the assistant occupies memory, choose Release memory for ComfyUI and wait for confirmation. On failure, reduce dimensions/frames/batch, try tiled VAE or execute stages in sequence. This example does not guarantee another graph on another GPU. [Detailed report](https://github.com/ZoriyAI/nodewise-studio/blob/main/docs/research/2026-11-17-combined-models.md)
 
 ## See also
 - [Separate loaders](Separate-Loaders.md)

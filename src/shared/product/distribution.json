@@ -1,0 +1,6 @@
+{
+  "linux-x64": { "delivery": "binary-packages", "formats": ["deb", "rpm", "AppImage", "tar.gz"], "signing": "release-checksums-and-provenance" },
+  "windows-x64": { "delivery": "source-install-script", "formats": ["install-windows.ps1"], "signing": "unsigned", "minimum": "Windows 10 22H2" },
+  "macos-arm64-x64": { "delivery": "source-install-script", "formats": ["install-macos.sh"], "signing": "unsigned-not-notarized", "minimum": "macOS 13" },
+  "phone-tablet": { "delivery": "paired-browser", "requires": "running-desktop-on-accessible-network", "qualification": "browser-emulation; physical-device-acceptance-outstanding" }
+}

@@ -202,6 +202,11 @@ export function projectLinkUrl(kind: ProjectLinkKind, links: ReturnType<typeof p
 /** about:* and help:* channels. */
 export function registerAboutIpc(ipcMain: IpcMain): void {
   ipcMain.handle(IPC_CHANNELS.ABOUT_INFO, (): AboutInfo => aboutInfo());
+  ipcMain.handle(IPC_CHANNELS.ABOUT_PRODUCT_MANIFEST, (): string => {
+    const text = readText(path.join(DIST, 'product-manifest.json'));
+    if (!text) throw new Error('Bundled product catalogue is unavailable');
+    return text;
+  });
 
   ipcMain.handle(IPC_CHANNELS.ABOUT_LICENCE, (): string => readText(path.join(DIST, 'notices', 'LICENSE.txt')) ?? '');
 

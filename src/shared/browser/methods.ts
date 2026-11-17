@@ -3,6 +3,7 @@ import { IPC_CHANNELS } from '../ipc-channels';
 
 export const BROWSER_METHODS = {
   aboutInfo: IPC_CHANNELS.ABOUT_INFO,
+  productManifest: IPC_CHANNELS.ABOUT_PRODUCT_MANIFEST,
   aboutLicence: IPC_CHANNELS.ABOUT_LICENCE,
   aboutNotices: IPC_CHANNELS.ABOUT_NOTICES,
   secretStore: IPC_CHANNELS.SECRET_STORE_GET,

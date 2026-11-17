@@ -224,4 +224,6 @@ function writeHelp() {
 
 const components = writeNotices();
 const help = writeHelp();
+const { productManifest } = require('./lib/product-manifest');
+fs.writeFileSync(path.join(root, 'dist', 'product-manifest.json'), `${JSON.stringify(productManifest(root))}\n`);
 console.log(`build-assets: ${components} third-party components, ${help} help pages`);

@@ -166,6 +166,7 @@ export const IPC_CHANNELS = {
   TRACE_REVEAL_EXPORT: 'trace:reveal-export',
   /** About and Help (src/main/ipc/aboutIpc.ts): app facts, licence, third-party notices, data folder, help pages. */
   ABOUT_INFO: 'about:info',
+  ABOUT_PRODUCT_MANIFEST: 'about:product-manifest',
   ABOUT_LICENCE: 'about:licence',
   ABOUT_NOTICES: 'about:notices',
   ABOUT_OPEN_DATA_FOLDER: 'about:open-data-folder',

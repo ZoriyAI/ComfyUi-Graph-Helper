@@ -16,6 +16,14 @@ import styles from './AboutContent.module.css';
 import { openProjectLink } from '../../services/help';
 import { useUiStore } from '../../state/uiState';
 
+/** Exports only the bundled public catalogue; the main process never includes user content. */
+async function exportProductManifest(): Promise<void> {
+  const text = await window.electronAPI.productManifest();
+  const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
+  const link = document.createElement('a'); link.href = url; link.download = `nodewise-product-${packageVersion}.json`;
+  link.click(); setTimeout(() => URL.revokeObjectURL(url), 30000);
+}
+
 /** Which page of the view is open: the summary, the licence text, or the list of third-party components. */
 type View = 'main' | 'licence' | 'components';
 
@@ -137,6 +145,7 @@ export default function AboutContent({ renderTitle }: { renderTitle?: (text: str
         <Button variant="ghost" size="sm" onClick={openLicence}>{t('appInfo.licence')}</Button>
         <Button variant="ghost" size="sm" onClick={openComponents}>{t('appInfo.components')}</Button>
         <Button variant="ghost" size="sm" onClick={() => void copyDetails()}>{t('appInfo.copyInfo')}</Button>
+        <Button variant="ghost" size="sm" title={String(t('appInfo.exportProductHint'))} onClick={() => void exportProductManifest().catch(() => showToast({ id: 'product-export', tone: 'error', title: String(t('appInfo.exportProductFailed')) }))}>{t('appInfo.exportProduct')}</Button>
         <Button variant="ghost" size="sm" onClick={() => void openData()}>{t('appInfo.openData')}</Button>
       </div>
       {/* The project's pages; greyed out while this build has no project address (identity.ts PROJECT_URL). */}

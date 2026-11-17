@@ -304,6 +304,7 @@ jobs:
           # (.github/workflows/install-scripts.yml proves them on GitHub's Windows and macOS runners).
           cp scripts/install/install-windows.ps1 scripts/install/install-macos.sh release/
           node scripts/make-sbom.js "release/nodewise-studio-$version.cdx.json"
+          cp dist/product-manifest.json "release/nodewise-product-$version.json"
           (cd release && sha256sum -- * > SHA256SUMS && cat SHA256SUMS)
 
       - name: Upload release files
@@ -412,6 +413,7 @@ jobs:
             release/*.AppImage
             release/*.tar.gz
             release/*.cdx.json
+            release/nodewise-product-*.json
             release/install-windows.ps1
             release/install-macos.sh
             release/SHA256SUMS

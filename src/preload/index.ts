@@ -194,6 +194,7 @@ const IPC_CHANNELS = {
   TRACE_OPEN_FOLDER: 'trace:open-folder',
   TRACE_REVEAL_EXPORT: 'trace:reveal-export',
   ABOUT_INFO: 'about:info',
+  ABOUT_PRODUCT_MANIFEST: 'about:product-manifest',
   ABOUT_LICENCE: 'about:licence',
   ABOUT_NOTICES: 'about:notices',
   ABOUT_OPEN_DATA_FOLDER: 'about:open-data-folder',
@@ -482,6 +483,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   reportRendererError: (report: RendererErrorReport) => ipcRenderer.invoke(IPC_CHANNELS.DIAGNOSTICS_RENDERER_ERROR, report) as Promise<{ logged: boolean }>,
   // About and Help: app facts, licence and notices written at build, the data folder, the bundled help pages.
   aboutInfo: () => ipcRenderer.invoke(IPC_CHANNELS.ABOUT_INFO) as Promise<AboutInfo>,
+  productManifest: () => ipcRenderer.invoke(IPC_CHANNELS.ABOUT_PRODUCT_MANIFEST) as Promise<string>,
   aboutLicence: () => ipcRenderer.invoke(IPC_CHANNELS.ABOUT_LICENCE) as Promise<string>,
   aboutNotices: () => ipcRenderer.invoke(IPC_CHANNELS.ABOUT_NOTICES) as Promise<ThirdPartyComponent[]>,
   openDataFolder: () => ipcRenderer.invoke(IPC_CHANNELS.ABOUT_OPEN_DATA_FOLDER) as Promise<{ ok: true } | { ok: false; error: string }>,
@@ -785,6 +787,7 @@ export interface ElectronAPI {
   reportRendererError: (report: RendererErrorReport) => Promise<{ logged: boolean }>;
   /** Help ▸ About: version, runtime, system line, the profile folder. */
   aboutInfo: () => Promise<AboutInfo>;
+  productManifest: () => Promise<string>;
   /** The app's own licence text (dist/notices/LICENSE.txt). */
   aboutLicence: () => Promise<string>;
   /** Every package that ships with the app, with its licence text. */
