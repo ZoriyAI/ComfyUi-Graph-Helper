@@ -39,7 +39,7 @@ test('large graph findings navigate to editable cards and camera movement preser
     await expect(group.locator('li')).toHaveCount(50);
     await expect(group.getByRole('status')).toContainText('1-50 of 1004');
     await group.getByRole('button', { name: 'Next', exact: true }).click();
-    await expect(group.getByRole('status')).toContainText('51–100 of 1004');
+    await expect(group.getByRole('status')).toContainText('51-100 of 1004');
     await expect(group.locator('li')).toHaveCount(50);
     const search = panel.getByRole('searchbox', { name: 'Find a node or a problem' });
     await search.fill('Sampler 251');
