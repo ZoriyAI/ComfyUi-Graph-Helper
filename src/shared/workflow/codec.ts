@@ -1,3 +1,4 @@
+import { hasDynamicInputs, resolvedNode } from '../catalog/dynamicInputs';
 /**
  * The ComfyUI workflow codec: reads a workflow file (UI format 1 or the older 0.4) into the app's graph snapshot
  * (canvas nodes and edges, subgraph definitions, groups, and a stored copy of the rest of the file), and writes the
@@ -642,7 +643,8 @@ export function widgetsFromParameters(
   parameters: Record<string, unknown>,
   catalog: CatalogView,
 ): { ok: true; values: unknown[]; unset: string[] } | { ok: false; error: string } {
-  const spec = catalog.nodes.find((item) => item.classType === classType);
+  const declared = catalog.nodes.find((item) => item.classType === classType);
+  const spec = declared && hasDynamicInputs(declared) ? resolvedNode(declared, { parameters }) : declared;
   const keys = Object.keys(parameters);
   if (!spec || spec.widgetOrderReliable === false) {
     return keys.length === 0 ? { ok: true, values: [], unset: [] } : { ok: false, error: WIDGET_ORDER_UNRELIABLE };
@@ -671,8 +673,9 @@ export function fillWidgetDefaults(
   widgets: unknown,
   catalog: CatalogView | undefined,
 ): { values: unknown; unset: string[] } {
-  const spec = catalog ? reliableSpec(catalog, classType) : undefined;
-  if (!spec || !Array.isArray(widgets) || widgets.length !== spec.widgetOrder.length) return { values: widgets, unset: [] };
+  const declared = catalog ? reliableSpec(catalog, classType) : undefined;
+  const spec = declared && hasDynamicInputs(declared) ? resolvedNode(declared, { widgets }) : declared;
+  if (!spec || spec.widgetOrderReliable === false || !Array.isArray(widgets) || widgets.length !== spec.widgetOrder.length) return { values: widgets, unset: [] };
   const unset: string[] = [];
   const values = widgets.map((value, index) => {
     if (!isUnset(value)) return value;
@@ -703,7 +706,8 @@ export function exportedWidgets(
   const record = parameters && typeof parameters === 'object' && !Array.isArray(parameters)
     ? parameters as Record<string, unknown>
     : {};
-  const spec = catalog ? reliableSpec(catalog, classType) : undefined;
+  const declared = catalog ? reliableSpec(catalog, classType) : undefined;
+  const spec = declared && hasDynamicInputs(declared) ? resolvedNode(declared, { parameters: record }) : declared;
   if (Object.keys(record).length === 0 && (!spec || spec.widgetOrder.length === 0)) return { ok: true, values: undefined, unset: [] };
   if (!catalog) return { ok: false, error: WIDGET_ORDER_UNRELIABLE };
   const placed = widgetsFromParameters(classType, record, catalog);
@@ -762,7 +766,8 @@ function exportedNode(node: Record<string, any>, catalog?: CatalogView, lenient 
  */
 function addCreatedSlots(source: Record<string, unknown>, node: Record<string, any>, catalog: CatalogView | undefined): void {
   const ports = (value: unknown) => (Array.isArray(value) ? value as Array<{ name?: unknown; dataType?: unknown }> : []);
-  const spec = catalog?.nodes.find((item) => item.classType === String(node.data?.comfyType ?? ''));
+  const declared = catalog?.nodes.find((item) => item.classType === String(node.data?.comfyType ?? ''));
+  const spec = declared && hasDynamicInputs(declared) ? resolvedNode(declared, { parameters: node.data?.parameters, widgets: source.widgets_values }) : declared;
   const widgetNames = new Set((spec?.inputs ?? []).filter((input) => input.widget).map((input) => input.name));
   if (!Array.isArray(source.inputs)) {
     source.inputs = ports(node.data?.inputs).map((port) => {
@@ -1056,16 +1061,18 @@ function workflowNodes(record: Record<string, unknown>): Array<{ type?: unknown;
 }
 
 /** Writes one field value into a node's saved widgets_values: by index into an array, by name into an object. */
-export function patchWidgets(comfy: Record<string, unknown>, key: string, value: unknown, widgetIndex?: number): void {
+export function patchWidgets(comfy: Record<string, unknown>, key: string, value: unknown, widgetIndex?: number, nativeKey = key): void {
   const widgets = comfy.widgets_values;
   if (Array.isArray(widgets) && widgetIndex !== undefined) {
     const copy = widgets.slice();
     copy[widgetIndex] = value;
     comfy.widgets_values = copy;
+    if (isPlainRecord(comfy.widgets_values_named)) comfy.widgets_values_named = { ...comfy.widgets_values_named, [nativeKey]: value };
     return;
   }
   if (widgets && typeof widgets === 'object' && !Array.isArray(widgets)) {
     comfy.widgets_values = { ...(widgets as Record<string, unknown>), [key]: value };
+    if (isPlainRecord(comfy.widgets_values_named)) comfy.widgets_values_named = { ...comfy.widgets_values_named, [nativeKey]: value };
   }
 }
 

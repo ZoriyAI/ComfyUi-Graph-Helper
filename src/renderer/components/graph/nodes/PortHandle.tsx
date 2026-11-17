@@ -60,7 +60,7 @@ export function PortHandle({ nodeId, port, side, connected, focusable, quiet = f
   // Accessibility: an empty required input says so in words, not only by its warning glow.
   const label = String(side === 'input'
     ? t('node.portInput', { name: port.name, type: port.dataType, state })
-    : t('node.portOutput', { name: port.name, type: port.dataType, state })) + (empty ? `, ${String(t('a11y.requiredEmpty'))}` : '');
+    : t('node.portOutput', { name: port.name, type: port.dataType, state })) + (empty ? `, ${String(t('a11y.requiredEmpty'))}` : '') + (port.isList ? `, ${String(t('node.listPortHint'))}` : '');
   const start = (pin = false) => {
     if (view.readOnly) return;
     setConnectFrom({ nodeId, handle: port.id, direction: side, dataType: port.dataType }, pin);
@@ -127,6 +127,7 @@ export function PortHandle({ nodeId, port, side, connected, focusable, quiet = f
 
 /** One link port: handle, name, and the data type when the name does not already say it. */
 export function PortRow({ nodeId, port, side, connected, focusable, live = true }: PortRowProps) {
+  const { t } = useTranslation();
   return (
     <li
       className={`${styles.port} ${side === 'input' ? styles.portIn : styles.portOut}`}
@@ -139,6 +140,7 @@ export function PortRow({ nodeId, port, side, connected, focusable, live = true 
         ? <PortHandle nodeId={nodeId} port={port} side={side} connected={connected} focusable={focusable} />
         : <span className={`${styles.handle} ${styles.dot}`} aria-hidden="true" />}
       <span className={`${styles.portName} port-name`} title={port.name}>{port.name}</span>
+      {port.isList ? <span className={styles.portType} title={String(t('node.listPortHint'))} data-list-port>{String(t('node.listPort'))}</span> : null}
       {port.name.toLowerCase() === port.dataType.toLowerCase() ? null : <span className={`${styles.portType} port-type`} title={port.dataType} data-full-type={port.dataType}>{shortPortType(port.dataType)}</span>}
     </li>
   );

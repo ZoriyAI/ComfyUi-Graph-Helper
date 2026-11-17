@@ -9,7 +9,7 @@ import type Database from 'better-sqlite3';
 import { createHash } from 'node:crypto';
 import { normalServerFolder, pathStyle } from '../../shared/mcp/serverPaths';
 import type { ParsedObjectInfo } from '../../shared/catalog/objectInfo';
-import type { CatalogInput, CatalogModel, CatalogNode, CatalogOutput, CatalogView } from '../../shared/catalog/types';
+import type { CatalogInput, CatalogLayout, CatalogModel, CatalogNode, CatalogOutput, CatalogView, DynamicInput } from '../../shared/catalog/types';
 import type { McpModelFile, McpNodeClass } from '../../shared/mcp/catalogSource';
 import { inferBaseModel } from '../../shared/knowledge/baseModel';
 import { kindFromDirectory } from '../../shared/knowledge/modelKind';
@@ -484,17 +484,24 @@ export function catalogInputsFromJson(text: string, classType?: string): Catalog
   return parseInputs(text, classType);
 }
 
-function parseInputs(text: string, classType?: string): CatalogInput[] {
+function parseInputs(text: string, classType?: string, depth = 0): CatalogInput[] {
+  if (depth > 8) return [];
   return parseArray(text).flatMap((item) => {
     if (!item || typeof item !== 'object') return [];
     const row = item as Record<string, unknown>;
     if (typeof row.name !== 'string' || typeof row.type !== 'string') return [];
     const input: CatalogInput = { name: row.name, type: row.type, widget: row.widget === true };
     if (typeof row.required === 'boolean') input.required = row.required;
+    if (typeof row.displayName === 'string') input.displayName = row.displayName;
+    if (row.isList === true) input.isList = true;
+    if (typeof row.matchType === 'string') input.matchType = row.matchType;
+    const dynamic = storedDynamic(row.dynamic, depth);
+    if (dynamic) input.dynamic = dynamic;
     // Defaults and field metadata live inside inputs_json; rows stored before they existed simply have none,
     // and a re-sync fills them. No schema migration is needed.
     if (typeof row.tooltip === 'string' && row.tooltip !== '') input.tooltip = row.tooltip;
     if (!input.widget) return [input];
+    if (row.auxiliaryNames && typeof row.auxiliaryNames === 'object') input.auxiliaryNames = Object.fromEntries(Object.entries(row.auxiliaryNames).filter(([key, value]) => ['control_after_generate', 'control_filter_list', 'media_upload'].includes(key) && typeof value === 'string')) as Record<string, string>;
     if (row.default !== undefined) input.default = row.default;
     if (Array.isArray(row.options)) input.options = row.options.filter((option): option is string => typeof option === 'string');
     if (typeof row.controlDefault === 'string') input.controlDefault = row.controlDefault;
@@ -512,12 +519,41 @@ function parseInputs(text: string, classType?: string): CatalogInput[] {
   });
 }
 
+function storedDynamic(value: unknown, depth: number): DynamicInput | undefined {
+  if (!value || typeof value !== 'object' || depth >= 8) return undefined;
+  const row = value as Record<string, unknown>;
+  const readLayout = (value: unknown): CatalogLayout | undefined => {
+    if (!value || typeof value !== 'object') return undefined;
+    const item = value as Record<string, unknown>;
+    if (!Array.isArray(item.inputs) || item.inputs.length > 1000 || !Array.isArray(item.widgetOrder) || !item.widgetOrder.every((key) => typeof key === 'string')) return undefined;
+    return { inputs: parseInputs(JSON.stringify(item.inputs), undefined, depth + 1), widgetOrder: item.widgetOrder, widgetOrderReliable: item.widgetOrderReliable !== false };
+  };
+  if (row.kind === 'combo' && Array.isArray(row.options) && row.options.length <= 256) {
+    const options = row.options.flatMap((value) => {
+      if (!value || typeof value !== 'object') return [];
+      const item = value as Record<string, unknown>;
+      const layout = readLayout(item.layout);
+      return typeof item.key === 'string' && layout ? [{ key: item.key, layout }] : [];
+    });
+    return options.length === row.options.length ? { kind: 'combo', options } : undefined;
+  }
+  const layout = readLayout(row.layout);
+  const { min, max } = row;
+  if (!layout || typeof min !== 'number' || typeof max !== 'number' || !Number.isInteger(min) || !Number.isInteger(max) || min < 0 || min > max || max > 100) return undefined;
+  if (row.kind === 'group') return { kind: 'group', min, max, layout };
+  if (row.kind === 'autogrow' && layout.inputs.length === 1 && typeof row.prefix === 'string') {
+    const names = Array.isArray(row.names) && row.names.every((name) => typeof name === 'string') ? row.names as string[] : undefined;
+    return { kind: 'autogrow', min, max, layout, prefix: row.prefix, ...(names ? { names } : {}) };
+  }
+  return undefined;
+}
+
 function parseOutputs(text: string): CatalogOutput[] {
   return parseArray(text).flatMap((item) => {
     if (!item || typeof item !== 'object') return [];
-    const row = item as { name?: unknown; type?: unknown };
+    const row = item as { name?: unknown; type?: unknown; isList?: unknown; matchType?: unknown };
     if (typeof row.name !== 'string' || typeof row.type !== 'string') return [];
-    return [{ name: row.name, type: row.type }];
+    return [{ name: row.name, type: row.type, ...(row.isList === true ? { isList: true } : {}), ...(typeof row.matchType === 'string' ? { matchType: row.matchType } : {}) }];
   });
 }
 

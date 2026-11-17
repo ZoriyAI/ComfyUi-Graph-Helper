@@ -1,3 +1,4 @@
+import { hasDynamicInputs, resolvedNode } from '../../shared/catalog/dynamicInputs';
 /**
  * Editing commands a person runs by hand from the node, link and group menus of the canvas (and their shortcuts):
  * bypass or mute nodes, write a note, place a node on a link, put another class in a node's place, and colour
@@ -119,8 +120,9 @@ export function editorNode(classType: string, nodeId: string, title: string | un
 }
 
 /** The catalog spec of a widget input, or undefined when the input is a link socket or the class is unknown. */
-function widgetInput(catalog: CatalogView, classType: string, name: string): { controlDefault?: string; type: string } | undefined {
-  const spec = catalog.nodes.find((item) => item.classType === classType);
+function widgetInput(catalog: CatalogView, classType: string, name: string, node?: Node): { controlDefault?: string; type: string } | undefined {
+  const declared = catalog.nodes.find((item) => item.classType === classType);
+  const spec = declared && hasDynamicInputs(declared) ? resolvedNode(declared, { parameters: node?.data?.parameters, widgets: node?.data?.comfy?.widgets_values, namedWidgets: node?.data?.comfy?.widgets_values_named }) : declared;
   const input = spec?.inputs.find((item) => item.name === name);
   return input && input.widget ? input : undefined;
 }
@@ -134,7 +136,7 @@ export function refuseEditorLink(source: Node, target: Node, targetHandle: strin
   const port = (target.data?.inputs as PortDefinition[] | undefined)?.find((item) => item.id === targetHandle);
   const targetClass = String(target.data?.comfyType ?? '');
   if (!port || !catalog.nodes.some((item) => item.classType === targetClass)) return null;
-  return widgetInput(catalog, targetClass, port.name) ? null : EDIT_ERRORS.primitiveToSocket;
+  return widgetInput(catalog, targetClass, port.name, target) ? null : EDIT_ERRORS.primitiveToSocket;
 }
 
 /**
@@ -160,7 +162,7 @@ export function adoptLinkedType(nodes: Node[], edge: Edge, catalog: CatalogView)
     const port = (target.data?.inputs as PortDefinition[] | undefined)?.find((item) => item.id === edge.targetHandle);
     if (!port) return;
     const type = port.dataType;
-    const spec = widgetInput(catalog, String(target.data?.comfyType ?? ''), port.name);
+    const spec = widgetInput(catalog, String(target.data?.comfyType ?? ''), port.name, target);
     const value = (target.data?.parameters as Record<string, unknown> | undefined)?.[port.name];
     // A number or a choice gets ComfyUI's "control after generate" slot too (and a choice its filter slot).
     const values: unknown[] = [value ?? null];

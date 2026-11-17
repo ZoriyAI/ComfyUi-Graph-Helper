@@ -5,7 +5,7 @@
  * the slot helpers. The slot rules copy ComfyUI's frontend, because a workflow file stores widget values by position.
  */
 import { modelDirectoryFor } from './modelFolders';
-import type { CatalogInput, CatalogNode, CatalogOutput, CatalogView } from './types';
+import type { CatalogInput, CatalogLayout, CatalogNode, CatalogOutput, CatalogView } from './types';
 
 /** The scalar widget types; only these can hold a model file name. */
 const WIDGET_TYPES = new Set(['INT', 'FLOAT', 'STRING', 'BOOLEAN', 'COMBO']);
@@ -127,6 +127,7 @@ function parseNode(classType: string, value: unknown): CatalogNode {
   const info = value as Record<string, unknown>;
   const pythonModule = pythonModuleOf(info);
   const { inputs, widgetOrder, widgetOrderReliable } = inputsOf(info);
+  if (info.is_input_list === true) for (const input of inputs) input.isList = true;
   // Core audio adds its chooser in the frontend extension, outside INPUT_TYPES. It adds no serialized slot.
   if (classType === 'LoadAudio') for (const input of inputs) if (input.widget && input.name === 'audio') { input.mediaUpload = true; input.mediaType = 'audio'; }
   return {
@@ -169,7 +170,11 @@ function outputsOf(info: Record<string, unknown>): CatalogOutput[] {
   const names = Array.isArray(info.output_name) ? info.output_name : [];
   return info.output.map((item, index) => {
     const type = outputTypeOf(item);
-    return { type, name: typeof names[index] === 'string' ? names[index] : type };
+    const matchType = Array.isArray(info.output_matchtypes) ? info.output_matchtypes[index] : undefined;
+    return { type: type === 'COMFY_MATCHTYPE_V3' ? '*' : type, name: typeof names[index] === 'string' ? names[index] : type,
+      ...(Array.isArray(info.output_is_list) && info.output_is_list[index] === true ? { isList: true } : {}),
+      ...(typeof matchType === 'string' && matchType ? { matchType } : {}),
+    };
   });
 }
 
@@ -181,7 +186,8 @@ function outputTypeOf(item: unknown): string {
 }
 
 /** The inputs in input_order (then any not listed there), and the widgets_values slots they make. */
-function inputsOf(info: Record<string, unknown>): { inputs: CatalogInput[]; widgetOrder: string[]; widgetOrderReliable: boolean } {
+function inputsOf(info: Record<string, unknown>, depth = 0): CatalogLayout & { widgetOrderReliable: boolean } {
+  if (depth > 8) throw new ObjectInfoError('Dynamic input nesting is too deep.');
   if (info.input !== undefined && (!info.input || typeof info.input !== 'object' || Array.isArray(info.input))) {
     throw new ObjectInfoError('Catalog snapshot is not object_info.');
   }
@@ -197,6 +203,12 @@ function inputsOf(info: Record<string, unknown>): { inputs: CatalogInput[]; widg
     for (const name of [...names, ...Object.keys(specs)]) {
       if (seen.has(name) || !(name in specs)) continue;
       seen.add(name);
+      const dynamic = dynamicSpec(name, specs[name], group === 'required', depth);
+      if (dynamic) {
+        inputs.push(dynamic);
+        if (dynamic.widget) widgetOrder.push(name);
+        continue;
+      }
       const parsed = parseSpec(name, specs[name]);
       if (parsed.opaque) widgetOrderReliable = false;
       const entry: CatalogInput = { name, type: parsed.type, widget: parsed.widget, required: group === 'required' };
@@ -214,6 +226,49 @@ function inputsOf(info: Record<string, unknown>): { inputs: CatalogInput[]; widg
     }
   }
   return { inputs, widgetOrder, widgetOrderReliable };
+}
+
+/** Parse only server-declared native behaviour. Unknown frontend widgets retain the opaque fallback. */
+function dynamicSpec(name: string, spec: unknown, required: boolean, depth: number): CatalogInput | undefined {
+  if (!Array.isArray(spec) || !String(spec[0]).startsWith('COMFY_')) return undefined;
+  const options = groupSpecs(spec[1]);
+  const base = { name, required, ...(typeof options.tooltip === 'string' ? { tooltip: options.tooltip } : {}) };
+  const layout = (input: unknown) => inputsOf({ input }, depth + 1);
+  const count = (value: unknown, fallback: number) => typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 100 ? value : fallback;
+  if (spec[0] === 'COMFY_DYNAMICCOMBO_V3') {
+    if (!Array.isArray(options.options) || options.options.length === 0 || options.options.length > 256) return undefined;
+    const choices = options.options.map((item) => {
+      const option = groupSpecs(item);
+      if (typeof option.key !== 'string') throw new ObjectInfoError('Invalid DynamicCombo key.');
+      return { key: option.key, layout: layout(option.inputs) };
+    });
+    if (new Set(choices.map((item) => item.key)).size !== choices.length) throw new ObjectInfoError('Duplicate DynamicCombo key.');
+    return { ...base, type: 'COMBO', widget: true, options: choices.map((item) => item.key), default: choices[0].key,
+      dynamic: { kind: 'combo', options: choices } };
+  }
+  if (spec[0] === 'COMFY_AUTOGROW_V3') {
+    const template = groupSpecs(options.template);
+    const child = layout(template.input);
+    // The backend accepts one socket per group. Multi-widget frontend-only templates have a different slot layout.
+    if (child.inputs.length !== 1 || child.inputs[0].dynamic || child.inputs[0].widget) return undefined;
+    const names = Array.isArray(template.names) && template.names.every((item) => typeof item === 'string') ? template.names as string[] : undefined;
+    const max = names ? Math.min(100, names.length) : count(template.max, 100);
+    const min = Math.min(max, count(template.min, 1));
+    return { ...base, type: spec[0], widget: false, dynamic: { kind: 'autogrow', layout: child, min, max,
+      prefix: typeof template.prefix === 'string' ? template.prefix : '', ...(names ? { names: names.slice(0, max) } : {}) } };
+  }
+  if (spec[0] === 'COMFY_DYNAMICGROUP_V3') {
+    const max = count(options.max, 100);
+    const min = Math.min(max, count(options.min, 0));
+    return { ...base, type: 'INT', widget: true, default: min, min, max, step: 1,
+      dynamic: { kind: 'group', min, max, layout: layout(options.template) } };
+  }
+  if (spec[0] === 'COMFY_MATCHTYPE_V3') {
+    const template = groupSpecs(options.template);
+    if (typeof template.template_id !== 'string' || typeof template.allowed_types !== 'string' || !template.allowed_types) return undefined;
+    return { ...base, type: template.allowed_types, widget: false, matchType: template.template_id };
+  }
+  return undefined;
 }
 
 function inputOrderOf(value: unknown): { required?: string[]; optional?: string[] } {
@@ -256,7 +311,7 @@ interface ParsedSpec {
   options?: string[];
   controlDefault?: string;
   /** Field metadata a control needs (range, step, multi-line, tooltip); see fieldMeta. */
-  meta: Partial<Pick<CatalogInput, 'widgetType' | 'min' | 'max' | 'step' | 'multiline' | 'multiSelect' | 'tooltip' | 'mediaType' | 'mediaUpload'>>;
+  meta: Partial<Pick<CatalogInput, 'auxiliaryNames' | 'displayName' | 'widgetType' | 'min' | 'max' | 'step' | 'multiline' | 'multiSelect' | 'tooltip' | 'mediaType' | 'mediaUpload'>>;
 }
 
 function parseSpec(name: string, spec: unknown): ParsedSpec {
@@ -292,6 +347,15 @@ function describeInput(linkType: string, options: Record<string, unknown>, force
     mediaUpload: widget && !opaque && constructorType === 'COMBO' && isMediaUpload(options),
     meta: fieldMeta(linkType, constructorType, options, widget && !opaque),
   };
+  if (controlAfterGenerate) {
+    const names: Record<string, string> = {};
+    for (const key of ['control_after_generate', 'control_filter_list']) {
+      const value = options[key];
+      const name = typeof value === 'string' && (key !== 'control_after_generate' || !CONTROL_MODES.has(value)) ? value : typeof options.control_prefix === 'string' && options.control_prefix ? `${options.control_prefix} ${key}` : key;
+      if (name !== key) names[key] = name;
+    }
+    if (Object.keys(names).length) parsed.meta.auxiliaryNames = names;
+  }
   if (!widget || opaque) return parsed;
   const value = widgetDefault(constructorType, options, comboOptions);
   if (value !== undefined) parsed.default = value;
@@ -312,6 +376,7 @@ function finiteNumber(value: unknown): number | undefined {
  */
 function fieldMeta(linkType: string, constructorType: string, options: Record<string, unknown>, widget: boolean): ParsedSpec['meta'] {
   const meta: ParsedSpec['meta'] = {};
+  if (typeof options.display_name === 'string' && options.display_name) meta.displayName = options.display_name;
   if (typeof options.tooltip === 'string' && options.tooltip.trim() !== '') meta.tooltip = options.tooltip.trim();
   if (!widget) return meta;
   if (options.video_upload === true) meta.mediaType = 'video';

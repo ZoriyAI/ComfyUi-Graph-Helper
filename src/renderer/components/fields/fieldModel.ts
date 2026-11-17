@@ -1,3 +1,5 @@
+import { resolveInputs } from '../../../shared/catalog/dynamicInputs';
+import { fieldSpecOf } from '../../../shared/catalog/fieldSpec';
 /**
  * The rules of node fields without React: which inputs are fields, the control kind, the shown value, number
  * clamping and typing, the typing state of a number field, seeds and the "after run" row. Used by FieldControl.tsx, ModelList.tsx, graph/Inspector.tsx,
@@ -153,6 +155,7 @@ export function displayValue(value: unknown): string {
 /** One field row of a node: its name, value, catalog spec, and the port when a link can feed it. */
 export interface FieldEntry {
   name: string;
+  label?: string;
   /** The input port of this widget input, when the node has one (a link can feed the field). */
   port?: PortDefinition;
   spec?: FieldSpec;
@@ -178,6 +181,8 @@ export function afterRunKey(name: string): string {
 
 /** A node's inputs split into the ports that take only links and the fields set by hand. */
 export interface NodeLayout {
+  dynamic?: boolean;
+  dynamicUnsupported?: boolean;
   /** Inputs that only take a link (MODEL, CLIP, LATENT…). */
   linkInputs: PortDefinition[];
   /** Widget inputs and stored parameters: what the person sets by hand. */
@@ -188,11 +193,15 @@ export interface NodeLayout {
  * The value a field shows: the node's parameters first (what the commands set), then the stored widgets_values
  * of an imported node by the catalog widget order.
  */
-export function fieldValue(data: { parameters?: Record<string, unknown>; comfy?: unknown }, name: string, widgetOrder: string[] | undefined): unknown {
+export function fieldValue(data: { parameters?: Record<string, unknown>; comfy?: unknown }, name: string, widgetOrder: string[] | undefined, nativeWidgetOrder?: string[]): unknown {
   const parameters = data.parameters ?? {};
   if (Object.prototype.hasOwnProperty.call(parameters, name) && !isUnset(parameters[name])) return parameters[name];
-  const comfy = (data as { comfy?: { widgets_values?: unknown } }).comfy;
+  const comfy = (data as { comfy?: { widgets_values?: unknown; widgets_values_named?: unknown } }).comfy;
   const widgets = comfy?.widgets_values;
+  const named = comfy?.widgets_values_named;
+  const position = widgetOrder?.indexOf(name) ?? -1;
+  const nativeName = nativeWidgetOrder?.[position] ?? name;
+  if (named && typeof named === 'object' && !Array.isArray(named) && Object.hasOwn(named, nativeName)) return (named as Record<string, unknown>)[nativeName];
   if (Array.isArray(widgets) && widgetOrderMatches(widgets, widgetOrder)) {
     if (!widgetOrder) return parameters[name];
     const index = widgetOrder.indexOf(name);
@@ -210,9 +219,19 @@ export function fieldValue(data: { parameters?: Record<string, unknown>; comfy?:
  * stores a value under its name and its type is a widget type. Parameters with no input of their name (an import
  * that carried only values) are fields too, so no value disappears from the node.
  */
+/** Materialize the selected branch before any field/lesson/inspector reads positional values. */
+export function detailForNode(data: ComfyNodeData, detail: NodeClassDetail | null | undefined): NodeClassDetail | null | undefined {
+  if (!detail?.nativeInputs) return detail;
+  const comfy = data.comfy as { widgets_values?: unknown; widgets_values_named?: unknown } | undefined;
+  const resolved = resolveInputs({ inputs: detail.nativeInputs, widgetOrder: detail.widgetOrder, widgetOrderReliable: detail.widgetOrderReliable }, { parameters: data.parameters, widgets: comfy?.widgets_values, namedWidgets: comfy?.widgets_values_named, inputNames: data.inputs.map((port) => port.name) });
+  return { ...detail, widgetOrder: resolved.widgetOrder, nativeWidgetOrder: resolved.nativeWidgetOrder, widgetOrderReliable: resolved.widgetOrderReliable, inputs: resolved.inputs.map((input) => ({ name: input.name, displayName: input.displayName, type: input.type, widget: input.widget, required: input.required !== false, spec: fieldSpecOf(input, data.comfyType), tooltip: input.tooltip, isList: input.isList })) };
+}
+
 export function nodeLayout(data: ComfyNodeData, detail: NodeClassDetail | null | undefined): NodeLayout {
+  const dynamic = Boolean(detail?.nativeInputs);
+  detail = detailForNode(data, detail);
   const parameters = data.parameters ?? {};
-  const widgets = (data as { comfy?: { widgets_values?: unknown } }).comfy?.widgets_values;
+  const widgets = (data as { comfy?: { widgets_values?: unknown; widgets_values_named?: unknown } }).comfy?.widgets_values;
   const positional = Array.isArray(widgets);
   const mapped = widgetOrderMatches(widgets, detail?.widgetOrder, detail?.widgetOrderReliable !== false);
   // An incomplete or opaque class description cannot name positional values safely. Keep its sockets, then
@@ -227,7 +246,7 @@ export function nodeLayout(data: ComfyNodeData, detail: NodeClassDetail | null |
     const named = Object.prototype.hasOwnProperty.call(parameters, port.name);
     const widget = known ? known.widget && (!positional || mapped || named) : (named && WIDGET_TYPES.has(port.dataType.toUpperCase()));
     if (!widget) {
-      linkInputs.push(port);
+      linkInputs.push(known?.isList ? { ...port, isList: true } : port);
       continue;
     }
     seen.add(port.name);
@@ -237,7 +256,7 @@ export function nodeLayout(data: ComfyNodeData, detail: NodeClassDetail | null |
   // Widget inputs the node has no port for (a node stored before its class was synced).
   for (const input of fieldsDetail?.inputs ?? []) {
     if (!input.widget || seen.has(input.name) || input.spec?.kind === 'other') continue;
-    if (!Object.prototype.hasOwnProperty.call(parameters, input.name) && isUnset(fieldValue(data, input.name, detail?.widgetOrder))) continue;
+    if (!Object.prototype.hasOwnProperty.call(parameters, input.name) && isUnset(fieldValue(data, input.name, detail?.widgetOrder, detail?.nativeWidgetOrder))) continue;
     seen.add(input.name);
     fields.push(entry(data, input.name, input, fieldsDetail));
     pushAfterRun(fields, data, input.name, input, fieldsDetail);
@@ -255,7 +274,11 @@ export function nodeLayout(data: ComfyNodeData, detail: NodeClassDetail | null |
       ...(typeof value === 'string' && (value.includes('\n') || value.length > 100) ? { spec: { kind: 'string' as const, multiline: true } } : {}),
     }));
   }
-  return { linkInputs, fields };
+  if (dynamic && detail?.widgetOrderReliable) fields.sort((a, b) => {
+    const rank = (name: string) => { const index = detail.widgetOrder.indexOf(name); return index < 0 ? Number.MAX_SAFE_INTEGER : index; };
+    return rank(a.name) - rank(b.name);
+  });
+  return { linkInputs, fields, dynamic, dynamicUnsupported: dynamic && detail?.widgetOrderReliable === false };
 }
 
 /**
@@ -272,13 +295,13 @@ function pushAfterRun(
 ): void {
   const start = input?.spec?.control;
   if (start === undefined || !detail?.widgetOrder.includes(afterRunKey(name))) return;
-  const stored = fieldValue(data, afterRunKey(name), detail.widgetOrder);
+  const stored = fieldValue(data, afterRunKey(name), detail.widgetOrder, detail.nativeWidgetOrder);
   fields.push({
     name: afterRunKey(name),
     labelKey: 'editing.afterRun',
     value: typeof stored === 'string' && stored !== '' ? stored : start,
     spec: { kind: 'combo', options: AFTER_RUN_CHOICES },
-    widgetIndex: Array.isArray((data as { comfy?: { widgets_values?: unknown } }).comfy?.widgets_values) ? detail.widgetOrder.indexOf(afterRunKey(name)) : undefined,
+    widgetIndex: Array.isArray((data as { comfy?: { widgets_values?: unknown; widgets_values_named?: unknown } }).comfy?.widgets_values) ? detail.widgetOrder.indexOf(afterRunKey(name)) : undefined,
     tooltipKey: 'editing.afterRunHint',
   });
 }
@@ -291,14 +314,15 @@ function entry(
   detail: NodeClassDetail | null | undefined,
   port?: PortDefinition,
 ): FieldEntry {
-  const out: FieldEntry = { name, value: fieldValue(data, name, detail?.widgetOrder) };
-  const widgets = (data as { comfy?: { widgets_values?: unknown } }).comfy?.widgets_values;
+  const out: FieldEntry = { name, value: fieldValue(data, name, detail?.widgetOrder, detail?.nativeWidgetOrder) };
+  const widgets = (data as { comfy?: { widgets_values?: unknown; widgets_values_named?: unknown } }).comfy?.widgets_values;
   if (widgetOrderMatches(widgets, detail?.widgetOrder, detail?.widgetOrderReliable !== false)) {
     const index = detail!.widgetOrder.indexOf(name);
     if (index >= 0) out.widgetIndex = index;
   }
   if (port) out.port = port;
   if (input?.spec) out.spec = input.spec;
+  if (input?.displayName) out.label = input.displayName;
   const tooltip = input?.spec?.tooltip ?? input?.tooltip;
   if (tooltip) out.tooltip = tooltip;
   return out;

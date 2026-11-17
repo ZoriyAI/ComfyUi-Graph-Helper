@@ -1,3 +1,4 @@
+import { reconcileDynamicConnections } from './dynamicInputs';
 /**
  * Edits inside a subgraph definition (the `edit-in-subgraph` command) and the id counters of definitions.
  * Used only by commands/commit.ts: applyInnerEdit for the command, keepDefinitionCounters on undo and redo.
@@ -216,6 +217,7 @@ export function applyInnerEdit(
     : edit.type === 'insert-subgraph'
       ? insertNested(definitions, definition, work, edit, catalog)
       : applyLevel(work, actionId, edit as GraphMutation, catalog);
+  if (edit.type === 'connect' && (boundary(edit.source) || boundary(edit.target))) applied.snapshot = reconcileDynamicConnections(work, applied.snapshot, catalog);
   const nodes = applied.snapshot.nodes as Node[];
   const edges = applied.snapshot.edges as Edge[];
   // The counters only grow: what the edit used, or what the definition had before, whichever is higher.

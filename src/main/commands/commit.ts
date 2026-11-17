@@ -1,3 +1,5 @@
+import { hasDynamicInputs, resolvedNode } from '../../shared/catalog/dynamicInputs';
+import { DynamicInputError, reconcileDynamicConnections, setDynamicParameter } from './dynamicInputs';
 /**
  * The graph engine: every change to a project's graph is a command committed here as one new revision in SQLite.
  * Callers: ipc.ts (the canvas, via preload commitCommand, and the run controls), agent/buildTools.ts and
@@ -570,6 +572,19 @@ function applyBatch(snapshot: Snapshot, actionId: string, edits: Array<Record<st
  * A returned snapshot may leave out parts (components, subgraphs...): sealSnapshot fills them from the revision before.
  */
 function applyMutation(snapshot: Snapshot, actionId: string, payload: GraphMutation, catalog: CatalogView, context?: { definitions: SubgraphDefinition[]; destinationId: string }): { snapshot: Snapshot; result: Record<string, unknown> } {
+  try {
+    const applied = applyMutationCore(snapshot, actionId, payload, catalog, context);
+    if (['connect', 'remove-edge', 'retarget-edge', 'remove-node', 'remove-selection', 'set-parameter'].includes(payload.type)) {
+      applied.snapshot = reconcileDynamicConnections(snapshot, applied.snapshot, catalog);
+    }
+    return applied;
+  } catch (error) {
+    if (error instanceof DynamicInputError) throw new CommandSignal('rejected', { error: error.message });
+    throw error;
+  }
+}
+
+function applyMutationCore(snapshot: Snapshot, actionId: string, payload: GraphMutation, catalog: CatalogView, context?: { definitions: SubgraphDefinition[]; destinationId: string }): { snapshot: Snapshot; result: Record<string, unknown> } {
   if (payload.type === 'batch') return applyBatch(snapshot, actionId, payload.edits, catalog);
   const nodes: Array<Record<string, any>> = snapshot.nodes.map((node) => ({
     ...node,
@@ -604,10 +619,11 @@ function applyMutation(snapshot: Snapshot, actionId: string, payload: GraphMutat
       nodes.push(editor);
       return { snapshot: { nodes, edges, document: work.document }, result: { nodeId, nodeType: payload.nodeType } };
     }
-    const ports = portsForClassType(payload.nodeType, catalog);
     const spec = catalog.nodes.find((item) => item.classType === payload.nodeType);
     // A new node starts with the widget values ComfyUI would give it; values the caller passed win.
-    const parameters = { ...defaultParameters(spec), ...(payload.parameters ?? {}) };
+    const initial = { ...defaultParameters(spec), ...(payload.parameters ?? {}) };
+    const parameters = spec && hasDynamicInputs(spec) ? { ...resolvedNode(spec, { parameters: initial }).values } : initial;
+    const ports = portsForClassType(payload.nodeType, catalog, { parameters });
     const placed = widgetsFromParameters(payload.nodeType, parameters, catalog);
     if (!placed.ok) throw new CommandSignal('rejected', { error: placed.error });
     const title = payload.title || payload.nodeType;
@@ -666,6 +682,8 @@ function applyMutation(snapshot: Snapshot, actionId: string, payload: GraphMutat
     return { snapshot: { nodes, edges, document: snapshot.document }, result: { nodeId: payload.nodeId } };
   }
   if (payload.type === 'set-parameter') {
+    const dynamic = setDynamicParameter(snapshot, payload.nodeId, payload.key, payload.value, catalog, payload.widgetIndex);
+    if (dynamic) return { snapshot: dynamic, result: { nodeId: payload.nodeId, key: payload.key } };
     const node = nodes.find((item) => item.id === payload.nodeId);
     if (!node) throw new CommandSignal('rejected');
     const classType = String(node.data?.comfyType ?? '');
@@ -692,7 +710,11 @@ function applyMutation(snapshot: Snapshot, actionId: string, payload: GraphMutat
       const widgetIndex = Array.isArray(widgets)
         ? arrayWidgetIndex(widgets, catalog, classType, payload.key, payload.widgetIndex)
         : payload.widgetIndex;
-      patchWidgets(comfy, payload.key, payload.value, widgetIndex);
+      const declared = catalog.nodes.find((item) => item.classType === classType);
+      const layout = declared ? resolvedNode(declared, { widgets, namedWidgets: comfy.widgets_values_named }) : undefined;
+      const nativeKey = widgetIndex !== undefined && layout?.widgetOrderReliable ? layout.nativeWidgetOrder[widgetIndex] : undefined;
+      if (comfy.widgets_values_named && payload.key.startsWith('widgets::') && !nativeKey) throw new CommandSignal('rejected', { error: 'Catalog widget order does not match widgets_values.' });
+      patchWidgets(comfy, payload.key, payload.value, widgetIndex, nativeKey ?? payload.key);
     }
     node.data = { ...node.data, parameters, comfy };
     return { snapshot: { nodes, edges, document: snapshot.document }, result: { nodeId: payload.nodeId, key: payload.key } };

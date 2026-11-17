@@ -4,6 +4,7 @@
  * the agent's tools (commands/tools.ts), placement and commit in main, and node sizes in the renderer.
  */
 import type { CatalogNode, CatalogView } from '../catalog/types';
+import { hasDynamicInputs, resolvedNode, type DynamicValues } from '../catalog/dynamicInputs';
 
 /** One port: its handle id, name, data type and whether a link is optional. */
 export interface PortDefinition {
@@ -11,6 +12,8 @@ export interface PortDefinition {
   name: string;
   dataType: string;
   optional: boolean;
+  isList?: boolean;
+  matchType?: string;
 }
 
 // Built-in ports of the classes the first lessons and the seed knowledge use.
@@ -70,9 +73,12 @@ export function inferOutputs(nodeType: string): PortDefinition[] {
  * (input_order required, then optional, then remaining keys). in-N is that combined index.
  * Outputs stay in output-array order.
  */
-export function portsForClassType(nodeType: string, catalog: CatalogView): { inputs: PortDefinition[]; outputs: PortDefinition[] } {
+export function portsForClassType(nodeType: string, catalog: CatalogView, values: DynamicValues = {}): { inputs: PortDefinition[]; outputs: PortDefinition[] } {
   const found = catalog.nodes.find((node) => node.classType === nodeType);
-  if (found && !isSeedPlaceholder(found)) return portsFromCatalog(found);
+  if (found && !isSeedPlaceholder(found)) {
+    const resolved = hasDynamicInputs(found) ? resolvedNode(found, values) : undefined;
+    return portsFromCatalog(resolved ?? found, resolved?.portOrder);
+  }
   return { inputs: inferInputs(nodeType), outputs: inferOutputs(nodeType) };
 }
 
@@ -81,23 +87,27 @@ function isSeedPlaceholder(node: CatalogNode): boolean {
   return node.pack === 'core' && node.inputs.length === 0 && node.outputs.length === 0;
 }
 
-function portsFromCatalog(node: CatalogNode): { inputs: PortDefinition[]; outputs: PortDefinition[] } {
+export function portsFromCatalog(node: CatalogNode, order?: string[]): { inputs: PortDefinition[]; outputs: PortDefinition[] } {
   const sockets = node.inputs.filter((input) => input.widget === false);
   const widgets = node.inputs.filter((input) => input.widget === true);
   return {
-    inputs: [...sockets, ...widgets].map((input, index) => ({
+    inputs: (order ? order.flatMap((name) => node.inputs.filter((input) => input.name === name)) : [...sockets, ...widgets]).map((input, index) => ({
       id: `in-${index}`,
       name: input.name,
       dataType: input.type,
       // As the catalog lists it (object_info's optional group). A row without the flag (stored before it existed)
       // reads as required, the safer guess for a link a node may need.
       optional: input.required === false,
+      ...(input.isList ? { isList: true } : {}),
+      ...(input.matchType ? { matchType: input.matchType } : {}),
     })),
     outputs: node.outputs.map((output, index) => ({
       id: `out-${index}`,
       name: output.name,
       dataType: output.type,
       optional: false,
+      ...(output.isList ? { isList: true } : {}),
+      ...(output.matchType ? { matchType: output.matchType } : {}),
     })),
   };
 }

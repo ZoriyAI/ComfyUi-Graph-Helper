@@ -170,8 +170,8 @@ export default function NodeCard({ id, data, state, connected, live = true, head
       ) : null}
       {data.outputs.length > 0 ? (
         <ul className={`${styles.ports} ${styles.outputPorts} port-list`} aria-label={String(t('node.outputs'))}>
-          {data.outputs.map((port) => (
-            <PortRow key={port.id} nodeId={id} port={port} side="output" connected={connected.has(`out:${port.id}`)} focusable={Boolean(state.selected)} live={live} />
+          {data.outputs.map((port, index) => (
+            <PortRow key={port.id} nodeId={id} port={detail?.outputs[index]?.isList ? { ...port, isList: true } : port} side="output" connected={connected.has(`out:${port.id}`)} focusable={Boolean(state.selected)} live={live} />
           ))}
         </ul>
       ) : null}
@@ -186,14 +186,14 @@ export default function NodeCard({ id, data, state, connected, live = true, head
               linked={field.port ? connected.has(`in:${field.port.id}`) : false}
               focusable={Boolean(state.selected)}
               live={live}
-              disabled={fieldsDisabled}
+              disabled={fieldsDisabled || Boolean(baseLayout.dynamicUnsupported)}
             />
           ))}
         </ul>
       ) : null}
       {live && !state.ghost && data.comfyType === 'LoadImage' ? <ImageSourcePreview data={data} /> : null}
       {state.subgraph && live ? <PromotedFields id={id} data={data} disabled={!live || view.readOnly || Boolean(data.locked)} connected={connected} focusable={Boolean(state.selected)} /> : null}
-      {kind === 'primitive' && live ? <PrimitiveFields id={id} data={data} disabled={fieldsDisabled} /> : null}
+      {kind === 'primitive' && live ? <PrimitiveFields id={id} data={data} disabled={fieldsDisabled || Boolean(baseLayout.dynamicUnsupported)} /> : null}
       {kind === 'set' || kind === 'get' ? <ConstantLine data={data} kind={kind} /> : null}
       {missing && layout.fields.length === 0 ? <SavedValues data={data} /> : null}
       {noteText || isNote ? (
@@ -212,6 +212,7 @@ export default function NodeCard({ id, data, state, connected, live = true, head
           {data.annotations[0]}
         </div>
       ) : null}
+      {baseLayout.dynamic ? <p className={styles.annotation} data-dynamic-help>{String(t(baseLayout.dynamicUnsupported ? 'node.dynamicUnsupported' : 'node.dynamicHint'))}</p> : null}
       {footer}
     </div>
   );

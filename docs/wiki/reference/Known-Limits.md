@@ -66,7 +66,7 @@ what to expect. Wishes go to the project's Discussions, problems to its Issues.
 - A workflow saved in the older format (0.4) cannot hold a subgraph; the app says so. Open it in a current ComfyUI and
   save it again, or copy its nodes into a new project (which uses format 1). [Subgraphs](../graph/Subgraphs.md)
 - Legacy group nodes of older workflows are shown as one unknown node; they are saved back as they were.
-- Inputs that grow as you connect them, and list marks on inputs, are not shown yet.
+- Native DynamicCombo modes, Autogrow sockets, DynamicGroup row counts, MatchType constraints and list marks are supported when the synced node definition declares them. Custom frontend JavaScript can still add controls whose serialization is unknown; those values are preserved and the app explains why editing is unavailable. [Dynamic fields and inputs](../graph/Adding-Nodes.md#dynamic-fields-and-inputs)
 - Native routing points support drag, arrow keys, tap menus and Undo on root and inner graphs. Removing a point keeps node connections. **Add routing point** in a link menu creates a native point; **Add legacy Reroute node** creates the older editor node.
 - Group frames support mouse/touch/keyboard resizing and **Fit frame to its nodes**. Resizing is undoable and works inside subgraphs; native ComfyUI rectangles and unknown fields are preserved. ComfyUI recomputes membership from the exported rectangle; see [Groups](../graph/Groups.md).
 - A picture or video opens only when ComfyUI wrote the workflow into it. A picture from elsewhere, or one sent

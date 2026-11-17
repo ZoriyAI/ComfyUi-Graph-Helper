@@ -1,3 +1,4 @@
+import type { CatalogInput } from '../catalog/types';
 /**
  * The knowledge contracts: what main tells the renderer and the agent about node classes, model files, field
  * controls, explanations, the graph check and the sync. Main fills them from the catalog database and the knowledge
@@ -82,6 +83,8 @@ export interface FieldSpec {
 
 /** One input of a node class: a socket or a widget, with its control spec. */
 export interface NodeClassInput {
+  displayName?: string;
+  isList?: boolean;
   name: string;
   type: string;
   widget: boolean;
@@ -131,7 +134,10 @@ export interface FieldModelsResult {
 export interface NodeClassDetail extends NodeClassSummary {
   description: string;
   inputs: NodeClassInput[];
-  outputs: Array<{ name: string; type: string }>;
+  /** Native input declarations, present for per-node dynamic layouts. */
+  nativeInputs?: CatalogInput[];
+  nativeWidgetOrder?: string[];
+  outputs: Array<{ name: string; type: string; isList?: boolean; matchType?: string }>;
   widgetOrder: string[];
   widgetOrderReliable: boolean;
   outputNode: boolean;

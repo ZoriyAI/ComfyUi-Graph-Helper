@@ -1,3 +1,4 @@
+import { hasDynamicInputs, resolvedNode } from '../../shared/catalog/dynamicInputs';
 /**
  * Which model files a node on the canvas loads, for any loader class: the core loader fields
  * (shared/catalog/modelFolders.ts) plus every plain field value that is the name of a file in the synced catalog.
@@ -68,7 +69,8 @@ function fieldValues(node: NodeWithWidgets, catalog: CatalogView): Array<{ field
     // Without a reliable widget order (or for a class the catalog does not know) the slot names are unknown,
     // but a file name is still a file name.
     const type = node.data?.comfyType;
-    const spec = typeof type === 'string' ? catalog.nodes.find((item) => item.classType === type) : undefined;
+    const declared = typeof type === 'string' ? catalog.nodes.find((item) => item.classType === type) : undefined;
+    const spec = declared && hasDynamicInputs(declared) ? resolvedNode(declared, { widgets, parameters: parameters && typeof parameters === 'object' && !Array.isArray(parameters) ? parameters as Record<string, unknown> : undefined }) : declared;
     const order = spec && spec.widgetOrderReliable !== false ? spec.widgetOrder : [];
     widgets.forEach((value, index) => {
       const field = order[index] ?? null;

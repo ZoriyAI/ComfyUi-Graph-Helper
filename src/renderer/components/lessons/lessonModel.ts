@@ -38,7 +38,7 @@ import { showToast } from '../../ui/toastStore';
 import { i18n } from '../../i18n';
 import { useKnowledgeStore } from '../../state/knowledgeState';
 import { useUiStore } from '../../state/uiState';
-import { fieldValue } from '../fields/fieldModel';
+import { detailForNode, fieldValue } from '../fields/fieldModel';
 import { useCanvasStore } from '../graph/canvasStore';
 import { captureEditOrigin, commitAtOrigin, requireEditOrigin } from '../graph/lib/editOrigin';
 import { trackCommit } from '../../services/commands/pending';
@@ -62,14 +62,14 @@ export function lessonGraphOf(nodes: readonly GraphNode[], edges: readonly Graph
   for (const node of nodes) {
     const data = node.data;
     if (!data || typeof data.comfyType !== 'string' || data.kind === 'subgraph-instance') continue;
-    const detail = readDetail(details[data.comfyType]);
+    const detail = detailForNode(data, readDetail(details[data.comfyType]));
     const names = new Set<string>([
       ...Object.keys(data.parameters ?? {}),
       ...(detail?.inputs ?? []).filter((input) => input.widget).map((input) => input.name),
     ]);
     const values: Record<string, unknown> = {};
     for (const name of names) {
-      if (!name.includes('::')) values[name] = fieldValue(data, name, detail?.widgetOrder);
+      if (!name.includes('::')) values[name] = fieldValue(data, name, detail?.widgetOrder, detail?.nativeWidgetOrder);
     }
     out.push({
       id: node.id,

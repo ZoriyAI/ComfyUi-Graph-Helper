@@ -7,6 +7,9 @@
  */
 export interface CatalogInput {
   name: string;
+  displayName?: string;
+  /** Actual names of auxiliary frontend widgets (positional keys remain unambiguous). */
+  auxiliaryNames?: Record<string, string>;
   type: string;
   widget: boolean;
   /** From the object_info group: true under input.required, false under input.optional. */
@@ -39,12 +42,30 @@ export interface CatalogInput {
   mediaType?: 'image' | 'video' | 'audio' | 'file';
   /** object_info `tooltip`: the node author's one-line help for this input. Kept on sockets too. */
   tooltip?: string;
+  /** ComfyUI INPUT_IS_LIST: the execution receives the whole list, not one mapped item. */
+  isList?: boolean;
+  /** Native V3 declarations. Expanded separately for each node's saved values. */
+  dynamic?: DynamicInput;
+  matchType?: string;
 }
+
+export interface CatalogLayout {
+  inputs: CatalogInput[];
+  widgetOrder: string[];
+  widgetOrderReliable?: boolean;
+}
+
+export type DynamicInput =
+  | { kind: 'combo'; options: Array<{ key: string; layout: CatalogLayout }> }
+  | { kind: 'autogrow'; min: number; max: number; prefix: string; names?: string[]; layout: CatalogLayout }
+  | { kind: 'group'; min: number; max: number; layout: CatalogLayout };
 
 /** One output socket: its name and the type a link from it carries. */
 export interface CatalogOutput {
   name: string;
   type: string;
+  isList?: boolean;
+  matchType?: string;
 }
 
 /** One node class. `pack` is the Python module it came from ('nodes' for ComfyUI's core). */

@@ -1,3 +1,4 @@
+import { hasDynamicInputs, resolvedNode } from '../../shared/catalog/dynamicInputs';
 /** Native exposed-widget definitions and the independent values held by each subgraph instance. */
 import type { CatalogView } from '../../shared/catalog/types';
 import type { SubgraphDefinition } from '../../shared/graph/subgraphs';
@@ -22,12 +23,15 @@ function sourceValue(definition: SubgraphDefinition, field: ExposedWidget, catal
     const slots = exact.length ? exact : nativeProxies.flatMap((pair: unknown, index: number) => Array.isArray(pair) && field.name === String(pair[1]) ? [index] : []);
     if (slots.length === 1 && slots[0] < nativeValues.length) return { found: true, value: nativeValues[slots[0]] };
   }
-  const spec = catalog?.nodes.find((item) => item.classType === data.comfyType);
+  const declared = catalog?.nodes.find((item) => item.classType === data.comfyType);
+  const spec = declared && hasDynamicInputs(declared) ? resolvedNode(declared, { parameters: data.parameters, widgets: data.comfy?.widgets_values, namedWidgets: data.comfy?.widgets_values_named }) : declared;
   const input = spec?.inputs.find((item) => item.name === field.name && item.widget);
   // Arbitrary names (including synthetic positional labels) are never turned into ComfyUI widget names.
   if (!input && !Object.prototype.hasOwnProperty.call(data.parameters ?? {}, field.name)) return { found: false };
   if (field.name.includes('::')) return { found: false };
   if (Object.prototype.hasOwnProperty.call(data.parameters ?? {}, field.name)) return { found: true, value: data.parameters[field.name] };
+  const named = data.comfy?.widgets_values_named;
+  if (named && typeof named === 'object' && Object.hasOwn(named, field.name)) return { found: true, value: named[field.name] };
   const values = data.comfy?.widgets_values;
   if (values && typeof values === 'object' && !Array.isArray(values) && field.name in values) return { found: true, value: values[field.name] };
   if (widgetOrderMatches(values, spec?.widgetOrder, spec?.widgetOrderReliable !== false)) {

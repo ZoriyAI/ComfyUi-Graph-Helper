@@ -1,3 +1,4 @@
+import { hasDynamicInputs, resolvedNode } from '../../shared/catalog/dynamicInputs';
 /**
  * Subgraph and group commands: make a subgraph from selected nodes, place, rename, change the slots of and dissolve
  * one, and add, remove and rename groups. Also the id allocator (Ids) every graph command uses.
@@ -530,7 +531,8 @@ function promoteInstanceValues(instance: Node, restored: Node[], idMap: Map<stri
       target.data.parameters = { ...(target.data.parameters ?? {}), [name]: value };
       return;
     }
-    const spec = catalog?.nodes.find((item) => item.classType === target.data.comfyType);
+    const declared = catalog?.nodes.find((item) => item.classType === target.data.comfyType);
+    const spec = declared && hasDynamicInputs(declared) ? resolvedNode(declared, { parameters: target.data.parameters, widgets, namedWidgets: inner.widgets_values_named }) : declared;
     const names = widgetOrderMatches(widgets, spec?.widgetOrder, spec?.widgetOrderReliable !== false)
       ? spec!.widgetOrder
       : Array.isArray(inner.widgets) ? inner.widgets.map((item: { name?: unknown }) => String(item?.name ?? '')) : [];

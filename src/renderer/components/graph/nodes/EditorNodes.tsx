@@ -27,7 +27,7 @@ import {
 import type { ComfyNodeData } from '../../../types/graph';
 import { useGraphStore } from '../../../state/graphState';
 import FieldControl from '../../fields/FieldControl';
-import { fieldValue } from '../../fields/fieldModel';
+import { detailForNode, fieldValue } from '../../fields/fieldModel';
 import { useCanvasView } from '../CanvasContext';
 import { commitManual } from '../commit';
 import { useNodeDetail } from '../nodeInfo';
@@ -263,7 +263,8 @@ function PromotedRow({ id, data, field, fields, definition, disabled, connected,
 }) {
   const { t } = useTranslation();
   const source = resolvePromoted(field, fields, definition);
-  const detail = useNodeDetail(source.innerClass);
+  const classDetail = useNodeDetail(source.innerClass);
+  const detail = source.innerData ? detailForNode(source.innerData, classDetail) : classDetail;
   const own = ownPromotedValue(data, field);
   const found = source.innerKey?.endsWith('::control_after_generate')
     ? RUN_SPEC
@@ -272,7 +273,7 @@ function PromotedRow({ id, data, field, fields, definition, disabled, connected,
   const spec = found && !panel && found.multiline ? { ...found, multiline: false } : found;
   const value = own.held
     ? own.value
-    : source.innerData && source.innerKey ? fieldValue(source.innerData, source.innerKey, detail?.widgetOrder) : undefined;
+    : source.innerData && source.innerKey ? fieldValue(source.innerData, source.innerKey, detail?.widgetOrder, detail?.nativeWidgetOrder) : undefined;
   const commit = (next: unknown) => {
     if (own.held) {
       void commitWidget(id, field.index, next);

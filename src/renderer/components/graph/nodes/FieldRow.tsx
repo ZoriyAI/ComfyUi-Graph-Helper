@@ -46,7 +46,7 @@ export default function FieldRow({ nodeId, field, linked, focusable, live, disab
       style={port ? ({ '--canvas-port': typeColor(port.dataType) } as React.CSSProperties) : undefined}
     >
       {port && live ? <PortHandle nodeId={nodeId} port={port} side="input" connected={linked} focusable={focusable} quiet={!linked} /> : null}
-      <span id={labelId} className={`${styles.fieldName} node-field-name`} title={field.tooltipKey ? String(t(field.tooltipKey)) : field.tooltip ?? field.name}>{field.labelKey ? t(field.labelKey, field.labelValues ?? {}) : field.name}</span>
+      <span id={labelId} className={`${styles.fieldName} node-field-name`} title={field.tooltipKey ? String(t(field.tooltipKey)) : field.tooltip ?? field.name}>{field.labelKey ? t(field.labelKey, field.labelValues ?? {}) : field.label ?? field.name}</span>
       {linked ? (
         <span className={styles.linkedMark} title={String(t('field.linkedHint'))}>{t('field.linked')}</span>
       ) : !field.spec && isServiceData(field.value) ? (

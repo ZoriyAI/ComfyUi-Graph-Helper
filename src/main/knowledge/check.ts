@@ -1,3 +1,5 @@
+import { hasDynamicInputs, resolveInputs, resolvedNode } from '../../shared/catalog/dynamicInputs';
+import type { CatalogInput } from '../../shared/catalog/types';
 /**
  * The graph check: what would stop the graph on screen from running in ComfyUI, or make it run wrong (missing
  * nodes and models, type clashes, LoRAs on another base model, empty required inputs, bad field values, cycles,
@@ -7,7 +9,7 @@
  */
 import type Database from 'better-sqlite3';
 import { readProjection } from '../commands/commit';
-import { readCatalog } from '../catalog/repository';
+import { catalogInputsFromJson, readCatalog } from '../catalog/repository';
 import type { CatalogView } from '../../shared/catalog/types';
 import type { BaseModelFamily, GraphCheckReport } from '../../shared/contracts/knowledge';
 import { canvasModelRefs, missingOnGraph, type GraphNodeLike } from '../../shared/graph/compatibility';
@@ -15,7 +17,7 @@ import { portsCompatible } from '../../shared/graph/linkTypes';
 import { graphCycles } from '../../shared/graph/cycles';
 import { nodeRunMode } from '../../shared/graph/layout';
 import { endpointPort, validEdgeEndpoints } from '../../shared/graph/structure';
-import { SUBGRAPH_INPUT_NODE_ID, SUBGRAPH_OUTPUT_NODE_ID, type SubgraphDefinition } from '../../shared/graph/subgraphs';
+import { type SubgraphDefinition } from '../../shared/graph/subgraphs';
 import { familiesCompatible } from '../../shared/knowledge/baseModel';
 import { documentDefinitionIds, documentGroupNodeNames, exportedWidgets, isLocalNodeType, numericSlot } from '../../shared/workflow/codec';
 import { catalogFileIndex, loadedModelFiles } from './loadedModels';
@@ -44,18 +46,8 @@ interface CanvasNode extends GraphNodeLike {
 }
 interface CanvasEdge { id?: unknown; source?: unknown; target?: unknown; sourceHandle?: unknown; targetHandle?: unknown; data?: { dataType?: unknown } }
 
-interface SpecInput {
-  name: string;
-  type: string;
-  widget: boolean;
-  required: boolean | undefined;
-  widgetType?: string;
-  options?: string[];
-  min?: number;
-  max?: number;
-  multiSelect?: boolean;
-  mediaUpload?: boolean;
-}
+type SpecInput = CatalogInput;
+
 interface Spec {
   inputs: SpecInput[];
   outputs: Array<{ name: string; type: string }>;
@@ -72,21 +64,7 @@ function specIndex(db: Database.Database): Map<string, Spec> {
   }>;
   const index = new Map<string, Spec>();
   for (const row of rows) {
-    const inputs = arrayOf(row.inputs_json).flatMap((item): SpecInput[] => {
-      if (typeof item?.name !== 'string' || typeof item?.type !== 'string') return [];
-      return [{
-        name: item.name,
-        type: item.type,
-        widget: item.widget === true,
-        required: typeof item.required === 'boolean' ? item.required : undefined,
-        ...(typeof item.widgetType === 'string' ? { widgetType: item.widgetType } : {}),
-        ...(Array.isArray(item.options) ? { options: item.options.filter((option): option is string => typeof option === 'string') } : {}),
-        ...(typeof item.min === 'number' && Number.isFinite(item.min) ? { min: item.min } : {}),
-        ...(typeof item.max === 'number' && Number.isFinite(item.max) ? { max: item.max } : {}),
-        ...(item.multiSelect === true ? { multiSelect: true } : {}),
-        ...(item.mediaUpload === true ? { mediaUpload: true } : {}),
-      }];
-    });
+    const inputs = catalogInputsFromJson(row.inputs_json, row.class_type);
     const outputs = arrayOf(row.outputs_json).flatMap((item) => (
       typeof item?.name === 'string' && typeof item?.type === 'string' ? [{ name: item.name, type: item.type }] : []
     ));
@@ -134,9 +112,17 @@ function portType(node: CanvasNode | undefined, kind: 'inputs' | 'outputs', hand
   return port && typeof port.dataType === 'string' ? port.dataType : '';
 }
 
+function dynamicValues(node: CanvasNode) {
+  return { parameters: parametersOf(node), widgets: (node.data as { comfy?: { widgets_values?: unknown } })?.comfy?.widgets_values, namedWidgets: (node.data as { comfy?: { widgets_values_named?: unknown } })?.comfy?.widgets_values_named, inputNames: ports(node, 'inputs').flatMap((port) => typeof port.name === 'string' ? [port.name] : []) };
+}
+function specForNode(node: CanvasNode, specs: Map<string, Spec>): Spec | undefined {
+  const spec = specs.get(classOf(node));
+  return spec && hasDynamicInputs(spec) ? { ...spec, ...resolveInputs(spec, dynamicValues(node)) } : spec;
+}
+
 /** Catalog output type by slot; the canvas port type only when the catalog has no detail. */
 function sourceType(node: CanvasNode | undefined, handle: unknown, specs: Map<string, Spec>): string {
-  const spec = node ? specs.get(classOf(node)) : undefined;
+  const spec = node ? specForNode(node, specs) : undefined;
   const slot = numericSlot(handle);
   if (spec && spec.outputs.length > 0 && slot !== null && spec.outputs[slot]) return spec.outputs[slot].type;
   return portType(node, 'outputs', handle);
@@ -144,7 +130,7 @@ function sourceType(node: CanvasNode | undefined, handle: unknown, specs: Map<st
 
 /** Catalog input type by the port's name; the canvas port type only when the catalog has no such input. */
 function targetType(node: CanvasNode | undefined, handle: unknown, specs: Map<string, Spec>): string {
-  const spec = node ? specs.get(classOf(node)) : undefined;
+  const spec = node ? specForNode(node, specs) : undefined;
   const name = portName(node, 'inputs', handle);
   const input = name ? spec?.inputs.find((item) => item.name === name) : undefined;
   return input ? input.type : portType(node, 'inputs', handle);
@@ -241,7 +227,7 @@ function downstreamOf(start: string, edges: CanvasEdge[]): Set<string> {
 function unconnectedInputs(nodes: CanvasNode[], edges: CanvasEdge[], specs: Map<string, Spec>): GraphCheckReport['unconnectedRequiredInputs'] {
   const found: GraphCheckReport['unconnectedRequiredInputs'] = [];
   for (const node of nodes) {
-    const spec = specs.get(classOf(node));
+    const spec = specForNode(node, specs);
     if (!spec) continue;
     const incoming = edges.filter((edge) => String(edge.target) === String(node.id));
     const connected = new Set(incoming.map((edge) => portName(node, 'inputs', edge.targetHandle)).filter((name): name is string => name !== null));
@@ -331,8 +317,10 @@ function parametersOf(node: CanvasNode): Record<string, unknown> {
 function fieldValueOf(node: CanvasNode, name: string, spec: CatalogView['nodes'][number]): unknown {
   const parameters = parametersOf(node);
   if (Object.prototype.hasOwnProperty.call(parameters, name) && parameters[name] !== null && parameters[name] !== undefined) return parameters[name];
-  const comfy = (node.data as { comfy?: { widgets_values?: unknown } } | undefined)?.comfy;
+  const comfy = (node.data as { comfy?: { widgets_values?: unknown; widgets_values_named?: unknown } } | undefined)?.comfy;
   const widgets = comfy?.widgets_values;
+  const named = comfy?.widgets_values_named;
+  if (named && typeof named === 'object' && Object.hasOwn(named, name)) return (named as Record<string, unknown>)[name];
   if (Array.isArray(widgets)) {
     if (spec.widgetOrderReliable === false) return undefined;
     const index = spec.widgetOrder.indexOf(name);
@@ -364,7 +352,8 @@ function fieldValues(nodes: CanvasNode[], edges: CanvasEdge[], catalog: CatalogV
   const invalidParameters: NonNullable<GraphCheckReport['invalidParameters']> = [];
   for (const node of nodes) {
     const classType = classOf(node);
-    const spec = byClass.get(classType);
+    const declared = byClass.get(classType);
+    const spec = declared && hasDynamicInputs(declared) ? resolvedNode(declared, dynamicValues(node)) : declared;
     if (!spec || spec.inputs.length === 0) continue;
     const linked = linkedInputs(node, edges);
     for (const input of spec.inputs) {

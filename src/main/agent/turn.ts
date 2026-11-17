@@ -190,7 +190,7 @@ export function dataBudgetChars(tokens: number, charsPerToken: number): number {
 export function fitTurnData(
   input: Parameters<typeof buildTurnData>[0],
   projection: Projection | null,
-  options: { selectedIds: string[]; priority: string[]; omitValues: boolean; widgetNames: (classType: string) => readonly string[] | null; budgetChars: number },
+  options: { selectedIds: string[]; priority: string[]; omitValues: boolean; widgetNames: ReturnType<typeof widgetNamesOf>; budgetChars: number },
 ): string {
   let data = buildTurnData(input);
   if (data.length <= options.budgetChars || !projection) return data;

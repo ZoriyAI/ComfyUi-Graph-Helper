@@ -1,3 +1,6 @@
+import { hasDynamicInputs, resolveInputs } from '../../shared/catalog/dynamicInputs';
+import type { CatalogInput } from '../../shared/catalog/types';
+import { fieldSpecOf } from '../../shared/catalog/fieldSpec';
 /**
  * The main-process tools of a turn: read the graph, search and describe the catalog, read the web, save
  * explanations, draft lessons and propose changes as ghosts. agent/turn.ts creates them for every turn; the build
@@ -166,12 +169,18 @@ function parse<T>(schema: z.ZodType<T>, args: unknown): { ok: true; value: T } |
 }
 
 /** widgets_values slot names by class, from the installed catalog (reliable orders only). */
-export function widgetNamesOf(catalog: { nodes?: ReadonlyArray<{ classType: string; widgetOrder?: string[]; widgetOrderReliable?: boolean }> } | undefined): (classType: string) => readonly string[] | null {
-  const byClass = new Map<string, string[]>();
-  for (const node of catalog?.nodes ?? []) {
-    if (node.widgetOrderReliable !== false && Array.isArray(node.widgetOrder) && node.widgetOrder.length > 0) byClass.set(node.classType, node.widgetOrder);
-  }
-  return (classType) => byClass.get(classType) ?? null;
+export function widgetNamesOf(catalog: { nodes?: ReadonlyArray<{ classType: string; inputs?: CatalogInput[]; widgetOrder?: string[]; widgetOrderReliable?: boolean }> } | undefined): (classType: string, data?: Record<string, unknown>) => readonly string[] | null {
+  const byClass = new Map((catalog?.nodes ?? []).map((node) => [node.classType, node]));
+  return (classType, data) => {
+    const node = byClass.get(classType);
+    if (!node || node.widgetOrderReliable === false || !node.widgetOrder) return null;
+    if (node.inputs && hasDynamicInputs({ inputs: node.inputs, widgetOrder: node.widgetOrder })) {
+      const comfy = data?.comfy as { widgets_values?: unknown; widgets_values_named?: unknown } | undefined;
+      const resolved = resolveInputs({ inputs: node.inputs, widgetOrder: node.widgetOrder }, { widgets: comfy?.widgets_values, namedWidgets: comfy?.widgets_values_named, parameters: data?.parameters as Record<string, unknown> | undefined });
+      return resolved.widgetOrderReliable ? resolved.widgetOrder : null;
+    }
+    return node.widgetOrder.length ? node.widgetOrder : null;
+  };
 }
 
 /** Knowledge about a class or a model is shared across projects; everything else belongs to this project. */
@@ -180,13 +189,16 @@ function globalOwner(owner: ObjectRef): boolean {
 }
 
 /** Inputs in slot order (sockets first, then widget inputs, as ComfyUI adds them) with their handles. */
-function withHandles<T extends { inputs?: unknown; outputs?: unknown }>(detail: T): T {
+function withHandles<T extends { inputs?: unknown; outputs?: unknown; nativeInputs?: CatalogInput[]; widgetOrder?: string[]; widgetOrderReliable?: boolean; classType?: string }>(detail: T): T {
   const inputs = Array.isArray(detail.inputs) ? detail.inputs as Array<Record<string, unknown>> : [];
   const outputs = Array.isArray(detail.outputs) ? detail.outputs as Array<Record<string, unknown>> : [];
-  const ordered = [...inputs.filter((input) => input.widget !== true), ...inputs.filter((input) => input.widget === true)];
+  const dynamic = detail.nativeInputs ? resolveInputs({ inputs: detail.nativeInputs, widgetOrder: detail.widgetOrder ?? [], widgetOrderReliable: detail.widgetOrderReliable }) : undefined;
+  const expanded = dynamic?.inputs.map((input) => ({ ...input, spec: fieldSpecOf(input, detail.classType) }));
+  const ordered = dynamic && expanded ? dynamic.portOrder.flatMap((name) => expanded.filter((input) => input.name === name)) : [...inputs.filter((input) => input.widget !== true), ...inputs.filter((input) => input.widget === true)];
   return {
     ...detail,
     inputs: ordered.map((input, index) => ({ ...input, handle: `in-${index}` })),
+    ...(dynamic ? { widgetOrder: dynamic.widgetOrder, widgetOrderReliable: dynamic.widgetOrderReliable, fields: expanded?.filter((input) => input.widget), dynamicNotice: 'Default mode shown. Read getGraph after changing mode or connecting a repeated input: handles and field names can change.' } : {}),
     outputs: outputs.map((output, index) => ({ ...output, handle: `out-${index}` })),
   };
 }

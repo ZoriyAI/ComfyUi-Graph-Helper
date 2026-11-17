@@ -9,12 +9,8 @@ import { Node, Edge } from '@xyflow/react';
 /**
  * Port definition for node inputs/outputs
  */
-export interface PortDefinition {
-  id: string;
-  name: string;
-  dataType: string;
-  optional: boolean;
-}
+import type { PortDefinition } from '../../shared/graph/ports';
+export type { PortDefinition } from '../../shared/graph/ports';
 
 /**
  * Data stored in each node

@@ -92,7 +92,7 @@ export interface SummarizeOptions {
    * The widgets_values slot names of a class, from the installed catalog (when reliable). A value stored by
    * position in an imported workflow is then named (seed, steps, cfg) instead of widget[N].
    */
-  widgetNames?: (classType: string) => readonly string[] | null | undefined;
+  widgetNames?: (classType: string, data?: Record<string, unknown>) => readonly string[] | null | undefined;
 }
 
 /** Default page size of the getGraph tool (no maximum). */
@@ -264,7 +264,7 @@ export function summarizeGraph(
       inputs: ports(data.inputs, 'in'),
       outputs: ports(data.outputs, 'out'),
       purpose: purposeOf(id),
-      parameters: options.omitValues ? [] : parametersOf(data, valueCap, options.widgetNames?.(String(data.comfyType ?? node.type ?? ''))),
+      parameters: options.omitValues ? [] : parametersOf(data, valueCap, options.widgetNames?.(String(data.comfyType ?? node.type ?? ''), data)),
       position: positionOf(node),
       size: sizeOf(node, data),
       selected: selected.has(id) || node.selected === true,

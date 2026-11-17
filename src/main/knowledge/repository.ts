@@ -1,3 +1,4 @@
+import { hasDynamicInputs } from '../../shared/catalog/dynamicInputs';
 /**
  * Knowledge repository: reads the catalog tables, and reads and writes the explanations table (migration v9).
  * Other main-process modules (agent tools, IPC) call only these functions. Inputs are validated here too,
@@ -238,7 +239,9 @@ export function nodeClassDetail(db: Database.Database, classType: string): NodeC
   if (!row) return null;
   const order = widgetOrderOf(row.widget_order_json);
   const pack = packInfo(db, packOf(row));
+  const nativeInputs = catalogInputsFromJson(row.inputs_json, row.class_type);
   return {
+    ...(hasDynamicInputs({ inputs: nativeInputs, widgetOrder: order.order }) ? { nativeInputs } : {}),
     ...(pack ? { packInfo: pack } : {}),
     ...summaryOf(row),
     description: row.description ?? '',
@@ -246,7 +249,7 @@ export function nodeClassDetail(db: Database.Database, classType: string): NodeC
     outputs: parseArray(row.outputs_json).flatMap((item) => {
       const output = record(item);
       if (!output || typeof output.name !== 'string' || typeof output.type !== 'string') return [];
-      return [{ name: output.name, type: output.type }];
+      return [{ name: output.name, type: output.type, ...(output.isList === true ? { isList: true } : {}), ...(typeof output.matchType === 'string' ? { matchType: output.matchType } : {}) }];
     }),
     widgetOrder: order.order,
     widgetOrderReliable: order.reliable,
@@ -269,6 +272,8 @@ function detailInputs(db: Database.Database, row: NodeRow): NodeClassInput[] {
     const stored = record(raw.find((item) => record(item)?.name === input.name));
     const out: NodeClassInput = { name: input.name, type: input.type, widget: input.widget, required: stored?.required !== false };
     if (input.tooltip) out.tooltip = input.tooltip;
+    if (input.displayName) out.displayName = input.displayName;
+    if (input.isList) out.isList = true;
     const spec = fieldSpecOf(input, row.class_type);
     if (spec) {
       if (spec.kind === 'combo') {

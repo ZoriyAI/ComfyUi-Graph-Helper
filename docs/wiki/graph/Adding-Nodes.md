@@ -81,3 +81,13 @@ All of these work inside an open subgraph too: the node goes into the subgraph. 
 - [Connecting nodes](Connecting-Nodes.md)
 - [Arranging the graph](Arranging.md)
 - [Notes and descriptions](Notes-And-Descriptions.md)
+
+## Dynamic fields and inputs
+
+Some ComfyUI nodes change their fields when you choose a mode. After synchronizing the node list, choose that mode on the node itself: its fields appear below, with their saved values. Returning to a mode restores values you entered earlier in this project. Undo restores the previous fields and links together. A mode that removes a field also removes links to that field; links to the retained inputs keep their identities.
+
+An Autogrow node keeps a spare input. Connect it to get another, up to the limit declared by its author. Disconnecting a repeated input compacts the remaining connections while preserving the required inputs. DynamicGroup uses a row-count field; reducing it removes trailing rows and their links, and Undo restores them.
+
+**List** marks a list of separate values. ComfyUI may process each item individually or give the complete list to a node. An image batch contained in one IMAGE value is a different thing. MatchType inputs share a compatible data type; incompatible connections are refused before changing the graph.
+
+These behaviours come from the server's declarations. A custom extension's unknown JavaScript widget is preserved, with an explanation to edit it in ComfyUI. NodeWise does not execute extension code to guess its serialization.
