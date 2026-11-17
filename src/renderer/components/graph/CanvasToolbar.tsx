@@ -116,6 +116,7 @@ export default function CanvasToolbar() {
       {connectFrom ? <button type="button" onClick={() => useCanvasStore.getState().setConnectFrom(null)}>{t('canvas.cancelConnection')}</button> : null}
     </div>
     <div className={styles.toolbar} role="toolbar" aria-label={String(t('canvas.toolbar'))} data-replaying={replaying ? 'true' : undefined}>
+      {replaying ? null : <AddNodeSearch />}
       {/* While a version from the history is on screen nothing can be added or arranged: those tools step aside so the
           history's player fits on the same single row (motion package). */}
       {replaying ? null : <span className={styles.group}>
@@ -125,7 +126,6 @@ export default function CanvasToolbar() {
           <SquarePlus size={16} aria-hidden="true" />
           <span>{t('canvas.addNodeLabel')}</span>
         </button>
-        <AddNodeSearch />
         <button
           type="button"
           className={`${styles.button} ${styles.wide}`}

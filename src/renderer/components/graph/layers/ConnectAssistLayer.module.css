@@ -6,7 +6,7 @@
  * takes during a build. At the port itself they lay half under the node, or ran off a small canvas; here they
  * are read whole at any zoom and wrap when the canvas is narrow.
  */
-.panel { margin-top: 64px; max-width: min(560px, calc(100% - 32px)); }
+.panel { margin-top: var(--canvas-toolbar-bottom, 64px); max-width: min(560px, calc(100% - 32px)); }
 .hint {
   padding: 4px 10px;
   border-radius: 8px;
