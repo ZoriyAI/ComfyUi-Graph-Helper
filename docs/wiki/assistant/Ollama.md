@@ -3,6 +3,8 @@
 
 # Ollama
 
+The **NodeWise Ollama** node package can also pass an image to a vision model and connect its text to `CLIPTextEncode`, or produce embeddings and compare texts. These are separate nodes executed in ComfyUI; connecting the assistant does not install them. See the [execution report](https://github.com/ZoriyAI/nodewise-studio/blob/main/docs/research/2026-11-17-ollama-nodes.md) for qualified models and the limits of that check.
+
 Ollama runs language models on your own computer. The app talks to it through its OpenAI-compatible address. With a model on your computer nothing leaves the computer, and there is no key. A cloud model of Ollama is different: see [Ollama's cloud models](#ollamas-cloud-models). Ollama itself is installed from its own site (ollama.com/download); this page starts when it is installed. The **No ComfyUI yet** card of the welcome screen has **Open the Ollama download page**.
 
 ## How to set it up
