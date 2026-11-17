@@ -162,6 +162,13 @@ export const addGroupMutation = z.object({
 });
 export const removeGroupMutation = z.object({ type: z.literal('remove-group'), groupId: z.string().min(1) });
 export const renameGroupMutation = z.object({ type: z.literal('rename-group'), groupId: z.string().min(1), title: z.string().max(500) });
+/** null fits the frame to its members again. Coordinates are graph units, never screen pixels. */
+export const setGroupBoundsMutation = z.object({
+  type: z.literal('set-group-bounds'), groupId: z.string().min(1),
+  bounding: z.tuple([z.number().finite(), z.number().finite(), z.number().finite().min(80), z.number().finite().min(60)]).nullable(),
+});
+/** Moves the frame and its existing members together in one undoable step (including empty frames). */
+export const moveGroupMutation = z.object({ type: z.literal('move-group'), groupId: z.string().min(1), dx: z.number().finite(), dy: z.number().finite() });
 
 /** Every graph command, told apart by `type`. */
 export const mutationSchema = z.discriminatedUnion('type', [
@@ -287,6 +294,8 @@ export const mutationSchema = z.discriminatedUnion('type', [
   addGroupMutation,
   removeGroupMutation,
   renameGroupMutation,
+  setGroupBoundsMutation,
+  moveGroupMutation,
   // --- edits inside a subgraph definition (begin) ---
   z.object({
     /**
@@ -301,6 +310,8 @@ export const mutationSchema = z.discriminatedUnion('type', [
       addGroupMutation,
       removeGroupMutation,
       renameGroupMutation,
+      setGroupBoundsMutation,
+      moveGroupMutation,
       setGroupMembersMutation,
       setGroupColorMutation,
       z.object({ type: z.literal('move-node'), nodeId: z.string().min(1), x: z.number(), y: z.number() }),

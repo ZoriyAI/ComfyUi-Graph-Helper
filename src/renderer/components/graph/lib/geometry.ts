@@ -6,7 +6,7 @@
  */
 import type { GraphMutation } from '../../../../shared/commands/types';
 import type { Proposal } from '../../../../shared/contracts/proposals';
-import type { GroupRecord } from '../../../../shared/graph/subgraphs';
+import { groupHasFixedBounds, type GroupRecord } from '../../../../shared/graph/subgraphs';
 import { findFreeSlot } from '../../../../shared/graph/layout';
 
 /** Size the canvas assumes for a node React Flow has not measured yet (the ComfyNode default width). */
@@ -60,6 +60,10 @@ export function boundsOf(rects: Rect[], padding = 0, top = padding): Rect | null
  * else nothing (a group with no members and no bounds is not drawn).
  */
 export function groupRect(group: GroupRecord, nodes: PositionedNode[]): Rect | null {
+  if (groupHasFixedBounds(group) && group.bounding && group.bounding[2] > 0 && group.bounding[3] > 0) {
+    const [x, y, width, height] = group.bounding;
+    return { x, y, width, height };
+  }
   const members = nodes.filter((node) => group.nodeIds.includes(node.id));
   if (members.length > 0) return boundsOf(members.map(nodeRect), GROUP_PADDING, GROUP_PADDING + GROUP_TITLE);
   const stored = group.bounding;

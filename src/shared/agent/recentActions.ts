@@ -122,6 +122,8 @@ export function describeCommand(command: RecentCommand, summary: GraphSummary | 
       return `inside subgraph ${safeText(str(p.definitionId), 80)}: ${safeText(str(edit.type), 40)}${str(edit.nodeType) ? ` ${safeText(str(edit.nodeType), 120)}` : ''}${str(edit.nodeId) ? ` node ${safeText(str(edit.nodeId), 40)}` : ''}${str(edit.key) ? ` field ${safeText(str(edit.key), 80)}` : ''}`;
     }
     case 'rename-group': return `renamed group ${safeText(str(p.groupId), 80)} to "${safeText(str(p.title), 80)}"`;
+    case 'set-group-bounds': return `${p.bounding ? 'resized' : 'fitted'} group ${safeText(str(p.groupId), 80)}`;
+    case 'move-group': return `moved group ${safeText(str(p.groupId), 80)} with its members`;
     case 'restore-revision': return `restored revision ${round(p.revSeq)}`;
     case 'move-nodes': return `arranged ${round(p.count)} nodes`;
     case 'rename-subgraph-io': return `renamed a subgraph ${p.direction === 'output' ? 'output' : 'input'} to "${safeText(str(p.name), 80)}"`;

@@ -68,9 +68,16 @@ export interface GroupRecord {
   title: string;
   nodeIds: string[];
   color?: string;
-  /** Last known native bounding [x, y, w, h]; kept while every member still sits inside it. */
+  /** Native bounding [x, y, w, h]; fixed for imported/manual frames, recomputed for auto frames. */
   bounding?: [number, number, number, number];
+  /** A manually resized frame stays fixed; auto frames follow the current members. */
+  boundsMode?: 'auto' | 'manual';
   raw?: Record<string, unknown>;
+}
+
+/** Imported ComfyUI frames keep their authored rectangle unless explicitly put into automatic mode. */
+export function groupHasFixedBounds(group: GroupRecord): boolean {
+  return Boolean(group.bounding && (group.boundsMode === 'manual' || (group.boundsMode === undefined && group.raw)));
 }
 
 /** The mutation input shape for a boundary slot: which inner node port it maps to. */

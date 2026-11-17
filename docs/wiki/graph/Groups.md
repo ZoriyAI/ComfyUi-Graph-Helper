@@ -17,11 +17,17 @@ Double-click its title, type the new one, press `Enter`. `Escape` cancels. On a 
 
 ## How to move a group
 
-Drag the group by its title. Its nodes move with it, in one step of the history. The tooltip says: "Drag to move the group with its nodes. Double-click to rename."
+Drag the group by its title. Its frame and nodes move together in one history step. With the title focused, arrow keys move the group; Shift uses a larger step. Enter renames it.
+
+## How to resize the frame
+
+A new group automatically follows its member nodes. Drag the handle at the bottom-right corner to set its size yourself, with a mouse or touch. You can also focus the handle and use arrow keys (Shift for larger steps). Nodes stay in place. Undo restores the previous size.
+
+Choose **Fit frame to its nodes** from the group’s **⋯** menu to return to automatic sizing. Imported ComfyUI groups initially retain their saved rectangles. All these controls work inside subgraphs too.
 
 ## Which nodes are in it
 
-The frame is drawn around the nodes of the group and follows them: you cannot resize it by hand.
+Resizing preserves membership while editing in NodeWise. ComfyUI determines group membership from node positions inside the saved rectangle; reopening or importing that file recomputes membership the same way. Keep the intended nodes inside the frame when you want the same group after export.
 
 - To add nodes: select them, right-click ▸ **Add to group** ▸ the group.
 - To take nodes out: select them, right-click ▸ **Take out of group**.

@@ -69,8 +69,7 @@ what to expect. Wishes go to the project's Discussions, problems to its Issues.
 - Inputs that grow as you connect them, and list marks on inputs, are not shown yet.
 - Native reroute points of ComfyUI are drawn and saved back, but cannot be moved. Add reroute in the menu of a link adds
   a Reroute node instead.
-- **A group frame follows its nodes.** You cannot resize it by hand: add nodes to it or take them out (Add to group,
-  Take out of group).
+- Group frames support mouse/touch/keyboard resizing and **Fit frame to its nodes**. Resizing is undoable and works inside subgraphs; native ComfyUI rectangles and unknown fields are preserved. ComfyUI recomputes membership from the exported rectangle; see [Groups](../graph/Groups.md).
 - A picture or video opens only when ComfyUI wrote the workflow into it. A picture from elsewhere, or one sent
   through a chat app, usually has none.
 

@@ -14,6 +14,7 @@ import {
   SUBGRAPH_INSTANCE_KIND,
   SUBGRAPH_OUTPUT_NODE_ID,
   instancePorts,
+  groupHasFixedBounds,
   type GroupRecord,
   type SubgraphDefinition,
   type SubgraphSlot,
@@ -1222,6 +1223,8 @@ export function liftGroups(value: unknown, nodes: Array<Record<string, any>>): G
       raw: item,
     };
     if (bounding) group.bounding = bounding;
+    const mode = isPlainRecord(item.flags) ? item.flags.nodewise_bounds_mode : undefined;
+    if (mode === 'manual' || mode === 'auto') group.boundsMode = mode;
     if (typeof item.color === 'string') group.color = item.color;
     return [group];
   });
@@ -1258,13 +1261,14 @@ export function groupBounding(members: Array<Record<string, any>>): [number, num
 export function exportGroup(group: GroupRecord, nodes: Array<Record<string, any>>): Record<string, unknown> {
   const members = nodes.filter((node) => group.nodeIds.includes(String(node.id)));
   const stored = group.bounding;
-  const bounding = stored && members.every((node) => centreInside(node, stored))
+  const bounding = stored && (groupHasFixedBounds(group) || (group.boundsMode !== 'auto' && members.every((node) => centreInside(node, stored))))
     ? stored
     : members.length > 0 ? groupBounding(members) : stored ?? [0, 0, 0, 0];
   const out: Record<string, unknown> = { ...(group.raw ?? {}) };
   if (!group.raw) out.id = /^\d+$/.test(group.id) ? Number(group.id) : group.id;
   out.title = group.title;
   out.bounding = [...bounding];
+  if (group.boundsMode) out.flags = { ...(isPlainRecord(out.flags) ? out.flags : {}), nodewise_bounds_mode: group.boundsMode };
   if (group.color !== undefined) out.color = group.color;
   else delete out.color;
   return out;

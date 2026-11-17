@@ -72,6 +72,8 @@ const GRAPH_OPS = new Set([
   'remove-group',
   // group rename.
   'rename-group',
+  'set-group-bounds',
+  'move-group',
 ]);
 
 export function isGraphOp(payload: GraphMutation): boolean {
@@ -677,7 +679,7 @@ function addGroup(work: GraphSnapshot, payload: Extract<GraphMutation, { type: '
   const wanted = [...new Set(payload.nodeIds)];
   const members = wanted.map((id) => work.nodes.find((node) => String(node.id) === id));
   if (members.some((node) => !node)) fail(SUBGRAPH_ERRORS.nodeMissing);
-  const group: GroupRecord = { id: allocateGroupId(work), title: payload.title, nodeIds: wanted, bounding: groupBounding(members as Node[]) };
+  const group: GroupRecord = { id: allocateGroupId(work), title: payload.title, nodeIds: wanted, bounding: groupBounding(members as Node[]), boundsMode: 'auto' };
   if (payload.color !== undefined) group.color = payload.color;
   work.groups = [...(work.groups ?? []), group];
   return { groupId: group.id };
@@ -699,6 +701,28 @@ function renameGroup(work: GraphSnapshot, payload: Extract<GraphMutation, { type
   return { groupId: group.id, title: group.title, previous };
 }
 // --- group rename (end) ---
+
+function setGroupBounds(work: GraphSnapshot, payload: Extract<GraphMutation, { type: 'set-group-bounds' }>) {
+  const group = (work.groups ?? []).find(item => item.id === payload.groupId);
+  if (!group) fail(SUBGRAPH_ERRORS.groupMissing);
+  group.boundsMode = payload.bounding ? 'manual' : 'auto';
+  if (payload.bounding) group.bounding = [...payload.bounding];
+  else {
+    const members = work.nodes.filter(node => group.nodeIds.includes(String(node.id)));
+    if (members.length) group.bounding = groupBounding(members);
+  }
+  return { groupId: group.id, boundsMode: group.boundsMode, bounding: group.bounding };
+}
+
+function moveGroup(work: GraphSnapshot, payload: Extract<GraphMutation, { type: 'move-group' }>) {
+  const group = (work.groups ?? []).find(item => item.id === payload.groupId);
+  if (!group) fail(SUBGRAPH_ERRORS.groupMissing);
+  for (const node of work.nodes) if (group.nodeIds.includes(String(node.id))) {
+    node.position = { x: (node.position?.x ?? 0) + payload.dx, y: (node.position?.y ?? 0) + payload.dy };
+  }
+  if (group.bounding) group.bounding = [group.bounding[0] + payload.dx, group.bounding[1] + payload.dy, group.bounding[2], group.bounding[3]];
+  return { groupId: group.id, dx: payload.dx, dy: payload.dy };
+}
 
 /**
  * Apply a subgraph or group mutation to a copy of the snapshot. Inputs are never mutated.
@@ -741,6 +765,8 @@ export function applyGraphOp(snapshot: GraphSnapshot, _actionId: string, payload
     case 'add-group': result = addGroup(work, payload); break;
     case 'remove-group': result = removeGroup(work, payload); break;
     case 'rename-group': result = renameGroup(work, payload); break;
+    case 'set-group-bounds': result = setGroupBounds(work, payload); break;
+    case 'move-group': result = moveGroup(work, payload); break;
     default: throw new Error(`Not a graph op: ${payload.type}`);
   }
   return { snapshot: work, result };

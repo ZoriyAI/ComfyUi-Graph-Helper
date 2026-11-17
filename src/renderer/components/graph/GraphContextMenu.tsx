@@ -322,6 +322,7 @@ export default function GraphContextMenu({ children, nodes: levelNodes, edges, r
         item('rename-group', t('contextMenu.rename'), () => {
           document.querySelector(`[data-group-title="${CSS.escape(group.id)}"]`)?.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
         }, { icon: PenLine, disabled: !canBuild }),
+        item('fit-group', t('canvas.groupFit'), () => void commitManual({ type: 'set-group-bounds', groupId: group.id, bounding: null }), { icon: Compass, disabled: !canBuild }),
         ...groupEditingItems((key) => String(t(key)), group.id, group.color, !canBuild),
         item('remove', t('contextMenu.removeGroup'), () => void commitManual({ type: 'remove-group', groupId: group.id }), { icon: Ungroup, danger: true, disabled: !canBuild }),
       );

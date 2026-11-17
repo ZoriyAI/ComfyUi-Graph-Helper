@@ -175,6 +175,8 @@ const ACTION_KEYS: Record<string, string> = {
   'add-group': 'undo.addGroup',
   'remove-group': 'undo.removeGroup',
   'rename-group': 'undo.renameGroup',
+  'set-group-bounds': 'undo.resizeGroup',
+  'move-group': 'undo.moveGroup',
   'rename-node': 'undo.renameNode',
   'collapse-node': 'undo.collapseNode',
   'rename-subgraph-io': 'undo.renameSubgraphIo',
