@@ -108,7 +108,7 @@ A lesson with `standard: 2` must have (`lessonStandardProblems` in `schema.ts`):
 | Retrieval | a `quiz` |
 | Provenance and license | `meta.provenance` |
 
-Lessons of standard 1 are not forced; `node scripts/lesson-lint.js --all` lists what each one lacks.
+All 95 built-in lessons meet standard 2. Imported legacy lessons of standard 1 still open; `node scripts/lesson-lint.js --all` lists any missing parts. Run `node scripts/lesson-lint.js --all --strict` before shipping additions to the built-in curriculum. A passing structural check does not certify a real model run or the quality of its result.
 
 ## Check a lesson: lesson-lint
 `node scripts/lesson-lint.js` lints the built-in lessons of standard 2; give lesson ids or `.lesson.json` paths to lint

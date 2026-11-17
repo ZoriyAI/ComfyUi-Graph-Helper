@@ -466,7 +466,7 @@ export const VIDEO_LESSONS_EN: Record<string, LessonWords> = {
     steps: {
       intro: {
         title: 'What interpolation does',
-        body: `An interpolation model looks at two neighbouring frames and draws the one between them. A 16 fps clip becomes a smooth 32 fps one, and its length in seconds stays the same.\n\nWhat it costs: a small model (FILM or RIFE, tens of megabytes) in \`models/frame_interpolation\`. It runs on any card that runs ComfyUI, and quickly: seconds to minutes. The memory grows with the size and the number of frames.\n\nThese are ComfyUI's own nodes. The ComfyUI-Frame-Interpolation pack does the same with its RIFE VFI and FILM VFI nodes. ${EMPTY}`,
+        body: `An interpolation model looks at two neighbouring frames and draws the one between them. A 16 fps clip becomes a smooth 32 fps one, and its length in seconds stays the same.\n\nWhat it costs: a small model (FILM or RIFE, tens of megabytes) in \`models/frame_interpolation\`. Check support for your device and model implementation with a short clip; runtime and memory depend on the workload. The memory grows with the size and the number of frames.\n\nThese are ComfyUI's own nodes. The ComfyUI-Frame-Interpolation pack does the same with its RIFE VFI and FILM VFI nodes. ${EMPTY}`,
       },
       source: {
         title: 'Load the clip',
@@ -493,11 +493,11 @@ export const VIDEO_LESSONS_EN: Record<string, LessonWords> = {
   },
   'video-upscale': {
     title: 'A larger, sharper video: SeedVR2',
-    result: 'A low-resolution clip is redrawn at 1080p with its details restored.',
+    result: 'A low-resolution clip is enlarged toward the target resolution; you check inferred detail and temporal stability.',
     steps: {
       intro: {
         title: 'What it costs, first',
-        body: `${PACK('ComfyUI-SeedVR2_VideoUpscaler')}\n\nSeedVR2 does not only stretch frames: it redraws them larger, restoring detail, and keeps neighbouring frames consistent.\n\nWhat it costs: the 3B model (about 7 GB) or the 7B one (about 16 GB, sharper), and a VAE. When a file is missing, the pack's loader fetches it itself into \`models/SEEDVR2\` when the graph is first run in ComfyUI; the app downloads nothing. With block swapping and tiled VAE, as here, the 3B model runs on modest cards. Each frame is redrawn, so a long clip takes long: start with a few seconds.\n\n${EMPTY}`,
+        body: `${PACK('ComfyUI-SeedVR2_VideoUpscaler')}\n\nSeedVR2 does not only stretch frames: it generates larger frames with inferred detail and aims for consistency between them. Inspect the output for changed features and flicker.\n\nWhat it costs: the 3B model (about 7 GB) or the 7B one (about 16 GB, sharper), and a VAE. When a file is missing, the pack's loader fetches it itself into \`models/SEEDVR2\` when the graph is first run in ComfyUI; the app downloads nothing. With block swapping and tiled VAE, as here, the 3B model runs on modest cards. Each frame is redrawn, so a long clip takes long: start with a few seconds.\n\n${EMPTY}`,
       },
       source: {
         title: 'Load the clip',
@@ -637,7 +637,7 @@ export const VIDEO_LESSONS_EN: Record<string, LessonWords> = {
   },
   'anchor-reference': {
     title: 'A reference for the whole clip: Wan VACE',
-    result: 'A person or an object from your picture stays itself in every frame, not only in the first.',
+    result: 'Your picture guides likeness across the clip; you check how well the subject remains recognisable beyond the first frame.',
     steps: {
       intro: {
         title: 'Before you start',

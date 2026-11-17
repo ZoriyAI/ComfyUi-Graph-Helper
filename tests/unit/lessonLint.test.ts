@@ -29,8 +29,9 @@ function legacyDoc() {
 }
 
 describe('the lint of a lesson', () => {
-  it('passes the lessons of standard 2 with nothing missing', () => {
-    for (const lesson of LESSONS.filter((item) => item.standard === 2)) {
+  it('ships every built-in lesson at standard 2 with nothing missing', () => {
+    for (const lesson of LESSONS) {
+      expect(lesson.standard, lesson.id).toBe(2);
       expect(lintLessonDoc(builtinLessonDoc(lesson.id)!), lesson.id).toEqual({ id: lesson.id, standard: 2, errors: [], missing: [] });
     }
   });

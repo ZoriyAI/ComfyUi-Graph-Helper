@@ -1049,7 +1049,7 @@ export const LESSONS_EN: Record<string, LessonWords> = {
     steps: {
       intro: {
         title: 'What Ovi does',
-        body: 'Ovi is two models working together: one draws the clip, the other makes its sound at the same time. You write the character\'s speech right in the prompt, and the lips match the words.\n\nThe clip always has one length: 121 frames, which is five seconds at 24 frames a second.\n\nThe model makes the voice up itself. The rule stays: do not put words into the mouths of real people without their consent.\n\nThe lesson builds the graph from an empty canvas: "File ▸ New project".',
+        body: 'Ovi is two models working together: one draws the clip, the other makes its sound at the same time. You write the character\'s speech right in the prompt, then check the actual spoken words and their lip timing in the saved clip.\n\nThis example uses 121 frames at 24 frames per second, approximately five seconds. Follow the installed model recipe’s supported duration.\n\nThe model makes the voice up itself. The rule stays: do not put words into the mouths of real people without their consent.\n\nThe lesson builds the graph from an empty canvas: "File ▸ New project".',
       },
       models: {
         title: 'Load the two models',
@@ -1119,7 +1119,7 @@ export const LESSONS_EN: Record<string, LessonWords> = {
     steps: {
       intro: {
         title: 'What ReCamMaster does',
-        body: 'ReCamMaster takes a finished video and draws the same scene again with another camera move: an orbit, a zoom or a turn. What happens in the scene stays.\n\nThe model is small, based on Wan 2.1 1.3B. It was trained on clips of 81 frames sized 832 by 480 and works best with them.\n\nTake a video of your own or one you have the rights to.\n\nThe lesson builds the graph from an empty canvas: "File ▸ New project".',
+        body: 'ReCamMaster takes a finished video and draws the same scene again with another camera move: an orbit, a zoom or a turn. Check whether the action and landmarks survive; newly exposed regions may be inferred or invented.\n\nThe model is small, based on Wan 2.1 1.3B. It was trained on clips of 81 frames sized 832 by 480 and works best with them.\n\nTake a video of your own or one you have the rights to.\n\nThe lesson builds the graph from an empty canvas: "File ▸ New project".',
       },
       model: {
         title: 'Load the model',

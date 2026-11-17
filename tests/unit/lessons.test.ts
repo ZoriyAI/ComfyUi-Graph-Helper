@@ -467,7 +467,8 @@ describe('the lesson on adult content asks for neither a LoRA nor a further-trai
     carryOut(lessonById('video-text')!, canvas);
     carryOut(lessonById('lora')!, canvas, {});
     // The files name no words: nothing to compare with.
-    expect(lessonProgress(lesson, canvas, {}, new Set(read)).current).toBe(lesson.steps.length);
+    const answers = Object.fromEntries(lesson.steps.filter(isPersonStep).map((step) => [step.id, answerAll(step)]));
+    expect(lessonProgress(lesson, canvas, {}, new Set(read), answers).current).toBe(lesson.steps.length);
     const loaders = canvas.nodes.filter((node) => node.classType === 'LoraLoaderModelOnly');
     loaders[1].values.lora_name = 'style-low.safetensors';
     const asks = done(lesson, canvas, read);
@@ -960,12 +961,17 @@ describe('the lessons on WanVideoWrapper', () => {
     const canvas = new Canvas();
     const rects = new Map<string, FlowRect>();
     const read = new Set<string>();
+    const answers: Record<string, StepAnswers> = {};
     for (let guard = 0; guard < 400; guard += 1) {
-      const progress = lessonProgress(lesson, canvas, FACTS, read);
+      const progress = lessonProgress(lesson, canvas, FACTS, read, answers);
       if (progress.current === lesson.steps.length) break;
       const step = lesson.steps[progress.current];
       if (step.read) {
         read.add(step.id);
+        continue;
+      }
+      if (isPersonStep(step)) {
+        answers[step.id] = answerAll(step);
         continue;
       }
       const missing = progress.missing[0];

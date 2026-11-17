@@ -6,8 +6,16 @@ import { BASICS_CYCLES } from './basics';
 import { MODEL_CHAIN_CYCLES } from './modelChains';
 import { IMAGE_MODEL_CYCLES } from './imageModels';
 import { EDITING_CYCLES } from './editing';
+import { VIDEO_CYCLES } from './video';
+import { WRAPPER_CYCLES } from './wrapper';
+import { SOUND_3D_CYCLES } from './sound3d';
+import { CHARACTER_CYCLES } from './characters';
+import { ADULT_CYCLES } from './adult';
 
-export const LESSON_CYCLES: Readonly<Record<string, LessonCycle>> = { ...BASICS_CYCLES, ...MODEL_CHAIN_CYCLES, ...IMAGE_MODEL_CYCLES, ...EDITING_CYCLES };
+export const LESSON_CYCLES: Readonly<Record<string, LessonCycle>> = {
+  ...BASICS_CYCLES, ...MODEL_CHAIN_CYCLES, ...IMAGE_MODEL_CYCLES, ...EDITING_CYCLES,
+  ...VIDEO_CYCLES, ...WRAPPER_CYCLES, ...SOUND_3D_CYCLES, ...CHARACTER_CYCLES, ...ADULT_CYCLES,
+};
 const REVIEWED = '2026-11-17'; // Editorial/source review, not a claim of GPU execution on every model.
 const ids = { run: 'practice-run', assess: 'practice-assess', recall: 'practice-recall', transfer: 'practice-transfer' };
 
