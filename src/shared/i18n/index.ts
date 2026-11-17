@@ -168,6 +168,7 @@ const ERROR_KEYS: Record<string, string> = {
   'Models were read through MCP, but not the nodes: this MCP server does not list them. Enter the ComfyUI address in Settings ▸ Connection to read the nodes from ComfyUI.': 'errors.mcpNodesNeedComfy',
   'Models were read through MCP, but not the nodes: ComfyUI did not answer at the address in Settings.': 'errors.mcpNodesComfyFailed',
   'The MCP server is not one the app knows how to read; everything was read from the ComfyUI address instead.': 'errors.mcpUnknownReadComfy',
+  'MCP could not be connected. Reading directly from the saved ComfyUI address instead; MCP access can be repaired separately.': 'errors.mcpUnavailableReadComfy',
   'Neither a ComfyUI address nor an MCP server address is set.': 'errors.noAddress',
   'Explanations cannot store a secret.': 'errors.explanationSecret',
   'The project record does not match the schema.': 'errors.projectRecord',

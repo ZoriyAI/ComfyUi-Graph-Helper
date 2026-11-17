@@ -6,7 +6,9 @@
 Every message about the connection, what causes it and what to do. They appear under the address in Settings ▸
 Connection, in the sync indicator's popover and as notices.
 
-Not tried yet on a real install: this page was checked against test servers that answer the way ComfyUI does.
+Direct catalog reading and fallback after an unavailable MCP connection were checked on a real ComfyUI 0.45.3 install on 17 November 2026. Other failure cases are covered by test servers; this is not a claim about every server or authentication setup.
+
+If MCP requires sign-in or cannot be reached and a ComfyUI address is saved, synchronization reads that address directly. The report keeps the MCP warning and its reason. You can continue using the refreshed library and repair MCP access in **Settings → Connection**. MCP credentials are not forwarded to ComfyUI. If both sources fail, the report explains the failures and keeps the previous library.
 
 ## The ComfyUI address
 

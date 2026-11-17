@@ -98,6 +98,8 @@ export const sectionUnreadWarning = (section: string) => `MCP catalog section co
 export const folderUnreadWarning = (folder: string) => `Model folder could not be read: ${folder}.`;
 /** The MCP server is of no kind the app knows; the ComfyUI address in Settings was read instead. */
 export const MCP_UNKNOWN_READ_COMFY = 'The MCP server is not one the app knows how to read; everything was read from the ComfyUI address instead.';
+/** The saved ComfyUI address is an independent read source; MCP sign-in stays visible as a warning. */
+export const MCP_UNAVAILABLE_READ_COMFY = 'MCP could not be connected. Reading directly from the saved ComfyUI address instead; MCP access can be repaired separately.';
 /** Neither address is set: there is nothing to read. */
 export const NO_ADDRESS = 'Neither a ComfyUI address nor an MCP server address is set.';
 
@@ -1068,7 +1070,10 @@ export class SyncService {
       const error = opened.error === 'MCP server was not read.' && connectError
         ? await explainConnectFailure(connectError, url, { authenticated: token != null || authProvider != null, fetchImpl })
         : opened.error;
-      finish({ last_error: redactSecrets(error) });
+      if (!this.isCurrent(ticket)) return;
+      if (comfyOrigin) {
+        await this.executeDirect(db, fetchImpl, comfyOrigin, startedAt, ticket, finish, [MCP_UNAVAILABLE_READ_COMFY, redactSecrets(error)]);
+      } else finish({ last_error: redactSecrets(error) });
       return;
     }
     const session = opened.session;
@@ -1211,7 +1216,7 @@ export class SyncService {
     if (!this.isCurrent(ticket)) return;
     if (!read.ok) {
       writeState(db, { [MCP_PROFILE_KEY]: mcpProfile });
-      finish({ last_error: redactSecrets(read.error) });
+      finish({ last_error: redactSecrets(read.error), last_warnings: JSON.stringify(extraWarnings) });
       return;
     }
     this.emit(db);

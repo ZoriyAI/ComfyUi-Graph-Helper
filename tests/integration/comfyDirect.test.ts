@@ -7,14 +7,14 @@
 import Database from 'better-sqlite3';
 import { afterEach, describe, expect, it } from 'vitest';
 import { migrate } from '../../src/main/settings/migrate';
-import { comfyPreviewSource, folderUnreadWarning, SyncService } from '../../src/main/mcp/sync';
+import { comfyPreviewSource, folderUnreadWarning, MCP_UNAVAILABLE_READ_COMFY, SyncService } from '../../src/main/mcp/sync';
 import {
   checkComfy, COMFY_IS_MCP, COMFY_MODELS_NAMES_ONLY, COMFY_NODES_UNREAD, COMFY_NOT_COMFY, COMFY_PREVIEW_FILE, comfyUnreachable,
 } from '../../src/main/comfy/direct';
 import { PreviewReader } from '../../src/main/knowledge/preview';
 import { createTranslator, translateKnownError } from '../../src/shared/i18n';
 import { sourceSentence, syncView } from '../../src/renderer/components/sync/syncView';
-import { CLASSES, modelFileCount, PACKS } from '../fixtures/mcp/fakeMcpServer';
+import { CLASSES, modelFileCount, PACKS, startFakeMcp } from '../fixtures/mcp/fakeMcpServer';
 import { BIG_PACK, READ_ROUTE, startFakeComfy, SUB_FOLDER_LORA, WEBP, type FakeComfyOptions } from '../fixtures/comfy/fakeComfy';
 import { startPublicMcp } from '../fixtures/mcp/fakePublicMcp';
 
@@ -53,6 +53,23 @@ const customPacks = PACKS.filter((pack) => pack.module.startsWith('custom_nodes.
 const packsWithNodes = new Set(CLASSES.map((def) => PACKS[def.pack].module).filter((module) => module.startsWith('custom_nodes.'))).size;
 
 describe('a first run with only a ComfyUI address', () => {
+  it.each(['unreachable', 'sign-in'])('keeps reading the saved ComfyUI when MCP is %s, with an explicit warning', async mode => {
+    const fake = await comfy(); const db = openDb();
+    const secured = mode === 'sign-in' ? await startFakeMcp({ token: 'fixture-only-access' }) : null;
+    if (secured) closers.push(secured.close);
+    const sync = service({ comfy: fake.url, mcp: secured?.url ?? 'http://127.0.0.1:9/mcp' });
+    try {
+      await sync.runSync(db); await sync.whenEnrichmentDone(); const status = sync.status(db);
+      expect(status).toMatchObject({ state: 'idle', lastError: null, librarySource: 'comfy', libraryElsewhere: false });
+      expect(status.counts.models).toBe(listedFiles);
+      expect(status.warnings).toContain(MCP_UNAVAILABLE_READ_COMFY);
+      expect((status.warnings ?? []).join(' ')).toMatch(mode === 'sign-in' ? /requires sign-in/ : /unreachable/);
+      expect(translateKnownError(createTranslator('ru'), MCP_UNAVAILABLE_READ_COMFY)).toContain('напрямую');
+      for (const hit of fake.hits) expect(hit).toMatch(READ_ROUTE);
+      expect(JSON.stringify(db.prepare('SELECT * FROM sync_state').all())).not.toContain('fixture-only-access');
+    } finally { sync.stop(); db.close(); }
+  });
+
   it('reads nodes, packs, model files with sizes and folders, headers and previews, and asks only GETs of the read routes', async () => {
     const fake = await comfy({ manager: true });
     const db = openDb();
