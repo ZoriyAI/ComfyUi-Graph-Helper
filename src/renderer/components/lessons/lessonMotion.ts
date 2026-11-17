@@ -12,7 +12,8 @@
  */
 import { useEffect, useRef } from 'react';
 import type { Missing, Progress } from '../../../shared/lessons/engine';
-import { useGraphStore } from '../../state/graphState';
+import { captureEditOrigin, originIsCurrent } from '../graph/lib/editOrigin';
+import { levelEdges } from '../graph/lib/level';
 import { useCanvasStore } from '../graph/canvasStore';
 import { flash, useAttentionStore } from '../../motion/attention';
 import { tokenMs } from '../../motion/policy';
@@ -54,18 +55,20 @@ export function useLessonMotion(lessonId: string, progress: Progress, active: bo
   useEffect(() => () => useAttentionStore.getState().setLessonFocus(null), []);
 
   const last = useRef<{ lessonId: string; current: number; lacked: Missing | undefined } | null>(null);
+  useEffect(() => () => { last.current = null; }, []);
   useEffect(() => {
     const before = last.current;
     last.current = { lessonId, current: progress.current, lacked: progress.missing[0] };
     if (!before || before.lessonId !== lessonId || progress.current <= before.current) return;
-    flash(passedMarks(before.lacked, progress.roles, useGraphStore.getState().edges));
+    flash(passedMarks(before.lacked, progress.roles, levelEdges()));
     const next = placeOf(progress.missing[0]);
     if (!next) return;
     // The flash is seen first; then the camera moves on, after half the mark's reading time. Not cancelled when the
     // progress is recomputed meanwhile (it is, after every projection); only a step passed since then wins.
     const step = progress.current;
+    const origin = captureEditOrigin();
     window.setTimeout(() => {
-      if (last.current?.lessonId === lessonId && last.current.current === step) useCanvasStore.getState().requestCenter(next, undefined, { select: false });
+      if (originIsCurrent(origin) && last.current?.lessonId === lessonId && last.current.current === step) useCanvasStore.getState().requestCenter(next, undefined, { select: false });
     }, tokenMs('--motion-mark') / 2);
   }, [lessonId, progress]);
 }

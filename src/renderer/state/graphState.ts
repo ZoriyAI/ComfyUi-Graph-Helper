@@ -28,6 +28,8 @@ interface GraphState {
   groups: GroupRecord[];
   /** Breadcrumb: definition ids entered from the root, outermost first. */
   subgraphPath: string[];
+  /** Instance ids at each breadcrumb level; null means the shared definition was opened directly. */
+  subgraphInstancePath: Array<string | null>;
   /** The definition the canvas shows, or null for the root graph. Always the last entry of subgraphPath. */
   activeSubgraphId: string | null;
   selectedNodeIds: string[];
@@ -47,7 +49,7 @@ interface GraphState {
   loadGraph: (nodes: GraphNode[], edges: GraphEdge[]) => void;
   setZoom: (zoom: number) => void;
   /** Open a definition from the current level (pushes onto the breadcrumb). */
-  enterSubgraph: (definitionId: string) => void;
+  enterSubgraph: (definitionId: string, instanceId?: string) => void;
   /** Go back to breadcrumb depth `depth` (0 = root). */
   exitSubgraph: (depth?: number) => void;
 }
@@ -62,6 +64,7 @@ export const useGraphStore = create<GraphState>((set) => ({
   subgraphs: [],
   groups: [],
   subgraphPath: [],
+  subgraphInstancePath: [],
   activeSubgraphId: null,
   selectedNodeIds: [],
   selectedEdgeIds: [],
@@ -101,25 +104,28 @@ export const useGraphStore = create<GraphState>((set) => ({
     set({ selectedNodeIds: nodeIds, selectedEdgeIds: edgeIds }),
 
   clearGraph: () =>
-    set({ nodes: [], edges: [], selectedNodeIds: [], selectedEdgeIds: [] }),
+    set({ nodes: [], edges: [], selectedNodeIds: [], selectedEdgeIds: [], subgraphPath: [], subgraphInstancePath: [], activeSubgraphId: null }),
 
   loadGraph: (nodes, edges) =>
-    set({ nodes, edges, selectedNodeIds: [], selectedEdgeIds: [] }),
+    set({ nodes, edges, selectedNodeIds: [], selectedEdgeIds: [], subgraphPath: [], subgraphInstancePath: [], activeSubgraphId: null }),
 
   setZoom: (zoom) => set({ zoom }),
 
-  enterSubgraph: (definitionId) =>
+  enterSubgraph: (definitionId, instanceId) =>
     set((state) => {
       if (!state.subgraphs.some((item) => item.id === definitionId && !item.opaque)) return {};
       if (state.activeSubgraphId === definitionId) return {};
+      const parent = state.activeSubgraphId ? state.subgraphs.find(item => item.id === state.activeSubgraphId)?.nodes ?? [] : state.nodes;
+      if (instanceId && !parent.some(node => node.id === instanceId && (node.data?.subgraphId ?? node.data?.comfyType) === definitionId)) return {};
       const subgraphPath = [...state.subgraphPath, definitionId];
-      return { subgraphPath, activeSubgraphId: definitionId };
+      const subgraphInstancePath = [...state.subgraphPath.map((_, index) => state.subgraphInstancePath[index] ?? null), instanceId ?? null];
+      return { subgraphPath, subgraphInstancePath, activeSubgraphId: definitionId, selectedNodeIds: [], selectedEdgeIds: [] };
     }),
 
   exitSubgraph: (depth = 0) =>
     set((state) => {
       const subgraphPath = state.subgraphPath.slice(0, Math.max(0, depth));
-      return { subgraphPath, activeSubgraphId: subgraphPath[subgraphPath.length - 1] ?? null };
+      return { subgraphPath, subgraphInstancePath: state.subgraphInstancePath.slice(0, subgraphPath.length), activeSubgraphId: subgraphPath[subgraphPath.length - 1] ?? null, selectedNodeIds: [], selectedEdgeIds: [] };
     }),
 }));
 

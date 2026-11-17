@@ -61,7 +61,7 @@ it holds and the button **Open the setting**. A lesson of this group cannot be s
 - If the canvas already holds part of the graph, the lesson skips the steps that are already done. If something a
   finished step needed is undone or deleted, the lesson goes back to that step and says "Step N is not done any
   more: something on the canvas changed."
-- Lessons follow the main canvas: inside a subgraph the lesson waits until you leave it.
+- Lessons follow the displayed canvas, including a nested subgraph copy. Reading, answers and outcomes are saved separately for that copy and workflow. The context banner and breadcrumb identify it. Promoted settings affect the copy; the inner structure and other fields are shared. Values supplied by an outside wire are not known until execution; inspect their source in the parent graph.
 
 ## Steps you answer
 Some lessons have steps that are not about the canvas. The app does not run anything in ComfyUI and does not see your

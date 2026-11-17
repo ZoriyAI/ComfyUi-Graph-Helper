@@ -85,10 +85,10 @@ function Wizard({ request }: { request: SubgraphWizardRequest }) {
       if (request.definition) for (const [direction, list] of [['input', inputs], ['output', outputs]] as const) {
         for (const slot of list) edits.push({ type: 'add-subgraph-io', definitionId: request.definition.id, direction, name: slot.name.trim(), dataType: slot.type.trim(), ...(slot.nodeId ? { nodeId: slot.nodeId, handle: slot.handle } : {}) });
       }
-      const result = await commitManual(edits.length > 1 ? { type: 'batch', label: 'subgraph', edits } : payload) as { status?: string; result?: { definitionId?: string } } | null;
+      const result = await commitManual(edits.length > 1 ? { type: 'batch', label: 'subgraph', edits } : payload) as { status?: string; result?: { definitionId?: string; nodeId?: string } } | null;
       if (result?.status !== 'applied') { setError(String(t('subgraphWizard.failed'))); return; }
       const definitionId = request.definition?.id ?? String((result.result as { definitionId?: string })?.definitionId ?? '');
-      close(); if (enter && definitionId) useGraphStore.getState().enterSubgraph(definitionId);
+      close(); if (enter && definitionId) useGraphStore.getState().enterSubgraph(definitionId, result.result?.nodeId);
       requestWorkspacePanel('canvas');
     } catch { setError(String(t('subgraphWizard.failed'))); } finally { setBusy(false); }
   };

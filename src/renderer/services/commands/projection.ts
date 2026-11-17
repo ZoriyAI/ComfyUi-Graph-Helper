@@ -7,6 +7,7 @@
  * services (chatService, drawWatch, portsNotice, catalogWatch, projectFile), state/proposalsState.ts and commands.
  * Why: main owns the graph; the window shows the newest projection it accepted and sends edits one at a time.
  */
+import { validInstanceDepth } from '../../components/graph/lib/instanceContext';
 import { create } from 'zustand';
 import { acceptsProjection } from '../../../shared/commands/reconcile';
 import type { Projection } from '../../../shared/commands/types';
@@ -49,7 +50,15 @@ export const useProjectionStore = create<DisplayedProjection>((set, get) => ({
     const process = incoming.snapshot.process && typeof incoming.snapshot.process === 'object'
       ? incoming.snapshot.process as { title?: unknown; notes?: unknown }
       : { title: '', notes: '' };
+    const graph = useGraphStore.getState();
+    const subgraphs = Array.isArray(incoming.snapshot.subgraphs) ? incoming.snapshot.subgraphs as SubgraphDefinition[] : [];
+    const depth = validInstanceDepth({ ...graph, nodes, subgraphs });
     useGraphStore.setState({
+      subgraphPath: graph.subgraphPath.slice(0, depth),
+      subgraphInstancePath: graph.subgraphInstancePath.slice(0, depth),
+      activeSubgraphId: graph.subgraphPath[depth - 1] ?? null,
+      ...(displayed.graphKey !== (incoming.graphKey ?? '') || displayed.projectId !== incoming.projectId
+        ? { subgraphPath: [], subgraphInstancePath: [], activeSubgraphId: null, selectedNodeIds: [], selectedEdgeIds: [] } : {}),
       nodes,
       edges,
       components,
@@ -58,7 +67,7 @@ export const useProjectionStore = create<DisplayedProjection>((set, get) => ({
         notes: typeof process.notes === 'string' ? process.notes : '',
       },
       document: (incoming.snapshot.document ?? null) as WorkflowDocumentState | null,
-      subgraphs: Array.isArray(incoming.snapshot.subgraphs) ? incoming.snapshot.subgraphs as SubgraphDefinition[] : [],
+      subgraphs,
       groups: Array.isArray(incoming.snapshot.groups) ? incoming.snapshot.groups as GroupRecord[] : [],
     });
     useRevisionStore.getState().setCurrentRevision(incoming.currentRevisionId);

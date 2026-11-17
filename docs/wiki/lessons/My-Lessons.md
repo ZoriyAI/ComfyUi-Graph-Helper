@@ -75,8 +75,7 @@ warning for an assistant's draft, and "Shared lessons follow the content rules o
 Ask the assistant for a lesson and it uses its tool **Draft a lesson**. The chat shows a card with the title, the
 number of steps, "Drafted by the assistant: check it before you share it." and how it was tried: with the nodes of
 your ComfyUI, or only with the nodes the lesson names when your ComfyUI was not read. **Keep in My lessons** keeps
-it; **Discard** drops it. Nothing is kept until you choose. After a restart the card says the draft is no longer
-available.
+it; **Discard** drops it. Pending drafts survive a restart while chat history is enabled (up to 20 lesson drafts per project). With chat history off they last only for this session. Clearing chat history removes its pending drafts; accept a lesson to keep a separate copy in My lessons.
 
 ## What a shared lesson can never do
 A lesson file is data only: ids, texts and the same checks the built-in lessons use. So a lesson from anyone:

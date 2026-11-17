@@ -13,16 +13,16 @@ import { commitManual, reportRefusal } from '../commit';
  * The project, graph and open subgraph definition an edit was started in. Capture at the user gesture, before any
  * search, validation, metadata or placement wait.
  */
-export interface EditOrigin { projectId: string; graphKey: string; definitionId: string | null }
+export interface EditOrigin { projectId: string; graphKey: string; definitionId: string | null; instancePath?: string }
 /** Where the person is editing right now. */
 export function captureEditOrigin(): EditOrigin {
   const { projectId, graphKey } = useProjectionStore.getState();
-  return { projectId, graphKey, definitionId: useGraphStore.getState().activeSubgraphId };
+  return { projectId, graphKey, definitionId: useGraphStore.getState().activeSubgraphId, instancePath: JSON.stringify([useGraphStore.getState().subgraphPath, useGraphStore.getState().subgraphInstancePath]) };
 }
 /** Whether the person is still in the same project, graph and level as at `origin`. */
 export function originIsCurrent(origin: EditOrigin): boolean {
   const current = captureEditOrigin();
-  return current.projectId === origin.projectId && current.graphKey === origin.graphKey && current.definitionId === origin.definitionId;
+  return current.projectId === origin.projectId && current.graphKey === origin.graphKey && current.definitionId === origin.definitionId && (origin.instancePath === undefined || current.instancePath === origin.instancePath);
 }
 /** A delayed gesture is cancelled visibly rather than applied to an identically numbered object elsewhere. */
 export function requireEditOrigin(origin: EditOrigin): boolean {
@@ -31,7 +31,7 @@ export function requireEditOrigin(origin: EditOrigin): boolean {
   return false;
 }
 /** Commits `payload` only if the person is still where the gesture started; else a conflict toast and null. */
-export function commitAtOrigin(origin: EditOrigin, payload: GraphMutation, prefix = 'manual'): Promise<unknown> {
+export function commitAtOrigin(origin: EditOrigin, payload: GraphMutation, prefix = 'manual', level: 'shown' | 'root' = 'shown'): Promise<unknown> {
   if (!requireEditOrigin(origin)) return Promise.resolve(null);
-  return commitManual(payload, prefix, { context: { ...origin, isCurrent: () => originIsCurrent(origin) } });
+  return commitManual(payload, prefix, { level, context: { ...origin, isCurrent: () => originIsCurrent(origin) } });
 }

@@ -8,6 +8,7 @@
  *
  * Who uses it: LessonPanel.tsx, lackText.ts and lessonAuthoring.ts; tests/unit/lessonModel.test.ts covers it.
  */
+import { instanceGraph, instanceParameterMutation, parameterAddress, useInstanceGraph } from '../graph/lib/instanceContext';
 import { useEffect, useMemo, useState } from 'react';
 import type { BaseModelFamily, NodeClassDetail } from '../../../shared/contracts/knowledge';
 import type { GraphMutation } from '../../../shared/commands/types';
@@ -136,11 +137,18 @@ export function useLessonCatalog(): { details: Details; ports: ClassPorts; read:
   return { details, ports, read: (counts?.detailedClasses ?? 0) > 0 };
 }
 
-/** The graph on the root canvas as lessons see it. Inside an open subgraph there is no lesson to follow. */
+/** The displayed definition, with this copy's promoted values, or the root graph. */
 export function useLessonGraph(details: Details): LessonGraph {
-  const nodes = useGraphStore((state) => state.nodes);
-  const edges = useGraphStore((state) => state.edges);
-  return useMemo(() => lessonGraphOf(nodes, edges, details), [nodes, edges, details]);
+  const view = useInstanceGraph();
+  return useMemo(() => lessonGraphInContext(view, details), [view, details]);
+}
+
+export function lessonGraphInContext(view: ReturnType<typeof instanceGraph>, details: Details): LessonGraph {
+  const graph = lessonGraphOf(view.nodes, view.edges, details);
+  for (const node of graph.nodes) for (const field of Object.keys(node.values)) {
+    if (view.external.has(parameterAddress(node.id, field))) node.values[field] = undefined;
+  }
+  return graph;
 }
 
 /** The core LoRA loaders: their lora_name list is LoRA files even when the catalog names no folder. */
@@ -303,7 +311,7 @@ export interface FixPlace {
 async function spotInFlow(classType: string, place: FixPlace): Promise<{ x: number; y: number } | null> {
   const detail = await useNodeInfoStore.getState().request(classType);
   const details = useNodeInfoStore.getState().details;
-  const nodes = useGraphStore.getState().nodes as PositionedNode[];
+  const nodes = instanceGraph(useGraphStore.getState()).nodes as PositionedNode[];
   const rects = new Map(nodes.map((node) => [node.id, layoutRect(node, sizeHintsOf(node.data?.comfyType ? details[node.data.comfyType] : null))]));
   return lessonSpot(place.lesson, place.role, place.roles, rects, newNodeSize(classType, detail), { x: LAYOUT_GAPS.gapX, y: LAYOUT_GAPS.gapY });
 }
@@ -313,15 +321,10 @@ async function spotInFlow(classType: string, place: FixPlace): Promise<{ x: numb
  * A node added for a role of a lesson is given its place in the lesson's flow.
  */
 export async function doFix(fix: StepFix, place?: FixPlace): Promise<void> {
-  // Lessons follow the main canvas: with a subgraph open, nothing is done and the lesson's sentence says why.
-  if (useGraphStore.getState().activeSubgraphId) {
-    showToast({ id: 'lesson-in-subgraph', tone: 'info', title: String(i18n.t('lessons.inSubgraph')), duration: 5000 });
-    return;
-  }
   const origin = captureEditOrigin();
   await trackCommit(async () => {
   let payload: GraphMutation;
-  const before = new Set(useGraphStore.getState().nodes.map((node) => node.id));
+  const before = new Set(instanceGraph(useGraphStore.getState()).nodes.map((node) => node.id));
   if (fix.kind === 'add-node') {
     const spot = await placeNewNode(place ? await spotInFlow(fix.classType, place) : null, { classType: fix.classType });
     // Under the name the library shows, the way a node added by hand from the library is named.
@@ -330,20 +333,25 @@ export async function doFix(fix: StepFix, place?: FixPlace): Promise<void> {
   } else if (fix.kind === 'connect') {
     payload = { type: 'connect', source: fix.from, sourceHandle: fix.fromPort, target: fix.to, targetHandle: fix.toPort };
   } else {
-    payload = { type: 'set-parameter', nodeId: fix.nodeId, key: fix.field, value: fix.value };
+    const edit = instanceParameterMutation(instanceGraph(useGraphStore.getState()), fix.nodeId, fix.field, fix.value);
+    if (!edit) {
+      showToast({ id: 'lesson-external-field', tone: 'info', title: String(i18n.t('lessons.externalValue')) });
+      return;
+    }
+    payload = edit;
   }
-  // The change goes to the root level, where lessons live (the guard above already stops it inside a subgraph).
+  // Parameters already name their real owner; additions and wires belong to the shown definition.
   if (!requireEditOrigin(origin)) return;
-  await commitAtOrigin(origin, payload, 'lesson');
+  await commitAtOrigin(origin, payload, 'lesson', fix.kind === 'set-field' ? 'root' : 'shown');
   // The person sees what was done: the canvas goes to the node the change is on, a new node included.
-  const shown = fix.kind === 'connect' ? fix.to : fix.kind === 'set-field' ? fix.nodeId : useGraphStore.getState().nodes.find((node) => !before.has(node.id))?.id;
+  const shown = fix.kind === 'connect' ? fix.to : fix.kind === 'set-field' ? fix.nodeId : instanceGraph(useGraphStore.getState()).nodes.find((node) => !before.has(node.id))?.id;
   if (shown && requireEditOrigin(origin)) useCanvasStore.getState().requestCenter(shown);
   });
 }
 
 /** The name a person reads for a node on the canvas: its title, else its class as the library shows it. */
 export function titleOnCanvas(nodeId: string, details: Details): string {
-  const node = useGraphStore.getState().nodes.find((item) => item.id === nodeId);
+  const node = instanceGraph(useGraphStore.getState()).nodes.find((item) => item.id === nodeId);
   if (!node) return '';
   const data = node.data;
   return String(data.title || details[data.comfyType]?.displayName || data.comfyType);

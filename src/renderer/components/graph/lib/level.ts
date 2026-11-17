@@ -4,6 +4,7 @@
  * inside a definition (with the selection and the sizes React Flow measured) and how to select there; everything
  * else reads the root graph from the graph store as before.
  */
+import { instanceGraph } from './instanceContext';
 import { modelledSubgraphs, type SubgraphDefinition } from '../../../../shared/graph/subgraphs';
 import { useGraphStore } from '../../../state/graphState';
 import { useUiStore } from '../../../state/uiState';
@@ -12,6 +13,7 @@ import type { BoundaryNode, GraphEdge, GraphNode } from '../../../types/graph';
 /** What the canvas draws inside the open definition, and how to select there. */
 interface InnerView {
   definitionId: string;
+  instanceKey?: string;
   nodes: Array<GraphNode | BoundaryNode>;
   edges: GraphEdge[];
   select: (nodeIds: string[] | 'all') => void;
@@ -34,7 +36,9 @@ export function openDefinition(): SubgraphDefinition | undefined {
 /** The registered inner view, only if it belongs to the definition open now (it can lag one render behind). */
 function currentInner(): InnerView | null {
   const definition = openDefinition();
-  return definition && innerView?.definitionId === definition.id ? innerView : null;
+  const graph = useGraphStore.getState();
+  const sameCopy = innerView?.instanceKey === undefined || innerView.instanceKey === JSON.stringify([graph.subgraphPath, graph.subgraphInstancePath]);
+  return definition && innerView?.definitionId === definition.id && sameCopy ? innerView : null;
 }
 
 /** Nodes of the level on screen (never the boundary pseudo-nodes), with their selection. */
@@ -45,7 +49,7 @@ export function levelNodes(): GraphNode[] {
   if (inner) return inner.nodes.filter((node): node is GraphNode => node.type !== 'boundary');
   // Not drawn yet: the saved inner graph, with the selection the canvas last reported.
   const selected = new Set(useUiStore.getState().selection.filter((ref) => ref.kind === 'node').map((ref) => ref.id));
-  return definition.nodes.map((node) => ({ ...node, type: 'comfy', selected: selected.has(String(node.id)) }) as unknown as GraphNode);
+  return instanceGraph(useGraphStore.getState()).nodes.map((node) => ({ ...node, type: 'comfy', selected: selected.has(String(node.id)) }) as unknown as GraphNode);
 }
 
 /** Links of the level on screen, with their selection. */

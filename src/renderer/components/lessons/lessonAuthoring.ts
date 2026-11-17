@@ -10,6 +10,8 @@
  * is read, it is tried against its own promises, and main tries it the same way again before it keeps it.
  */
 
+import { instanceGraph } from '../graph/lib/instanceContext';
+import { captureEditOrigin, requireEditOrigin } from '../graph/lib/editOrigin';
 import { i18n } from '../../i18n';
 import { showToast } from '../../ui/toastStore';
 import { useGraphStore } from '../../state/graphState';
@@ -21,7 +23,7 @@ import { draftFromDoc, draftFromGraph, docFromDraft, lessonIdFrom, type ClassInf
 import { checkLessonDoc, myLessonId, type LessonCheck, type LessonImportOutcome, type MyLesson } from '../../../shared/lessons/share/mine';
 import { catalogShapes } from '../../../shared/lessons/share/tryLesson';
 import type { NodeClassDetail } from '../../../shared/contracts/knowledge';
-import { lessonGraphOf } from './lessonModel';
+import { lessonGraphInContext } from './lessonModel';
 
 /** Catalog details by class; null for a class the catalog does not have. */
 type Details = Record<string, NodeClassDetail | null>;
@@ -42,12 +44,14 @@ function language(): 'en' | 'ru' {
 
 /** Opens the editor in the Lessons panel with a lesson made from the graph on the canvas. */
 export async function makeLessonFromGraph(): Promise<void> {
-  const graph = useGraphStore.getState();
+  const origin = captureEditOrigin();
+  const graph = instanceGraph(useGraphStore.getState());
   const request = useNodeInfoStore.getState().request;
   const classes = [...new Set(graph.nodes.map((node) => node.data?.comfyType).filter((type): type is string => typeof type === 'string'))];
   await Promise.all(classes.map((classType) => request(classType).catch(() => null)));
+  if (!requireEditOrigin(origin)) return;
   const details = useNodeInfoStore.getState().details as Details;
-  const model = draftFromGraph(lessonGraphOf(graph.nodes, graph.edges, details), (classType) => classInfoOf(details[classType]), language());
+  const model = draftFromGraph(lessonGraphInContext(graph, details), (classType) => classInfoOf(details[classType]), language());
   if (!model) {
     showToast({ id: 'lesson-editor', tone: 'info', title: String(i18n.t('lessonFiles.editor.emptyGraph')), duration: 5000 });
     return;

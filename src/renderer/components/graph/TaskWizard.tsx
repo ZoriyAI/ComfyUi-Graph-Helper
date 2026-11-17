@@ -59,7 +59,7 @@ export default function TaskWizard({ request }: { request: SubgraphWizardRequest
       const pos = await placeNewNode(null, { size: { width: 320, height: 240 } }); if (!requireEditOrigin(origin) || useProjectionStore.getState().currentRevisionId !== request.revisionId) return;
       const result = await commitManual({ type: 'insert-blueprint', templateId: template.id, name: name.trim(), description, x: pos.x, y: pos.y, ...(request.levelId ? { destinationDefinitionId: request.levelId } : {}), upgradeToV1: upgrade }, 'task-wizard') as { status?: string; result?: { nodeId?: string; definitionId?: string } } | null;
       if (result?.status !== 'applied') { setError(String(t('subgraphWizard.failed'))); return; }
-      close(); requestWorkspacePanel('canvas'); if (enter && result.result?.definitionId) useGraphStore.getState().enterSubgraph(result.result.definitionId); else revealNewNode(result.result?.nodeId ?? null);
+      close(); requestWorkspacePanel('canvas'); if (enter && result.result?.definitionId) useGraphStore.getState().enterSubgraph(result.result.definitionId, result.result.nodeId); else revealNewNode(result.result?.nodeId ?? null);
     } catch { setError(String(t('subgraphWizard.failed'))); } finally { setBusy(false); }
   };
   const ports = (side: 'inputs' | 'outputs') => <section><h3>{t(`subgraphWizard.${side}`)}</h3>{facts?.[side].map((port, index) => <div key={`${side}-${index}`} className={styles.templatePort}><strong>{port.name} <code>{port.type}</code></strong><p>{TYPE_HELP[port.type]?.[language] ?? t('taskWizard.nativeType')}</p></div>)}</section>;

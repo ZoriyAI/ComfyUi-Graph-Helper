@@ -333,13 +333,11 @@ function NodeSection({ node, edges }: { node: GraphNode; edges: GraphEdge[] }) {
           <h2 className={styles.h2}>
             {/* A class name wraps between its words, as on the node. */}
             {titleParts(title).map((part, index) => (
-              // eslint-disable-next-line react/no-array-index-key
               <React.Fragment key={index}>{index > 0 ? <wbr /> : null}{part}</React.Fragment>
             ))}
           </h2>
           <p className={`inspector-type ${styles.mono} ${styles.classLine}`}>
             {titleParts(instance ? definition?.name ?? data.comfyType : data.comfyType).map((part, index) => (
-              // eslint-disable-next-line react/no-array-index-key
               <React.Fragment key={index}>{index > 0 ? <wbr /> : null}{part}</React.Fragment>
             ))}
           </p>
@@ -386,7 +384,7 @@ function NodeSection({ node, edges }: { node: GraphNode; edges: GraphEdge[] }) {
             </div>
           ) : null}
           <div className={styles.actions}>
-            <button type="button" className={`ghost-button ${styles.action} ${styles.actionMain}`} onClick={() => enter(definition.id)}><LogIn size={16} aria-hidden="true" />{t('inspector.enter')}</button>
+            <button type="button" className={`ghost-button ${styles.action} ${styles.actionMain}`} onClick={() => enter(definition.id, node.id)}><LogIn size={16} aria-hidden="true" />{t('inspector.enter')}</button>
             {/* Dissolving puts the nodes on the root canvas, so it is offered there only. */}
             {definitionId ? null : <button type="button" className={`ghost-button ${styles.action}`} onClick={() => void commitManual({ type: 'dissolve-subgraph', nodeId: node.id }, 'dissolve')}><Ungroup size={16} aria-hidden="true" />{t('inspector.dissolve')}</button>}
           </div>

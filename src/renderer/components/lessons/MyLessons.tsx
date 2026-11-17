@@ -18,7 +18,7 @@ import { fitLines, packOf } from '../../../shared/lessons/fit';
 import { docWords } from '../../../shared/lessons/share/format';
 import { isAdultMine, myEngineLesson, type MyLesson } from '../../../shared/lessons/share/mine';
 import type { NodeClassDetail } from '../../../shared/contracts/knowledge';
-import { useLessonStore } from '../../state/lessonState';
+import { lessonStoredProgress, useLessonStore } from '../../state/lessonState';
 import { useMyLessonsStore } from '../../state/myLessonsState';
 import { useUiStore } from '../../state/uiState';
 import { openHelp } from '../../services/help';
@@ -37,6 +37,7 @@ const NONE: readonly string[] = [];
 
 /** What the list shares with this group: the catalog as the lessons see it, the canvas, the facts. */
 export interface MyLessonsShared {
+  scope: string;
   details: Record<string, NodeClassDetail | null>;
   ports: ClassPorts;
   catalogRead: boolean;
@@ -138,8 +139,9 @@ export function MyLessonNotice({ lessonId }: { lessonId: string }) {
 /** One of the person's lessons as a card: origin, fit, progress, and edit, export, 18+ mark and remove. */
 function MyLessonCard({ lesson, shared }: { lesson: MyLesson; shared: MyLessonsShared }) {
   const { t, i18n } = useTranslation();
-  const read = useLessonStore((state) => state.read[lesson.id]) ?? NONE;
-  const doneIds = useLessonStore((state) => state.done);
+  const read = useLessonStore((state) => lessonStoredProgress(state, shared.scope).read[lesson.id]) ?? NONE;
+  const answers = useLessonStore(state => lessonStoredProgress(state, shared.scope).answers[lesson.id]);
+  const doneIds = useLessonStore((state) => lessonStoredProgress(state, shared.scope).done);
   const start = useLessonStore((state) => state.start);
   const again = useLessonStore((state) => state.again);
   const refresh = useMyLessonsStore((state) => state.refresh);
@@ -148,7 +150,7 @@ function MyLessonCard({ lesson, shared }: { lesson: MyLesson; shared: MyLessonsS
   const words = docWords(lesson.doc, i18n.language);
   const gaps = shared.catalogRead ? lessonGaps(engine, shared.ports) : [];
   const lines = gaps.length > 0 ? fitLines({ gaps, blockedBy: null }, (key, values) => String(t(key, values ?? {})), (classType) => shared.details[classType]?.displayName || classType, (id) => id) : [];
-  const progress = lessonProgress(engine, shared.graph, shared.facts, new Set(read));
+  const progress = lessonProgress(engine, shared.graph, shared.facts, new Set(read), answers);
   const total = engine.steps.length;
   const finished = progress.current >= total;
   const started = progress.current > 0 && !finished;
@@ -158,7 +160,7 @@ function MyLessonCard({ lesson, shared }: { lesson: MyLesson; shared: MyLessonsS
   const remove = async () => {
     setConfirming(false);
     if (await window.electronAPI?.removeMyLesson?.(lesson.id)) {
-      again(lesson.id);
+      again(lesson.id, shared.scope);
       await refresh();
       showToast({ id: 'lesson-removed', tone: 'success', title: String(t('lessonFiles.removed')), duration: 4000 });
     }
@@ -193,7 +195,7 @@ function MyLessonCard({ lesson, shared }: { lesson: MyLesson; shared: MyLessonsS
       ) : (
         <div className={panel.cardActions}>
           {finished ? (
-            <Button variant="subtle" size="sm" icon={<RotateCcw size={14} />} disabled={blocked} onClick={() => { again(lesson.id); start(lesson.id); }}>{t('lessons.again')}</Button>
+            <Button variant="subtle" size="sm" icon={<RotateCcw size={14} />} disabled={blocked} onClick={() => { again(lesson.id, shared.scope); start(lesson.id); }}>{t('lessons.again')}</Button>
           ) : (
             <Button variant={started ? 'primary' : 'subtle'} quiet size="sm" icon={<ArrowRight size={14} />} disabled={blocked} onClick={() => start(lesson.id)}>
               {started ? t('lessons.resume') : t('lessons.start')}
@@ -221,7 +223,7 @@ export function MyLessonsGroup({ shared, adultOn }: { shared: MyLessonsShared; a
   const lessons = useMyLessons();
   const request = useNodeInfoStore((state) => state.request);
   const openSettings = useUiStore((state) => state.openSettings);
-  const doneIds = useLessonStore((state) => state.done);
+  const doneIds = useLessonStore((state) => lessonStoredProgress(state, shared.scope).done);
   const classes = useMemo(() => [...new Set(lessons.flatMap((lesson) => lesson.doc.steps.flatMap((step) => (step.roles ?? []).flatMap((spec) => spec.classes))))], [lessons]);
   // The catalog details of every class the person's lessons name, so their fit and names can be read.
   useEffect(() => {

@@ -40,7 +40,7 @@ A lesson that your ComfyUI cannot do shows its first reason; the rest are under 
 - **Steps of the lesson** lists the steps near the current one, each "done" or "now"; steps still to come are hollow dots. **All steps (N)** shows the whole list. **To the current step** comes back from an earlier one.
 - At the end: "The lesson is done. Everything this lesson is about is on the canvas.", "N of N" with a full bar, **Save workflow for ComfyUI…** and **Start the next lesson** (the next lesson of the list that fits your ComfyUI and whose earlier lessons are done; never a lesson for adults).
 
-Lessons follow the main canvas: inside a subgraph the tab says "Lessons follow the main canvas. Leave the subgraph to go on."
+Lessons follow the open canvas or subgraph copy. A context banner identifies the copy, explains which edits are shared and offers a return to the main canvas. Each copy keeps its own reading, answers and outcomes after restart; re-enter that copy to resume. “Show me where” and “Do this for me” work inside the graph. Externally connected values must be checked at their source, not against the ignored fallback widget.
 
 ## My lessons
 

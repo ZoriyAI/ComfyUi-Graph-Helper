@@ -206,7 +206,7 @@ export default function GraphContextMenu({ children, nodes: levelNodes, edges, r
       );
       if (instance) {
         items.push(
-          item('enter', t('contextMenu.enter'), () => enter(definitionId), { icon: Layers, disabled: readOnly }),
+          item('enter', t('contextMenu.enter'), () => enter(definitionId, node.id), { icon: Layers, disabled: readOnly }),
           item('dissolve', t('contextMenu.dissolve'), () => void dissolveSubgraph(node.id), { icon: Ungroup, disabled: !canBuild }),
         );
       }

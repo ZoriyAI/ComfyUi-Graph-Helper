@@ -13,10 +13,11 @@ import styles from './Toolbar.module.css';
 export default function SubgraphBreadcrumb() {
   const { t } = useTranslation();
   const path = useGraphStore((state) => state.subgraphPath);
+  const instances = useGraphStore(state => state.subgraphInstancePath);
   const subgraphs = useGraphStore((state) => state.subgraphs);
   const exit = useGraphStore((state) => state.exitSubgraph);
   if (path.length === 0) return null;
-  const crumbs = breadcrumb(path, subgraphs);
+  const crumbs = breadcrumb(path, subgraphs).map((crumb, index) => ({ ...crumb, name: instances[index] ? String(t('lessons.instanceContext', { name: crumb.name, id: instances[index] })) : crumb.name }));
   return (
     <div className={styles.crumbBar}>
       <nav className={styles.crumbs} aria-label={String(t('canvas.breadcrumb'))}>

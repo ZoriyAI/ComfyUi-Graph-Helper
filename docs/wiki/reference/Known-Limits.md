@@ -76,7 +76,7 @@ what to expect. Wishes go to the project's Discussions, problems to its Issues.
 
 ## The assistant and lessons
 
-- The assistant can construct and edit native inner graphs, including definitions from earlier turns. Built-in lessons currently check the main canvas.
+- The assistant can construct and edit native inner graphs, including definitions from earlier turns. Lessons check the displayed canvas or subgraph copy, with separately saved answers for each nested instance. Promoted settings belong to the selected copy; the definition’s structure and unpromoted fields are shared.
 - A pause at a pause point (the step limit) does not survive a restart of the app: ask again after the restart.
 - The quality of answers depends on the model. Small local models with a small context window lose track of long
   builds. [The context window](../assistant/Context-Window.md)

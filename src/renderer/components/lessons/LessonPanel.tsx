@@ -11,11 +11,12 @@
  *
  * Who uses it: chat/ChatDock.tsx renders it in place of the conversation while Learn mode is on.
  */
+import { useProjectionStore } from '../../services/commands/projection';
+import { lessonContextKey, useInstanceGraph } from '../graph/lib/instanceContext';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ArrowLeft, ArrowRight, Check, ChevronRight, CircleDashed, CircleDot, Crosshair, FolderOutput, GraduationCap, Lock, MessageCircleQuestion, Plug, RotateCcw, Settings, Wand2 } from 'lucide-react';
-import type { TFunction } from 'i18next';
-import { lessonOutcomes, lessonProgress, type ClassPorts, type Lesson, type LessonFacts, type LessonGraph, type Missing } from '../../../shared/lessons/engine';
+import { lessonOutcomes, lessonProgress, type ClassPorts, type Lesson, type LessonFacts, type LessonGraph } from '../../../shared/lessons/engine';
 import { ADULT_GROUP, isAdultLesson, lessonById, nextLesson as nextLessonOf } from '../../../shared/lessons/lessons';
 import { adultContentOn } from '../../../shared/config/preferences';
 import { lessonDependencies, lessonGroups, lessonLevels, trackLessons, trackPath } from '../../../shared/lessons/navigation';
@@ -26,7 +27,7 @@ import { lessonWords, withNodeNames } from '../../../shared/lessons/texts';
 import type { NodeClassDetail } from '../../../shared/contracts/knowledge';
 import { runCommand } from '../../commands/registry';
 import { useGraphStore } from '../../state/graphState';
-import { shownLesson, useLessonStore } from '../../state/lessonState';
+import { lessonStoredProgress, lessonReachedKey, shownLesson, useLessonStore } from '../../state/lessonState';
 import { usePreferencesStore } from '../../state/preferencesState';
 import { useUiStore } from '../../state/uiState';
 import Button from '../../ui/Button';
@@ -50,6 +51,7 @@ type Details = Record<string, NodeClassDetail | null>;
 
 /** What every part of the panel reads: the catalog, the lesson view of the graph, and facts about it. */
 interface Shared {
+  scope: string;
   details: Details;
   ports: ClassPorts;
   catalogRead: boolean;
@@ -102,10 +104,10 @@ function UnfitReasons({ lines }: { lines: string[] }) {
 /** The list of lessons by group, by level, by track or as a path, each card with its state, fit and dependencies, then the person's own lessons. */
 function LessonList({ shared, adultOn }: { shared: Shared; adultOn: boolean }) {
   const { t, i18n } = useTranslation();
-  const read = useLessonStore((state) => state.read);
-  const done = useLessonStore((state) => state.done);
-  const answersAll = useLessonStore((state) => state.answers);
-  const outcomesAll = useLessonStore((state) => state.outcomes);
+  const read = useLessonStore((state) => lessonStoredProgress(state, shared.scope).read);
+  const done = useLessonStore((state) => lessonStoredProgress(state, shared.scope).done);
+  const answersAll = useLessonStore((state) => lessonStoredProgress(state, shared.scope).answers);
+  const outcomesAll = useLessonStore((state) => lessonStoredProgress(state, shared.scope).outcomes);
   const start = useLessonStore((state) => state.start);
   const again = useLessonStore((state) => state.again);
   const openSettings = useUiStore((state) => state.openSettings);
@@ -160,7 +162,7 @@ function LessonList({ shared, adultOn }: { shared: Shared; adultOn: boolean }) {
         {gaps.length > 0 ? <UnfitReasons lines={gaps} /> : null}
         <div className={styles.cardActions}>
           {finished ? (
-            <Button variant="subtle" size="sm" icon={<RotateCcw size={14} />} disabled={blocked} onClick={() => { again(lesson.id); start(lesson.id); }}>{t('lessons.again')}</Button>
+            <Button variant="subtle" size="sm" icon={<RotateCcw size={14} />} disabled={blocked} onClick={() => { again(lesson.id, shared.scope); start(lesson.id); }}>{t('lessons.again')}</Button>
           ) : (
             <Button variant={started ? 'primary' : 'subtle'} quiet size="sm" icon={<ArrowRight size={14} />} disabled={blocked} onClick={() => start(lesson.id)}>
               {started ? t('lessons.resume') : t('lessons.start')}
@@ -253,8 +255,8 @@ function LessonList({ shared, adultOn }: { shared: Shared; adultOn: boolean }) {
  */
 function LessonRun({ lesson, shared, onAsk }: { lesson: Lesson; shared: Shared; onAsk: (question: string) => void }) {
   const { t, i18n } = useTranslation();
-  const readIds = useLessonStore((state) => state.read[lesson.id]) ?? NONE;
-  const answers = useLessonStore((state) => state.answers[lesson.id]) ?? NO_ANSWERS;
+  const readIds = useLessonStore((state) => lessonStoredProgress(state, shared.scope).read[lesson.id]) ?? NONE;
+  const answers = useLessonStore((state) => lessonStoredProgress(state, shared.scope).answers[lesson.id]) ?? NO_ANSWERS;
   const answer = useLessonStore((state) => state.answer);
   const clearAnswers = useLessonStore((state) => state.clearAnswers);
   const setOutcomes = useLessonStore((state) => state.setOutcomes);
@@ -265,14 +267,14 @@ function LessonRun({ lesson, shared, onAsk }: { lesson: Lesson; shared: Shared; 
   const finish = useLessonStore((state) => state.finish);
   const start = useLessonStore((state) => state.start);
   const again = useLessonStore((state) => state.again);
-  const inSubgraph = useGraphStore((state) => state.activeSubgraphId !== null);
-  const doneIds = useLessonStore((state) => state.done);
-  const reached = useLessonStore((state) => state.reached[lesson.id]);
+  const doneIds = useLessonStore((state) => lessonStoredProgress(state, shared.scope).done);
+  const reached = useLessonStore((state) => state.reached[lessonReachedKey(lesson.id, shared.scope)]);
   const reach = useLessonStore((state) => state.reach);
   const words = lessonWords(i18n.language, lesson.id) ?? myLessonWords(i18n.language, lesson.id);
   const facts = useMemo(() => ({ ...shared.facts, read: shared.readFacts }), [shared.facts, shared.readFacts]);
   const progress = useMemo(() => lessonProgress(lesson, shared.graph, facts, new Set(readIds), answers), [lesson, shared.graph, facts, readIds, answers]);
   const outcomes = useMemo(() => lessonOutcomes(lesson, progress, answers, shared.graph, facts), [lesson, progress, answers, shared.graph, facts]);
+  const currentStep = progress.current;
   const total = lesson.steps.length;
   const finished = progress.current >= total;
   // A step looked at again from the list; moving on in the lesson returns to the current one.
@@ -280,28 +282,28 @@ function LessonRun({ lesson, shared, onAsk }: { lesson: Lesson; shared: Shared; 
   const [busy, setBusy] = useState(false);
   const [allSteps, setAllSteps] = useState(false);
   const folded = !allSteps && lesson.steps.length > FOLD_STEPS_OVER;
-  useEffect(() => setPeek(null), [progress.current, lesson.id]);
-  useEffect(() => setLacksOpen(false), [progress.current, lesson.id]);
+  useEffect(() => setPeek(null), [currentStep, lesson.id]);
+  useEffect(() => setLacksOpen(false), [currentStep, lesson.id]);
   // The outcomes reached are kept for the list; one reached once stays (a later lesson may rewire the canvas).
   const outcomesKey = storedOutcomes(outcomes).join(',');
   useEffect(() => {
-    const kept = useLessonStore.getState().outcomes[lesson.id] ?? [];
+    const kept = lessonStoredProgress(useLessonStore.getState(), shared.scope).outcomes[lesson.id] ?? [];
     const merged = [...new Set([...kept, ...storedOutcomes(outcomes)])];
     // A run on the app's check replaces the person's word for it, never the other way round.
     const next = merged.includes('run-app') ? merged.filter((item) => item !== 'run-self') : merged;
-    setOutcomes(lesson.id, next.sort());
+    setOutcomes(lesson.id, next.sort(), shared.scope);
     // `outcomesKey` stands for the outcomes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [outcomesKey, lesson.id, setOutcomes]);
+  }, [outcomesKey, lesson.id, setOutcomes, shared.scope]);
   // The canvas follows the lesson: focus on the step's place, a flash for a passed step (motion package).
   useLessonMotion(lesson.id, progress, !finished);
   useEffect(() => {
-    if (finished) finish(lesson.id);
-  }, [finished, finish, lesson.id]);
+    if (finished) finish(lesson.id, shared.scope);
+  }, [finished, finish, lesson.id, shared.scope]);
   // The furthest step reached: a lesson the canvas takes back behind it says so.
   useEffect(() => {
-    if (progress.current > (reached ?? -1)) reach(lesson.id, progress.current);
-  }, [progress.current, reached, reach, lesson.id]);
+    if (currentStep > (reached ?? -1)) reach(lesson.id, currentStep, shared.scope);
+  }, [currentStep, reached, reach, lesson.id, shared.scope]);
   const steppedBack = reached !== undefined && progress.current < reached && !finished;
   // What "show me where" lit on the canvas goes out when the thing it pointed at is done, and with the lesson.
   const lack = progress.missing[0];
@@ -352,7 +354,6 @@ function LessonRun({ lesson, shared, onAsk }: { lesson: Lesson; shared: Shared; 
           </div>
         </div>
       </header>
-      {inSubgraph ? <p className={styles.notice} role="note">{t('lessons.inSubgraph')}</p> : null}
       {peek === null && !finished ? (progress.hints ?? []).map((hint) => (
         <p key={`${hint.kind}-${hint.kind === 'field' ? `${hint.nodeId}.${hint.field}` : ''}`} className={styles.notice} role="note" data-lesson-hint="">
           {lackText(t, hint, lesson, { details: shared.details, graph: shared.graph, facts: shared.facts, roles: progress.roles, language: i18n.language, roleLabels: words.roles })}
@@ -378,7 +379,7 @@ function LessonRun({ lesson, shared, onAsk }: { lesson: Lesson; shared: Shared; 
           ) : null}
           <div className={styles.actions}>
             <Button variant={nextLesson && nextTitle ? 'subtle' : 'primary'} quiet size="sm" icon={<FolderOutput size={14} />} onClick={() => void runCommand('file.export')}>{t('lessons.save')}</Button>
-            <Button variant="subtle" size="sm" icon={<RotateCcw size={14} />} onClick={() => again(lesson.id)}>{t('lessons.again')}</Button>
+            <Button variant="subtle" size="sm" icon={<RotateCcw size={14} />} onClick={() => again(lesson.id, shared.scope)}>{t('lessons.again')}</Button>
           </div>
           {nextLesson && nextTitle ? (
             // Going on is the path, saving is optional: the next lesson carries the primary button.
@@ -404,13 +405,13 @@ function LessonRun({ lesson, shared, onAsk }: { lesson: Lesson; shared: Shared; 
               answers={answers[step.id] ?? {}}
               graph={shared.graph}
               facts={shared.readFacts}
-              onAnswer={(itemId, value) => answer(lesson.id, step.id, itemId, value)}
-              onClear={() => clearAnswers(lesson.id, step.id)}
+              onAnswer={(itemId, value) => answer(lesson.id, step.id, itemId, value, shared.scope)}
+              onClear={() => clearAnswers(lesson.id, step.id, shared.scope)}
             />
           ) : null}
           {current && step.read ? (
             <div className={styles.actions}>
-              <Button variant="primary" quiet size="sm" icon={<ArrowRight size={14} />} onClick={() => markRead(lesson.id, step.id)}>{t('lessons.understood')}</Button>
+              <Button variant="primary" quiet size="sm" icon={<ArrowRight size={14} />} onClick={() => markRead(lesson.id, step.id, shared.scope)}>{t('lessons.understood')}</Button>
             </div>
           ) : null}
           {current && !step.read && !person ? (
@@ -439,7 +440,7 @@ function LessonRun({ lesson, shared, onAsk }: { lesson: Lesson; shared: Shared; 
                 </> : null}
                 {first ? (
                   <Button
-                    variant="primary" quiet size="sm" icon={<Crosshair size={14} />} disabled={inSubgraph}
+                    variant="primary" quiet size="sm" icon={<Crosshair size={14} />}
                     data-lesson-target={first.kind === 'field' ? first.nodeId : first.kind === 'link' ? first.to.nodeId : undefined}
                     onClick={() => showMissing(first, lesson, shared.graph, shared.details)}
                   >{t('lessons.show')}</Button>
@@ -450,7 +451,6 @@ function LessonRun({ lesson, shared, onAsk }: { lesson: Lesson; shared: Shared; 
                     size="sm"
                     icon={<Wand2 size={14} />}
                     loading={busy}
-                    disabled={inSubgraph}
                     onClick={() => {
                       setBusy(true);
                       void doFix(fix, first.kind === 'node' ? { lesson, role: first.role, roles: progress.roles } : undefined).finally(() => setBusy(false));
@@ -519,6 +519,18 @@ function LessonRun({ lesson, shared, onAsk }: { lesson: Lesson; shared: Shared; 
 
 /** The Learn panel: the editor, an open lesson or the list. `onAsk` sends a question about a step to the chat. */
 export default function LessonPanel({ onAsk }: { onAsk: (question: string) => void }) {
+  const { t } = useTranslation();
+  const view = useInstanceGraph();
+  const projectId = useProjectionStore(state => state.projectId);
+  const graphKey = useProjectionStore(state => state.graphKey);
+  const path = useGraphStore(state => state.subgraphPath);
+  const instances = useGraphStore(state => state.subgraphInstancePath);
+  const scope = lessonContextKey(useGraphStore.getState(), projectId, graphKey);
+  const instanceId = instances[path.length - 1];
+  const parentPath = path.slice(0, -1).map((id, index) => {
+    const name = useGraphStore.getState().subgraphs.find(item => item.id === id)?.name ?? '';
+    return instances[index] ? String(t('lessons.instanceContext', { name, id: instances[index] })) : name;
+  }).join(' → ');
   const persistence = useLessonStore(state => state.persistence);
   const loadError = useMyLessonsStore(state => state.error);
   const loading = useMyLessonsStore(state => state.loading);
@@ -533,12 +545,19 @@ export default function LessonPanel({ onAsk }: { onAsk: (question: string) => vo
   const shownId = shownLesson(active, adultOn);
   const lesson = shownId ? lessonById(shownId) ?? myLessonById(shownId) : null;
   const readFacts = useReadFacts(lesson, graph, catalog.details, catalog.read);
-  const shared: Shared = { details: catalog.details, ports: catalog.ports, catalogRead: catalog.read, graph, facts, readFacts };
+  const shared: Shared = { scope, details: catalog.details, ports: catalog.ports, catalogRead: catalog.read, graph, facts, readFacts };
   return (
     <div className={`lesson-panel ${styles.panel}`} data-lesson={editing ? 'editor' : lesson?.id ?? 'list'}>
+      {view.definition ? <div className={styles.notice} role="note" data-lesson-context={scope}>
+        {parentPath ? <p>{parentPath}</p> : null}
+        <strong>{t(instanceId ? 'lessons.instanceContext' : 'lessons.definitionContext', { name: view.definition.name, id: instanceId })}</strong>
+        <p>{t('lessons.inSubgraph')}</p>
+        {view.external.size > 0 ? <p>{t('lessons.externalValue')}</p> : null}
+        <Button size="sm" variant="subtle" onClick={() => useGraphStore.getState().exitSubgraph()}>{t('lessons.rootContext')}</Button>
+      </div> : null}
       {persistence === 'failed' ? <RecoveryNotice kind="progress" saving retry={() => useLessonStore.getState().retrySave()} /> : null}
       {loadError ? <RecoveryNotice kind="lessons" retry={() => void useMyLessonsStore.getState().refresh()} /> : loading ? <RecoveryNotice kind="lessons" loading /> : null}
-      {editing ? <LessonEditor editing={editing} /> : lesson ? <LessonRun lesson={lesson} shared={shared} onAsk={onAsk} /> : <LessonList shared={shared} adultOn={adultOn} />}
+      {editing ? <LessonEditor editing={editing} /> : lesson ? <LessonRun key={JSON.stringify([scope, lesson.id])} lesson={lesson} shared={shared} onAsk={onAsk} /> : <LessonList shared={shared} adultOn={adultOn} />}
     </div>
   );
 }

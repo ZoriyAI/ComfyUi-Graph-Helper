@@ -31,7 +31,7 @@ export default function SubgraphNode({ id, data, selected }: { id: string; data:
   // A title a person gave; an imported node without one arrives with its class (the subgraph's id) as its title.
   const ownTitle = hasOwnTitle(data);
   return (
-    <div className={styles.subgraphWrap} onDoubleClick={canEnter ? () => enter(definitionId) : undefined}>
+    <div className={styles.subgraphWrap} onDoubleClick={canEnter ? () => enter(definitionId, id) : undefined}>
       <NodeCard
         id={id}
         // A subgraph without a title of its own is called by the subgraph's name, never by its id.
@@ -47,7 +47,7 @@ export default function SubgraphNode({ id, data, selected }: { id: string; data:
             tabIndex={selected ? 0 : -1}
             onClick={(event) => {
               event.stopPropagation();
-              enter(definitionId);
+              enter(definitionId, id);
             }}
           >
             <LogIn size={12} aria-hidden="true" />

@@ -4,6 +4,7 @@
  * lessons and the editing commands all commit through it, so every manual edit is one undo step, is refused during a
  * replay, and never starts the live-build reveal meant for the assistant's edits.
  */
+import { instanceGraph, instanceParameterMutation, parameterAddress } from './lib/instanceContext';
 import type { GraphMutation } from '../../../shared/commands/types';
 import { SUBGRAPH_INPUT_NODE_ID, SUBGRAPH_OUTPUT_NODE_ID } from '../../../shared/graph/subgraphs';
 import { translateKnownError } from '../../../shared/i18n';
@@ -57,6 +58,12 @@ export function scopedToLevel(payload: GraphMutation): GraphMutation {
   // An opaque definition (one the app cannot model) has no inner ids to check against: the edit goes out unchanged.
   const definition = graph.subgraphs.find((item) => item.id === definitionId && !item.opaque);
   if (!definition) return payload;
+  if (payload.type === 'set-parameter') {
+    const view = instanceGraph(graph);
+    if (view.owners.has(parameterAddress(payload.nodeId, payload.key))) {
+      return instanceParameterMutation(view, payload.nodeId, payload.key, payload.value) ?? payload;
+    }
+  }
   const nodeIds = new Set(definition.nodes.map((node) => String(node.id)));
   const edgeIds = new Set(definition.edges.map((edge) => String(edge.id)));
   // A batch's "@k" names a node an earlier edit of the same batch adds: inside a definition that is an inner node.
@@ -98,8 +105,13 @@ export function commitManual(payload: GraphMutation, prefix = 'manual', options:
     sayReplayLocked();
     return Promise.resolve(null);
   }
+  if (options.level !== 'root' && payload.type === 'set-parameter'
+    && instanceGraph(useGraphStore.getState()).external.has(parameterAddress(payload.nodeId, payload.key))) {
+    showToast({ id: 'external-field', tone: 'info', title: translate('lessons.externalValue') });
+    return Promise.resolve(null);
+  }
   canvas.beginManual();
-  // Lessons follow the main canvas: they pass level 'root', so their edits never land in an open subgraph.
+  // An already-resolved destination may bypass level scoping (for a promoted value owned by an outer copy).
   return submitManual(`${prefix}-${crypto.randomUUID()}`, options.level === 'root' ? payload : scopedToLevel(payload), options.context)
     .then((result) => {
       reportRefusal(result);

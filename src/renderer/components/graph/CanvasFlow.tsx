@@ -31,7 +31,8 @@ import { moveAnnouncement, type Translator } from '../../../shared/i18n';
 import { portsCompatible } from '../../../shared/graph/linkTypes';
 import { createsCycle } from '../../../shared/graph/cycles';
 import { SUBGRAPH_INPUT_NODE_ID, SUBGRAPH_OUTPUT_NODE_ID } from '../../../shared/graph/subgraphs';
-import { pruneSubgraphPath, useGraphStore } from '../../state/graphState';
+import { useInstanceGraph, validInstanceDepth } from './lib/instanceContext';
+import { useGraphStore } from '../../state/graphState';
 import { useUiStore } from '../../state/uiState';
 import { useKnowledgeStore } from '../../state/knowledgeState';
 import type { BoundaryNode, GraphEdge, GraphNode, PortDefinition } from '../../types/graph';
@@ -170,6 +171,9 @@ export default function CanvasFlow() {
   const setRootEdges = useGraphStore((state) => state.setEdges);
   const subgraphs = useGraphStore((state) => state.subgraphs);
   const subgraphPath = useGraphStore((state) => state.subgraphPath);
+  const instancePath = useGraphStore(state => state.subgraphInstancePath);
+  const effective = useInstanceGraph();
+  const levelKey = JSON.stringify([subgraphPath, instancePath]);
   const activeSubgraphId = useGraphStore((state) => state.activeSubgraphId);
   const exitSubgraph = useGraphStore((state) => state.exitSubgraph);
   const replay = useCanvasStore((state) => state.replay);
@@ -185,9 +189,9 @@ export default function CanvasFlow() {
 
   // A dissolve or an import can remove a definition the breadcrumb points into.
   useEffect(() => {
-    const kept = pruneSubgraphPath(subgraphPath, subgraphs);
-    if (kept.length !== subgraphPath.length) exitSubgraph(kept.length);
-  }, [subgraphPath, subgraphs, exitSubgraph]);
+    const kept = validInstanceDepth(useGraphStore.getState());
+    if (kept !== subgraphPath.length) exitSubgraph(kept);
+  }, [subgraphPath, instancePath, subgraphs, rootNodes, exitSubgraph]);
 
   const definition = activeSubgraphId ? subgraphs.find((item) => item.id === activeSubgraphId) : undefined;
   const [inner, setInner] = useState<{ id: string; nodes: LevelNode[]; edges: GraphEdge[] } | null>(null);
@@ -196,11 +200,11 @@ export default function CanvasFlow() {
       setInner(null);
       return;
     }
-    const view = definitionView(definition);
+    const view = definitionView({ ...definition, nodes: effective.nodes });
     setInner((current) => {
       // Inner nodes take the saved positions (moves are saved, and undo must show the earlier place). The boundary
       // nodes' places are on screen only: keep them when the same definition refreshes, drop them otherwise.
-      if (current?.id !== definition.id) return { id: definition.id, ...view };
+      if (current?.id !== levelKey) return { id: levelKey, ...view };
       const moved = new Map(current.nodes.filter((node) => node.type === 'boundary').map((node) => [node.id, node.position]));
       const selected = new Set(current.nodes.filter((node) => node.selected).map((node) => node.id));
       const pending = pendingSelect.current;
@@ -209,9 +213,9 @@ export default function CanvasFlow() {
         selected.clear();
         pending.forEach((id) => selected.add(id));
       }
-      return { id: definition.id, nodes: view.nodes.map((node) => ({ ...node, position: moved.get(node.id) ?? node.position, selected: selected.has(node.id) })), edges: view.edges };
+      return { id: levelKey, nodes: view.nodes.map((node) => ({ ...node, position: moved.get(node.id) ?? node.position, selected: selected.has(node.id) })), edges: view.edges };
     });
-  }, [definition]);
+  }, [definition, effective.nodes, levelKey]);
 
   // A node that a version leaves as it was keeps its object from the version shown before (motion package): React
   // Flow then keeps what it measured, and its links no longer vanish for a frame between two versions.
@@ -254,8 +258,8 @@ export default function CanvasFlow() {
       setInnerView(null);
       return;
     }
-    setInnerView({ definitionId: inner.id, nodes: inner.nodes, edges: inner.edges, select });
-  }, [mode, inner, select]);
+    setInnerView({ definitionId: activeSubgraphId!, instanceKey: inner.id, nodes: inner.nodes, edges: inner.edges, select });
+  }, [mode, inner, select, activeSubgraphId]);
   useEffect(() => () => setInnerView(null), []);
 
   // Escape goes one level up out of an open subgraph, once nothing else that Escape closes is open (a search,
@@ -276,8 +280,8 @@ export default function CanvasFlow() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [mode]);
-  const nodes: LevelNode[] = mode === 'replay' ? replayView?.nodes ?? [] : mode === 'definition' ? inner!.nodes : rootNodes;
-  const edges: GraphEdge[] = mode === 'replay' ? replayView?.edges ?? [] : mode === 'definition' ? inner!.edges : rootEdges;
+  const nodes = useMemo<LevelNode[]>(() => mode === 'replay' ? replayView?.nodes ?? [] : mode === 'definition' ? inner!.nodes : rootNodes, [mode, replayView, inner, rootNodes]);
+  const edges = useMemo<GraphEdge[]>(() => mode === 'replay' ? replayView?.edges ?? [] : mode === 'definition' ? inner!.edges : rootEdges, [mode, replayView, inner, rootEdges]);
   const readOnly = mode === 'replay';
   // The history glides moved nodes between versions too, once its first version is on screen; the first frame of
   // a level (entering or leaving the history) always starts where it is.

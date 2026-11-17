@@ -27,7 +27,7 @@ A lesson uses only nodes your ComfyUI has. One that needs a pack you do not have
 
 Your progress is read from the graph, so you can leave a lesson, ask or build, and come back with **Continue**. If a lesson was open when the app closed, Learn opens on it at the next start. A finished lesson stays **Done**; **Start over** begins it from step 1.
 
-You can also make your own lessons from a graph, import and export lesson files, and let the assistant draft one ("Draft a lesson"); nothing it drafts is kept until you accept it. See [The lessons tab](../interface/Lessons-Panel.md#my-lessons). Lessons for adults stay closed until the switch **Adult content (18+)** in Settings ▸ Privacy is on; see [Content rules](../trust/Content-Rules.md). The lessons follow the main canvas, not the inside of a subgraph.
+You can also make your own lessons from a graph, import and export lesson files, and let the assistant draft one ("Draft a lesson"); pending drafts survive a restart when chat history is enabled; accepting adds the lesson to My lessons. See [The lessons tab](../interface/Lessons-Panel.md#my-lessons). Lessons for adults stay closed until the switch **Adult content (18+)** in Settings ▸ Privacy is on; see [Content rules](../trust/Content-Rules.md). Lessons follow the displayed canvas or subgraph copy, with separate progress for each instance.
 
 ## See also
 

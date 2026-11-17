@@ -115,6 +115,28 @@ const providerEntry = z.object({
 
 const int = (range: { min: number; max: number; default: number }) => z.number().int().min(range.min).max(range.max).default(range.default);
 
+/** Persisted answers for one canvas context; no model text or files are stored here. */
+const lessonProgressSchema = z.object({
+    /** Lesson id → ids of its explaining steps the person has read and passed. */
+    read: z.record(z.string().regex(LESSON_KEY).max(70), z.array(z.string().regex(LESSON_ID).max(64)).max(100)).default({}),
+    done: z.array(z.string().regex(LESSON_KEY).max(70)).max(LESSONS_KEPT).default([]),
+    /**
+     * Lesson id → step id → item, criterion or question id → the answer: 'yes' for a ticked checklist item or "I
+     * checked it myself", else the id of the level or choice. Ids only, never a text or a picture.
+     */
+    answers: z.record(
+      z.string().regex(LESSON_KEY).max(70),
+      z.record(z.string().regex(LESSON_ID).max(64), z.record(z.string().regex(LESSON_ID).max(64), z.string().regex(ANSWER).max(64))),
+    ).default({}),
+    /**
+     * Lesson id → the outcomes reached (shared/lessons/steps.ts): 'structure' (checked by the app), 'run-app' or
+     * 'run-self' (run in ComfyUI, by the app's check or on the person's word), 'result' (the person's assessment).
+     * Kept so the list shows them without the lesson's canvas.
+     */
+    outcomes: z.record(z.string().regex(LESSON_KEY).max(70), z.array(z.enum(['structure', 'run-app', 'run-self', 'result'])).max(4)).default({}),
+});
+export type LessonStoredProgress = z.infer<typeof lessonProgressSchema>;
+
 /** The whole preferences object, section by section. `strict`: an unknown section is refused on write. */
 export const preferencesSchema = z.object({
   browserAccess: z.object({
@@ -228,23 +250,9 @@ export const preferencesSchema = z.object({
   lessons: z.object({
     /** The open lesson; '' when the list of lessons is. */
     active: z.string().regex(LESSON_KEY).max(70).or(z.literal('')).default(''),
-    /** Lesson id → ids of its explaining steps the person has read and passed. */
-    read: z.record(z.string().regex(LESSON_KEY).max(70), z.array(z.string().regex(LESSON_ID).max(64)).max(100)).default({}),
-    done: z.array(z.string().regex(LESSON_KEY).max(70)).max(LESSONS_KEPT).default([]),
-    /**
-     * Lesson id → step id → item, criterion or question id → the answer: 'yes' for a ticked checklist item or "I
-     * checked it myself", else the id of the level or choice. Ids only, never a text or a picture.
-     */
-    answers: z.record(
-      z.string().regex(LESSON_KEY).max(70),
-      z.record(z.string().regex(LESSON_ID).max(64), z.record(z.string().regex(LESSON_ID).max(64), z.string().regex(ANSWER).max(64))),
-    ).default({}),
-    /**
-     * Lesson id → the outcomes reached (shared/lessons/steps.ts): 'structure' (checked by the app), 'run-app' or
-     * 'run-self' (run in ComfyUI, by the app's check or on the person's word), 'result' (the person's assessment).
-     * Kept so the list shows them without the lesson's canvas.
-     */
-    outcomes: z.record(z.string().regex(LESSON_KEY).max(70), z.array(z.enum(['structure', 'run-app', 'run-self', 'result'])).max(4)).default({}),
+    ...lessonProgressSchema.shape,
+    /** Per workflow and subgraph copy; root progress above remains compatible with older profiles. */
+    contexts: z.record(z.string().max(8192), lessonProgressSchema).default({}),
   }).prefault({}),
 }).strict();
 
