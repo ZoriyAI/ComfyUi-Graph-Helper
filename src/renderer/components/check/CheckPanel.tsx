@@ -3,7 +3,7 @@
  * the person ask the helper why. shell/Dock.tsx mounts it; tests/unit/explainCheckRender.test.ts renders it.
  * Advice about prompts is listed apart and never counted, because the graph still runs with it.
  */
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AnimatePresence, motion } from 'motion/react';
 import { CircleCheck, Crosshair, Lightbulb, ListChecks, MessageCircleQuestion, OctagonAlert, TriangleAlert } from 'lucide-react';
@@ -22,6 +22,7 @@ import IconButton from '../../ui/IconButton';
 import styles from './CheckPanel.module.css';
 import EmptyState from '../../ui/EmptyState';
 import ResourcePanel from './ResourcePanel';
+import SearchField from '../../ui/SearchField';
 
 /** A finding row rises into place; a fixed one fades out. */
 const ROW_MOTION = {
@@ -63,6 +64,23 @@ function FindingRow({ finding, text, hint, onShow, onAsk }: { finding: CheckFind
   );
 }
 
+/** Hundreds of findings stay searchable without mounting thousands of animated rows. */
+function FindingPages({ items, reset, label, children }: { items: CheckFinding[]; reset: unknown; label: string; children: (item: CheckFinding) => React.ReactNode }) {
+  const { t } = useTranslation();
+  const [page, setPage] = useState(0);
+  useEffect(() => setPage(0), [reset]);
+  const current = Math.min(page, Math.max(0, Math.ceil(items.length / 50) - 1));
+  const start = current * 50;
+  return <>
+    <ul className={styles.list}><AnimatePresence initial={false}>{items.slice(start, start + 50).map(children)}</AnimatePresence></ul>
+    {items.length > 50 ? <nav className={styles.runRow} aria-label={label}>
+      <Button size="sm" disabled={current === 0} onClick={() => setPage(current - 1)}>{t('check.previousFindings')}</Button>
+      <span className={styles.note} role="status">{t('check.findingsRange', { from: start + 1, to: Math.min(start + 50, items.length), total: items.length })}</span>
+      <Button size="sm" disabled={start + 50 >= items.length} onClick={() => setPage(current + 1)}>{t('check.nextFindings')}</Button>
+    </nav> : null}
+  </>;
+}
+
 /**
  * The pre-export check. Runs knowledge:check-graph through the knowledge store, lists findings
  * by type, focuses each on the canvas, and lets the person ask why. The count lives in useKnowledgeStore().check.
@@ -76,6 +94,7 @@ export default function CheckPanel({ projectId }: { projectId: string }) {
   const nodes = useGraphStore((state) => state.nodes);
   const definitions = useGraphStore((state) => state.subgraphs);
   const [error, setError] = useState<string | null>(null);
+  const [query, setQuery] = useState('');
 
   // The report names inputs; the canvas needs their handle ids, at the top level or inside a subgraph.
   const resolvePort = useCallback((nodeId: string, inputName: string, subgraphId?: string) => {
@@ -137,6 +156,10 @@ export default function CheckPanel({ projectId }: { projectId: string }) {
     const ids = findingNodeIds(finding.values);
     return ids.length > 0 ? String(t('check.nodeIds', { count: ids.length, ids: ids.join(', ') })) : undefined;
   };
+  const needle = query.trim().toLocaleLowerCase();
+  const matches = (finding: CheckFinding) => !needle || `${findingText(finding)} ${findingNodeIds(finding.values).join(' ')}`.toLocaleLowerCase().includes(needle);
+  const filteredGroups = groups.map(group => ({ ...group, findings: group.findings.filter(matches) })).filter(group => group.findings.length);
+  const filteredAdvice = advice.filter(matches);
 
   return (
     <section className={`check-panel ${styles.panel}`} aria-labelledby="check-title" data-project={projectId}>
@@ -175,40 +198,40 @@ export default function CheckPanel({ projectId }: { projectId: string }) {
           <span>{t('check.ok')}</span>
         </div>
       ) : null}
-      {groups.map((group) => (
+      {count + advice.length > 0 ? <SearchField value={query} onValueChange={setQuery} label={String(t('check.searchFindings'))} clearLabel={String(t('check.clearFindingsSearch'))} placeholder={String(t('check.searchFindings'))} /> : null}
+      {needle && !filteredGroups.length && !filteredAdvice.length ? <p role="status">{t('check.noMatchingFindings')}</p> : null}
+      {filteredGroups.map((group) => (
         <section key={group.type} className={styles.group} aria-labelledby={`check-group-${group.type}`} data-check-group={group.type}>
           <h3 className={styles.groupTitle} id={`check-group-${group.type}`} data-stops={STOPPERS.has(group.type) ? 'true' : undefined}>
             {STOPPERS.has(group.type) ? <OctagonAlert size={14} aria-hidden="true" /> : <TriangleAlert size={14} aria-hidden="true" />}
             {t(group.titleKey)} ({group.findings.length})
           </h3>
-          <ul className={styles.list}>
-            <AnimatePresence initial={false}>
-              {group.findings.map((finding) => {
+          <FindingPages key={`${group.type}:${query}`} items={group.findings} reset={report} label={String(t(group.titleKey))}>
+              {(finding) => {
                 const text = findingText(finding);
                 return (
                   <motion.li key={finding.key} className={styles.row} data-type={finding.type} {...ROW_MOTION}>
                     <FindingRow finding={finding} text={text} hint={idsHint(finding)} onShow={() => show(finding)} onAsk={() => askWhy(finding)} />
                   </motion.li>
                 );
-              })}
-            </AnimatePresence>
-          </ul>
+              }}
+          </FindingPages>
         </section>
       ))}
-      {advice.length > 0 ? (
+      {filteredAdvice.length > 0 ? (
         <section className={`${styles.group} ${styles.advice}`} aria-labelledby="check-group-promptNotes" data-check-group="promptNotes">
           <h3 className={styles.groupTitle} id="check-group-promptNotes">
             <Lightbulb size={14} aria-hidden="true" />
-            {t('check.promptNotes')} ({advice.length})
+            {t('check.promptNotes')} ({filteredAdvice.length})
           </h3>
           <p className={styles.note}>{t('check.promptNotesLead')}</p>
-          <ul className={styles.list}>
-            {advice.map((finding) => (
+          <FindingPages key={`advice:${query}`} items={filteredAdvice} reset={report} label={String(t('check.promptNotes'))}>
+            {(finding) => (
               <li key={finding.key} className={styles.row} data-type={finding.type}>
                 <FindingRow finding={finding} text={findingText(finding)} hint={idsHint(finding)} onShow={() => show(finding)} onAsk={() => askWhy(finding)} />
               </li>
-            ))}
-          </ul>
+            )}
+          </FindingPages>
         </section>
       ) : null}
     </section>

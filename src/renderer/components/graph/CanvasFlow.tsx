@@ -324,6 +324,14 @@ export default function CanvasFlow() {
   }, [mode, activeSubgraphId, flow]);
 
   const cameraSignals = useCameraSignals();
+  const signalMoveStart = cameraSignals.onMoveStart;
+  const onMoveStart = useCallback<typeof cameraSignals.onMoveStart>((event, viewport) => {
+    // Finish a typed value before viewport culling can unmount its off-screen field.
+    const active = document.activeElement;
+    if (nodes.length > 200 && (active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement)
+      && host.current?.contains(active) && active.closest('.react-flow__node')) active.blur();
+    signalMoveStart(event, viewport);
+  }, [signalMoveStart, nodes.length]);
   useCheckWave();
 
   // The glow on compatible ports and the dimming of the rest: for the "what connects here" assist, and while a
@@ -603,6 +611,8 @@ export default function CanvasFlow() {
           <ReactFlow
             nodes={spoken.nodes as Node[]}
             edges={spoken.edges}
+            // Keep full native controls on visible cards; large graphs need not mount off-screen fields.
+            onlyRenderVisibleElements={nodes.length > 200}
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
             onConnect={onConnect}
@@ -646,7 +656,7 @@ export default function CanvasFlow() {
             elementsSelectable={!readOnly}
             colorMode="dark"
             attributionPosition="bottom-left"
-            onMoveStart={cameraSignals.onMoveStart}
+            onMoveStart={onMoveStart}
             onMove={cameraSignals.onMove}
             onMoveEnd={cameraSignals.onMoveEnd}
             minZoom={0.1}

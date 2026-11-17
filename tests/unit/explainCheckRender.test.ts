@@ -100,6 +100,17 @@ describe('Explain panel render', () => {
 });
 
 describe('Check panel render', () => {
+  it('keeps all finding counts while mounting only a page of a large report', () => {
+    const report: GraphCheckReport = { ok: false, missingNodes: [], missingModels: [], typeMismatches: [], baseModelMismatches: [], unknownNodeTypes: [],
+      unconnectedRequiredInputs: Array.from({ length: 1000 }, (_, index) => ({ nodeId: `n${index}`, input: 'model', type: 'MODEL' })),
+    };
+    useKnowledgeStore.setState({ check: report, checking: false });
+    const html = render(React.createElement(CheckPanel, { projectId: 'p' }));
+    expect(html.match(/data-type="unconnectedRequiredInputs"/g)).toHaveLength(50);
+    expect(html).toContain('1–50 of 1000'); expect(html).toContain('Find a node or a problem');
+    expect(html).toContain('1000 findings');
+  });
+
   it('shows the not-run state, the all-clear state, and grouped findings', () => {
     useKnowledgeStore.setState({ check: null, checking: false });
     expect(render(React.createElement(CheckPanel, { projectId: 'p' }))).toContain('The graph has not been checked yet.');

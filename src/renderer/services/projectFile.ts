@@ -22,17 +22,27 @@ export const useProjectFileStore = create<ProjectFileStore>((set) => ({
   set: (state) => set({ state }),
 }));
 
-/** Counts reads, so an older answer arriving late does not overwrite a newer one. */
-let seq = 0;
+/** Explanation cards can populate hundreds of cache entries together. Keep one read and one trailing refresh. */
+let pending: Promise<ProjectFileState | null> | null = null;
+let requested = false;
 
 /** Reads the state again (newest answer wins). */
-export async function refreshProjectFile(): Promise<ProjectFileState | null> {
+export function refreshProjectFile(): Promise<ProjectFileState | null> {
   const bridge = window.electronAPI;
-  if (!bridge?.projectFileState) return null;
-  const mine = ++seq;
-  const state = await bridge.projectFileState().catch(() => null);
-  if (state && mine === seq) useProjectFileStore.getState().set(state);
-  return state;
+  if (!bridge?.projectFileState) return Promise.resolve(null);
+  requested = true;
+  if (pending) return pending;
+  pending = (async () => {
+    let state: ProjectFileState | null = null;
+    do {
+      requested = false;
+      state = await bridge.projectFileState().catch(() => null);
+      // A change arrived while main was reading: wait for the newer state before publishing it.
+      if (state && !requested) useProjectFileStore.getState().set(state);
+    } while (requested);
+    return state;
+  })().finally(() => { pending = null; });
+  return pending;
 }
 
 /** True when the graph on screen is not in a project file as it stands. Until main answered: false. */

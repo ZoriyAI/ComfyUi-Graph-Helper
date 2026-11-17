@@ -78,3 +78,5 @@ The dots in the background are a grid. Their spacing is set in [Settings ▸ Can
 - [A node on the canvas](Node.md)
 - [Selecting and moving](../graph/Select-And-Move.md)
 - [Settings: Canvas](Settings-Canvas.md)
+
+For graphs above 200 nodes, off-screen cards are rendered when you reach them. All nodes remain in the document and export. A typed field is committed before moving the camera. [Measured large-graph behavior](https://github.com/ZoriyAI/nodewise-studio/blob/main/docs/research/2026-11-17-large-canvas.md).

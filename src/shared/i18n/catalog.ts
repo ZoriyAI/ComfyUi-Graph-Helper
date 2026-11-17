@@ -1603,6 +1603,8 @@ export const en = {
     },
     promptNotes: 'Prompts: worth changing',
     promptNotesLead: 'These are not errors: the graph will run. But with them the result usually comes out worse than you expect.',
+    searchFindings: 'Find a node or a problem', clearFindingsSearch: 'Clear problem search', noMatchingFindings: 'No problems match this search.',
+    previousFindings: 'Previous', nextFindings: 'Next', findingsRange: '{{from}}–{{to}} of {{total}}',
     prompt: {
       loraTag: 'The prompt in “{{node}}” contains {{found}}. In ComfyUI this connects nothing: a LoRA is added with its own node, and the model reads these characters as plain words. Take it out of the prompt.',
       foreignSyntax: 'The prompt in “{{node}}” contains {{found}}. Other programs read this as a command; in ComfyUI it is plain characters that only get in the way. Take it out.',
@@ -5102,6 +5104,8 @@ export const ru = {
     },
     promptNotes: 'Промпты: что стоит поправить',
     promptNotesLead: 'Это не ошибки: граф запустится. Но с этим результат обычно выходит хуже, чем вы ждёте.',
+    searchFindings: 'Найти ноду или проблему', clearFindingsSearch: 'Очистить поиск проблем', noMatchingFindings: 'По этому запросу проблем не найдено.',
+    previousFindings: 'Назад', nextFindings: 'Далее', findingsRange: '{{from}}–{{to}} из {{total}}',
     prompt: {
       loraTag: 'В промпте ноды «{{node}}» стоит запись {{found}}. В ComfyUI она ничего не подключает: LoRA добавляют отдельной нодой, а эти знаки модель прочтёт как обычные слова. Уберите запись из промпта.',
       foreignSyntax: 'В промпте ноды «{{node}}» есть {{found}}. В других программах это команда, а в ComfyUI обычные знаки, которые только мешают. Уберите их.',

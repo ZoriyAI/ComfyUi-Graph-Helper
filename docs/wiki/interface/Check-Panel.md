@@ -19,6 +19,8 @@ The check also runs by itself after a workflow is opened, once the node list of 
 
 Under the findings, **Prompts: worth changing** gives advice on prompts: "These are not errors: the graph will run. But with them the result usually comes out worse than you expect."
 
+Findings are searchable by node name, problem text or node ID. Each group shows 50 at a time; **Previous** and **Next** reach the rest. Searching includes every finding, including those on other pages. A result brings its node into view with readable controls. The hardware processing-stage list opens only when you expand it.
+
 ## What can go wrong
 
 - "The graph has not been checked yet." before the first check.
