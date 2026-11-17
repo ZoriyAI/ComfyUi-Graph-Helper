@@ -5,6 +5,12 @@
 Releases, newest first. Each release has full notes in `docs/releases/`.
 This file is written by `node scripts/changelog.js`: change the notes, not this file.
 
+## 1.3.0
+
+This release completes the lesson upgrade, preserves work across assistant interruptions, improves current ComfyUI workflow compatibility and makes large graphs easier to edit. Synchronization can continue directly through ComfyUI when MCP is unavailable, with separate progress for model descriptions and translations.
+
+Notes: [docs/releases/v1.3.0.md](docs/releases/v1.3.0.md)
+
 ## 1.2.8
 
 The assistant now carries out ordinary requests on your existing graph, including clearing the canvas, building several variants and editing inside earlier subgraphs. The fifty problem guides have concrete preparation, actions and result checks; recovery and memory controls make the transition to ComfyUI clearer.

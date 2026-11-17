@@ -24,9 +24,7 @@ what to expect. Wishes go to the project's Discussions, problems to its Issues.
   macOS machines on every change and **not yet tried on a range of real computers**. Reports in the project's Issues,
   with the script's log and your system version, are welcome.
   [Installing on Windows](../start/Installing-On-Windows.md), [Installing on macOS](../start/Installing-On-macOS.md)
-- On Windows and macOS some texts still speak of Linux: the keychain setting and its hints name GNOME Keyring and
-  KWallet, while Windows uses DPAPI and macOS the Keychain. On macOS the app's own menus stay inside the window; the
-  menu bar at the top of the screen has only the standard app, Edit and Window menus.
+- On macOS the app’s own menus remain inside the window; the system menu bar has the standard app, Edit and Window menus. Password storage now follows the OS: only Linux offers the GNOME/KWallet selector; Windows and macOS use system protection automatically.
 - No automatic updates: install a new version from the project's Releases yourself. Settings ▸ Privacy ▸ Check for
   new versions can tell you when there is one. [Updating](../start/Updating.md)
 - Not tried yet on a real desktop: installing the `.deb` with apt, the `.rpm` with dnf on Fedora, the final AppImage
@@ -34,8 +32,7 @@ what to expect. Wishes go to the project's Discussions, problems to its Issues.
 
 ## Connection and reading
 
-- Not tried yet on a real install: the connection was checked against test servers that answer the way ComfyUI
-  does, not against a real ComfyUI, ComfyUI on Windows, the ComfyUI desktop app or a real MCP server.
+- A real ComfyUI 0.45.3 installation returned 3375 node types and all 797 model files, including direct fallback when MCP was unavailable. Windows, ComfyUI Desktop and authenticated third-party MCP servers remain unqualified. [Qualification report](../../research/2026-11-17-live-catalog.md)
 - Straight from ComfyUI there are no descriptions next to model files, no pack READMEs and no fingerprints, so Find on
   the internet searches by file name only. An MCP server that reads files adds them.
   [What each way shows](../connect/What-Each-Way-Shows.md)
@@ -52,8 +49,7 @@ what to expect. Wishes go to the project's Discussions, problems to its Issues.
 
 ## Size of a graph
 
-- **About a thousand nodes is slow.** On a graph of about 1000 nodes, dragging and zooming run at about 5 frames per
-  second, and the first drawing takes many seconds.
+- **Large graphs still need substantial memory.** In the 1000-KSampler measurement, readiness improved from 25.00 to 4.69 seconds after rendering only visible cards. Interaction stalls fell, but memory use did not improve; this is not a speed guarantee for other computers. [Method and results](../../research/2026-11-17-large-canvas.md)
 - **The cap is 1500 nodes and 3000 links**, subgraphs counted. A larger workflow or project is refused before
   anything changes: "This graph is too large to open…". The largest of 1335 real workflows the app was tried on has
   603 nodes.
@@ -87,8 +83,8 @@ what to expect. Wishes go to the project's Discussions, problems to its Issues.
 ## Accessibility
 
 - The arrow keys do not move the focus between nodes: they move the selected node, and `Tab` steps through the nodes.
-- Not tried yet with a real screen reader.
-- At 200 percent interface size on a 1080p screen the window does not fit.
+- Real AT-SPI events and Orca-generated speech were checked for nodes, links and settings. Human listening and a complete screen-reader journey remain separate acceptance.
+- Keyboard operation and layout passed at 200% on 1920×1080 and 100% on 3840×2160 in isolated Electron windows. Physical phones, tablets and other system scaling combinations remain separate acceptance.
 
 More: [Accessibility](../trust/Accessibility.md).
 

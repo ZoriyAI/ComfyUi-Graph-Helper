@@ -12,7 +12,7 @@ NodeWise Studio is a visual workspace for ComfyUI. Choose a task, start from a t
 
 Work on the desktop or open its interface in a phone or tablet browser over Wi-Fi. No separate mobile app is needed. Lessons, manual editing and wizards work without an AI model.
 
-**[Download the latest release](https://github.com/ZoriyAI/nodewise-studio/releases/latest)** · **[Quick start](docs/wiki/start/Quick-Start.md)** · **[New in 1.2.8](docs/releases/v1.2.8.md)** · **[Phone and tablet access](docs/wiki/start/Browser-Access.md)**
+**[Download the latest release](https://github.com/ZoriyAI/nodewise-studio/releases/latest)** · **[Quick start](docs/wiki/start/Quick-Start.md)** · **[New in 1.3.0](docs/releases/v1.3.0.md)** · **[Phone and tablet access](docs/wiki/start/Browser-Access.md)**
 
 NodeWise is an independent, experimental project, unaffiliated with Comfy Org. It reads the running ComfyUI catalog and uploads media you explicitly select to its input folder. Generation runs in ComfyUI after workflow export.
 
@@ -129,7 +129,7 @@ The same documentation is in the app: Help ▸ User guide.
 
 ## Build from source
 
-For **1.2.8** source, use [tag v1.2.8](https://github.com/ZoriyAI/nodewise-studio/tree/v1.2.8) or the source archive on the release page. The `main` branch can differ from the published application; this documentation describes the release.
+For **1.3.0** source, use [tag v1.3.0](https://github.com/ZoriyAI/nodewise-studio/tree/v1.3.0) or the source archive on the release page. The `main` branch can differ from the published application; this documentation describes the release.
 
 On Linux: [Building from source](docs/wiki/dev/Building-From-Source.md). On Windows and macOS, the steps the install
 scripts take, by hand: [Windows](docs/wiki/dev/Building-On-Windows.md), [macOS](docs/wiki/dev/Building-On-macOS.md).

@@ -49,6 +49,7 @@ import type { SecretInventoryReport } from '../../../../preload';
 /** Settings ▸ Privacy: what the model sees, whether chat is kept, and a plain account of where secrets live. */
 export default function PrivacySection({ prefs, setPrefs, container }: DraftProps) {
   const { t, i18n } = useTranslation();
+  const platform = window.electronAPI?.platform;
   const translate: Translator = (key, options) => (options ? String(t(key, options)) : String(t(key)));
   const privacy = prefs.privacy;
   const [askAdult, setAskAdult] = useState(false);
@@ -295,14 +296,14 @@ export default function PrivacySection({ prefs, setPrefs, container }: DraftProp
             {t(store.persist ? 'preferences.secretStoreOk' : 'preferences.secretStoreOff', { backend: t(storeNameKey(store.backend)) })}
           </p>
         ) : null}
-        <SelectField
+        {platform === 'linux' ? <SelectField
           label={String(t('preferences.secretStore'))}
           value={store?.override ?? 'auto'}
           options={storeOptions}
           container={container}
           onChange={(next) => void chooseStore(next)}
-        />
-        <p className={hintClass}>{t('preferences.secretStoreHint')}</p>
+        /> : null}
+        <p className={hintClass}>{t(platform === 'linux' ? 'preferences.secretStoreHint' : platform === 'win32' ? 'preferences.secretStoreWindows' : platform === 'darwin' ? 'preferences.secretStoreMac' : 'preferences.secretStoreSystem')}</p>
         {storeNote ? <p className={hintClass} role="status">{storeNote}</p> : null}
       </Group>
       <div className={cx(rowClass, styles.rowStart)}>

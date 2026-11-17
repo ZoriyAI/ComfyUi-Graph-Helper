@@ -12,7 +12,7 @@ NodeWise Studio — визуальная мастерская для ComfyUI. В
 
 Работайте на компьютере или откройте его интерфейс в браузере телефона и планшета через Wi-Fi. Отдельное мобильное приложение не нужно. Уроки, ручное редактирование и мастера доступны без модели ИИ.
 
-**[Скачать актуальную версию](https://github.com/ZoriyAI/nodewise-studio/releases/latest)** · **[Быстрый старт](docs/wiki/start/Quick-Start.ru.md)** · **[Что нового в 1.2.8](docs/releases/v1.2.8.ru.md)** · **[Телефон и планшет](docs/wiki/start/Browser-Access.ru.md)**
+**[Скачать актуальную версию](https://github.com/ZoriyAI/nodewise-studio/releases/latest)** · **[Быстрый старт](docs/wiki/start/Quick-Start.ru.md)** · **[Что нового в 1.3.0](docs/releases/v1.3.0.ru.md)** · **[Телефон и планшет](docs/wiki/start/Browser-Access.ru.md)**
 
 NodeWise — независимый экспериментальный проект, не связанный с Comfy Org. Он читает каталог запущенного ComfyUI; выбранные вами медиафайлы загружает в его папку input. Генерация выполняется в ComfyUI после экспорта workflow.
 
@@ -130,7 +130,7 @@ curl -fsSL https://github.com/ZoriyAI/nodewise-studio/releases/latest/download/i
 
 ## Сборка из исходников
 
-Для исходников **1.2.8** используйте [тег v1.2.8](https://github.com/ZoriyAI/nodewise-studio/tree/v1.2.8) или архив исходного кода на странице выпуска. Ветка `main` может отличаться от опубликованной программы; эта документация описывает выпуск.
+Для исходников **1.3.0** используйте [тег v1.3.0](https://github.com/ZoriyAI/nodewise-studio/tree/v1.3.0) или архив исходного кода на странице выпуска. Ветка `main` может отличаться от опубликованной программы; эта документация описывает выпуск.
 
 В Linux: [Сборка из исходников](docs/wiki/dev/Building-From-Source.ru.md). На Windows и macOS те же шаги, что делают
 скрипты установки, вручную: [Windows](docs/wiki/dev/Building-On-Windows.ru.md), [macOS](docs/wiki/dev/Building-On-macOS.ru.md).
