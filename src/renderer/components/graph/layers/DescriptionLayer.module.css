@@ -137,8 +137,8 @@
   pointer-events: auto;
   display: inline-grid;
   place-items: center;
-  width: 16px;
-  height: 16px;
+  width: 24px;
+  height: 24px;
   margin-right: 14px;
   padding: 0;
   border-radius: var(--radius-xs, 4px);
@@ -150,6 +150,9 @@
   transition: background-color var(--motion-feedback, 100ms) var(--motion-ease-out, ease-out), color var(--motion-feedback, 100ms) var(--motion-ease-out, ease-out), opacity var(--motion-feedback, 100ms) var(--motion-ease-out, ease-out);
 }
 .dot:hover, .dot:focus-visible { opacity: 1; background: var(--surface-hover, #243247); color: var(--ai, #b7a5ff); border-color: color-mix(in srgb, var(--ai, #b7a5ff) 45%, var(--border, #2a3648)); }
+@media (pointer: coarse), (max-width: 700px) {
+  .dot, .icon, .action, .aspect { min-width: 44px; min-height: 44px; }
+}
 @keyframes enter { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
 :global(html[data-motion="off"]) .card,
 :global(html[data-motion="reduced"]) .card { animation: none; }

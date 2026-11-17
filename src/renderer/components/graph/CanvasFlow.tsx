@@ -607,12 +607,22 @@ export default function CanvasFlow() {
   return (
     <CanvasViewContext.Provider value={view}>
       <GraphContextMenu nodes={nodes} edges={edges} readOnly={readOnly}>
-        <div ref={host} className={styles.flowHost} onPointerDownCapture={onPointerDownCapture} onDoubleClick={onDoubleClick} data-canvas-mode={mode} data-nodes-pinned={nodesPinned ? 'true' : undefined}>
+        <div ref={host} className={styles.flowHost} onPointerDownCapture={onPointerDownCapture} onDoubleClick={onDoubleClick}
+          onFocusCapture={(event) => {
+            // Keyboard node focus keeps its heading below wrapped canvas controls, including at 200% UI zoom.
+            const target = event.target;
+            if (!target.matches('.react-flow__node:focus-visible')) return;
+            const node = flow.getInternalNode(target.dataset.id ?? '');
+            if (!node) return;
+            canvasHandle()?.reveal({ ...node.internals.positionAbsolute,
+              width: node.measured.width ?? 240, height: node.measured.height ?? 120 });
+          }} data-canvas-mode={mode} data-nodes-pinned={nodesPinned ? 'true' : undefined}>
           <ReactFlow
             nodes={spoken.nodes as Node[]}
             edges={spoken.edges}
             // Keep full native controls on visible cards; large graphs need not mount off-screen fields.
             onlyRenderVisibleElements={nodes.length > 200}
+            autoPanOnNodeFocus={false}
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
             onConnect={onConnect}

@@ -25,6 +25,7 @@ import { replayStepText } from './lib/replay';
 import { motionMs, tokenMs, useMotionLevel } from '../../motion/policy';
 import { centerCamera, zoomCamera, zoomCameraTo } from '../../motion/camera';
 import { fitWhole } from './lib/autoFit';
+import { cameraCenter, canvasControlsTop } from './lib/followCamera';
 import { setCanvasHandle } from '../../commands/canvasHandle';
 import styles from './GraphWorkspace.module.css';
 import { addImageSource } from './imageSource';
@@ -92,11 +93,13 @@ function Workspace({ onImportWorkflow }: GraphWorkspaceProps) {
         // The visible part of the canvas in flow coordinates, less a margin so the node is not glued to an edge.
         const margin = 48 / zoom;
         const left = -x / zoom + margin;
-        const top = -y / zoom + margin;
+        const controlsTop = canvasControlsTop();
+        const top = (controlsTop - y) / zoom;
         const right = (box.width - x) / zoom - margin;
         const bottom = (box.height - y) / zoom - margin;
         if (rect.x >= left && rect.y >= top && rect.x + rect.width <= right && rect.y + rect.height <= bottom) return;
-        void centerCamera(flow, rect.x + rect.width / 2, rect.y + rect.height / 2, zoom);
+        const center = cameraCenter(rect, box, zoom, { top: controlsTop, above: 0 });
+        void centerCamera(flow, center.x, center.y, zoom);
       },
       panBy: (dx, dy) => {
         const { x, y, zoom } = flow.getViewport();

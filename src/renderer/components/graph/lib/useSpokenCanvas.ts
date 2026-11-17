@@ -57,7 +57,9 @@ export function useSpokenCanvas<N extends FlowNode, E extends FlowEdge>(nodes: N
       const role = say('a11y.nodeRole');
       const kept = nodeCache.current.get(node.id);
       if (kept && kept.from === node && kept.label === ariaLabel && kept.role === role) return kept.out;
-      const out = { ...node, ariaLabel, domAttributes: { ...(node.domAttributes ?? {}), 'aria-roledescription': role } } as N;
+      // A card is a self-contained article with interactive children. Orca's generic-panel presentation can
+      // replace the explicit name with the keyboard description; article keeps both name and child controls.
+      const out = { ...node, ariaRole: 'article', ariaLabel, domAttributes: { ...(node.domAttributes ?? {}), 'aria-roledescription': role } } as N;
       nodeCache.current.set(node.id, { from: node, label: ariaLabel, role, out });
       return out;
     });

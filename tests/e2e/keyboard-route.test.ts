@@ -199,6 +199,9 @@ test('keyboard route reaches a node and keeps graph shortcuts out of fields', as
 
   await expect.poll(selectedCount).toBeGreaterThanOrEqual(1);
   await expectKept(beforeMenu);
+  // Keyboard traversal now reveals every focused card. Bring the first card back before pointer selection.
+  await window.keyboard.press('Tab');
+  await window.locator('.react-flow__node').first().focus();
   await window.locator('.react-flow__node').first().click();
   await expect(window.locator('.graph-node.is-selected')).toHaveCount(1);
   const beforeField = await nodeCount();

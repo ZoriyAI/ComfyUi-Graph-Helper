@@ -303,7 +303,7 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  height: 22px;
+  min-height: 28px;
   padding: 0 8px;
   border-radius: 6px;
   border: 1px solid var(--line, #2a3648);
@@ -315,6 +315,7 @@
 }
 .enter:hover { background: var(--bg-hover, #243247); }
 .enter:focus-visible { outline: 2px solid var(--focus, #b7a5ff); outline-offset: 1px; }
+@media (pointer: coarse), (max-width: 700px) { .enter { min-height: 44px; } }
 
 /* Boundary pseudo-nodes inside a definition. */
 .boundary {

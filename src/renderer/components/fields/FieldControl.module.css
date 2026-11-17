@@ -12,7 +12,7 @@
 .uploadButton:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 .uploadButton[aria-disabled="true"] { opacity: 0.55; cursor: default; }
 .uploadError { color: var(--danger); font-size: var(--text-xs); overflow-wrap: anywhere; }
-.compact { --field-h: 22px; --field-font: 12px; --field-radius: var(--radius-sm, 6px); }
+.compact { --field-h: 24px; --field-font: 12px; --field-radius: var(--radius-sm, 6px); }
 .wide { --field-h: 30px; --field-font: var(--text-sm, 13px); --field-radius: var(--radius-md, 8px); width: 100%; }
 
 .trigger,
@@ -160,7 +160,7 @@
 .stepButton:last-child { border-radius: 0 var(--field-radius) var(--field-radius) 0; }
 .stepButton:hover:not(:disabled) { background: var(--surface-hover, #243247); color: var(--text, #e8eef7); }
 /* On a node: narrower buttons, quiet until the person points at the control, so the value reads first. */
-.compact .stepButton { width: 18px; color: color-mix(in srgb, var(--text-dim, #a3b1c6) 55%, transparent); }
+.compact .stepButton { width: 24px; color: color-mix(in srgb, var(--text-dim, #a3b1c6) 55%, transparent); }
 .compact .stepper:hover .stepButton:not(:disabled),
 .compact .stepper:focus-within .stepButton:not(:disabled) { color: var(--text-dim, #a3b1c6); }
 .seed {
@@ -259,3 +259,7 @@
 
 .nativePicker { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
 @media (pointer: coarse), (max-width: 700px) { .uploadButton, .compact .uploadButton { height: auto; min-height: 44px; font-size: 14px; } }
+@media (pointer: coarse), (max-width: 700px) {
+  .compact, .wide { --field-h: 44px; }
+  .compact .stepButton { width: 36px; }
+}

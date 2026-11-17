@@ -28,6 +28,7 @@ import { SearchX } from 'lucide-react';
 import { categoryAccent } from './lib/typeColors';
 import { categoryLabel } from './lib/categoryLabel';
 import styles from './Toolbar.module.css';
+import { focusAddedNode } from '../../a11y/focusAddedNode';
 
 /**
  * Commits add-node after the class guard: an unknown class (with a synced catalog) is refused with the
@@ -256,7 +257,7 @@ export default function AddNodeSearch() {
 
   if (!search.open) return null;
 
-  const pick = (item: NodeClassSummary | undefined) => {
+  const pick = (item: NodeClassSummary | undefined, keyboard = false) => {
     const classType = item?.classType ?? query.trim();
     if (!classType) return;
     // The right-click spot, else the middle of the view; placeNewNode moves it off any node.
@@ -265,9 +266,10 @@ export default function AddNodeSearch() {
     input.current?.blur();
     close();
     const chosen: NodeClassSummary = item ?? { classType, displayName: classType, category: '', pack: '', detailed: false };
-    if (purpose?.kind === 'insert') void insertOnLink(purpose, chosen, at);
-    else if (purpose?.kind === 'replace') void replaceWith(purpose, chosen);
-    else void addCheckedNode(classType, at, item?.displayName || undefined, search.linkFrom);
+    const action = purpose?.kind === 'insert' ? insertOnLink(purpose, chosen, at)
+      : purpose?.kind === 'replace' ? replaceWith(purpose, chosen)
+        : addCheckedNode(classType, at, item?.displayName || undefined, search.linkFrom);
+    if (keyboard) focusAddedNode(action);
     if (item) rememberRecentNode(item);
   };
 
@@ -280,18 +282,18 @@ export default function AddNodeSearch() {
     input.current?.blur();
     close();
     if (!purpose) {
-      void addTypedNode(typed, at, link);
+      focusAddedNode(addTypedNode(typed, at, link));
       return;
     }
     const origin = captureEditOrigin();
-    void trackCommit(async () => {
+    focusAddedNode(trackCommit(async () => {
       const types = purpose.kind === 'insert' ? { inputType: purpose.dataType, outputType: purpose.targetType } : {};
       const found = await window.electronAPI?.searchNodeTypes?.({ query: typed, limit: 1, ...types }).catch(() => []) ?? [];
       const first = found[0];
       if (!first) return;
       if (purpose.kind === 'insert') await insertOnLink(purpose, first, at, origin);
       else await replaceWith(purpose, first, origin);
-    });
+    }));
   };
 
   const listId = 'canvas-add-node-results';
@@ -316,7 +318,7 @@ export default function AddNodeSearch() {
           if (event.key === 'ArrowDown') setActive((index) => Math.min(results.length - 1, index + 1));
           else if (event.key === 'ArrowUp') setActive((index) => Math.max(0, index - 1));
           else if (event.key === 'Enter') {
-            if (resultsFor === query.trim()) pick(results[active]);
+            if (resultsFor === query.trim()) pick(results[active], true);
             else pickTyped();
           }
           else if (event.key === 'Escape') close();

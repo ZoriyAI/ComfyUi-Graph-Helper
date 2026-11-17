@@ -338,7 +338,6 @@ export default function BuildLayer({ levelId }: { levelId: string | null }) {
             className={`${styles.callout} ${styles.build} ${styles.bubble}`}
             data-build-callout={callout.key ?? callout.nodeId}
             data-build-kind={callout.kind ?? 'node'}
-            aria-live="polite"
             aria-label={callout.title}
           >
             <div className={styles.head}>

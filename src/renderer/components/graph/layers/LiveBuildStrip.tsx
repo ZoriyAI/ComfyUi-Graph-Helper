@@ -4,7 +4,7 @@
  * the reveal queue through BuildLayer's revealAllNow; the canvas toolbar leaves it to the strip). CanvasFlow mounts it.
  * It appears with the first build step of a run and hides when the run closes and the queue is empty.
  */
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { FastForward, Pause, Play, Square } from 'lucide-react';
 import { Panel } from '@xyflow/react';
@@ -15,6 +15,7 @@ import { useCanvasStore } from '../canvasStore';
 import { stepCounter } from '../lib/buildQueue';
 import { revealAllNow } from './BuildLayer';
 import styles from './LiveBuildStrip.module.css';
+import { announcementQueue } from '../../../a11y/announcementQueue';
 
 /** The strip itself; null when no build is running and nothing is queued. */
 export default function LiveBuildStrip() {
@@ -25,12 +26,28 @@ export default function LiveBuildStrip() {
   const paused = useChatStore((state) => state.isPaused);
   // Only the run this strip has counted steps for; a run that has shown nothing yet does not show the strip.
   const running = Boolean(activeRun) && activeRun?.runId === live.runId && live.shown + queued > 0;
-  if (!running && queued === 0) return null;
+  const visible = running || queued > 0;
   const step = stepCounter(live.shown, queued);
+  const [announcement, setAnnouncement] = useState('');
+  const announcements = useRef<ReturnType<typeof announcementQueue> | null>(null);
+  if (!announcements.current) announcements.current = announcementQueue(setAnnouncement);
+  const previousState = useRef('');
+  const seen = useRef(false);
+  useEffect(() => {
+    const state = `${live.runId ?? ''}:${visible}:${paused}`;
+    if (!visible && !seen.current) return;
+    seen.current = visible;
+    const text = String(t(!visible ? 'canvas.liveEnded' : paused ? 'canvas.livePaused' : 'canvas.liveBuilding', { index: step.index, count: visible ? step.total : live.shown }));
+    announcements.current?.update(text, state !== previousState.current);
+    previousState.current = state;
+  }, [live.runId, live.shown, visible, paused, step.index, step.total, t]);
+  useEffect(() => () => announcements.current?.dispose(), []);
   const service = getChatService();
   return (
-    <Panel position="top-center" className={`nopan nowheel nodrag ${styles.panel}`}>
-      <div className={styles.strip} role="status" aria-label={String(t('canvas.liveLabel'))} data-live-build data-step={step.index} data-total={step.total}>
+    <>
+    <span className="sr-only" role="status" aria-live="polite" aria-atomic="true" data-build-announcement>{announcement}</span>
+    {visible ? <Panel position="top-center" className={`nopan nowheel nodrag ${styles.panel}`}>
+      <div className={styles.strip} role="group" aria-label={String(t('canvas.liveLabel'))} data-live-build data-step={step.index} data-total={step.total}>
         <span className={styles.dot} data-paused={paused ? 'true' : undefined} aria-hidden="true" />
         <span className={styles.text}>
           {/* Paused: say so and what the person can do; building: the step and, beside it, that step's own why. */}
@@ -69,6 +86,7 @@ export default function LiveBuildStrip() {
           </button>
         ) : null}
       </div>
-    </Panel>
+    </Panel> : null}
+    </>
   );
 }

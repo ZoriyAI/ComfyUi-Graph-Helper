@@ -99,8 +99,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 18px;
+  width: 24px;
+  height: 24px;
   border: 0;
   border-radius: var(--radius-xs);
   background: transparent;
@@ -112,6 +112,7 @@
 .row:hover .logLink, .bubble:focus-within .logLink { opacity: 1; }
 .logLink:hover { color: var(--text); background: var(--surface-hover); }
 .logLink:focus-visible { outline: none; opacity: 1; box-shadow: var(--focus-ring); }
+@media (pointer: coarse), (max-width: 700px) { .logLink { width: 44px; height: 44px; opacity: 1; } }
 .logOpen { margin-top: 8px; }
 .cursor {
   display: inline-block;

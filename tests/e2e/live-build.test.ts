@@ -70,6 +70,9 @@ test('live build: nodes appear step by step with their why on the canvas and in 
   await expect(window.locator('.react-flow__edge')).toHaveCount(9);
   // The strip hides once the run is closed and the queue is empty.
   await expect(window.locator('[data-live-build]')).toHaveCount(0, { timeout: 20000 });
+  await expect(window.locator('[data-build-announcement]')).toHaveAttribute('aria-live', 'polite');
+  await expect(window.locator('[data-build-announcement]')).toContainText('Graph updates stopped. Steps shown:');
+  await expect(window.locator('[data-build-callout][aria-live]')).toHaveCount(0);
 
   // The KSampler's description card holds the saved why with the inference badge.
   const card = window.getByRole('region', { name: 'Description of KSampler', exact: true });

@@ -1,6 +1,6 @@
 # Large-canvas qualification · 2026-11-17
 
-The isolated Linux Electron application was measured with 100, 500 and 1000 native KSampler nodes, 99/499/999 links and the actual synchronized catalog. The viewport was 1600 × 1100 in Xvfb; no generation or assistant ran. Both measurements used the same host and navigation sequence. Values describe this environment, not a universal frame-rate guarantee.
+The isolated Linux Electron application was measured with 100, 500 and 1000 native KSampler nodes, 99/499/999 links and the actual synchronized catalog. The application viewport was 1600 × 1100 CSS pixels; no generation or assistant ran. The runner started Xvfb but did not force the Electron display backend. Host Wayland variables were inherited, so these results do not establish an isolated X11 benchmark. Both measurements used the same host and navigation sequence. Values describe this environment, not a universal frame-rate guarantee.
 
 | Nodes | Ready before → after | DOM elements before → after | Pan/zoom frame p95 before → after | Maximum main-loop delay before → after | Typed edit → verified native export after |
 |---:|---:|---:|---:|---:|---:|
