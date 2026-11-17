@@ -30,11 +30,11 @@ what to expect. Wishes go to the project's Discussions, problems to its Issues.
 - Not tried yet on a real desktop: installing the `.deb` with apt, the `.rpm` with dnf on Fedora, the final AppImage
   file. These are checked on CI only.
 
-A real portable installer cycle from 1.2.8 to the 1.3.0 candidate passed with a private profile, retained settings/workflow, export, restart and model release. [Exact isolation and result](../../research/2026-11-17-release-upgrade.md).
+A real portable installer cycle from 1.2.8 to the 1.3.0 candidate passed with a private profile, retained settings/workflow, export, restart and model release. [Exact isolation and result](https://github.com/ZoriyAI/nodewise-studio/blob/v1.3.0/docs/research/2026-11-17-release-upgrade.md).
 
 ## Connection and reading
 
-- A real ComfyUI 0.45.3 installation returned 3375 node types and all 797 model files, including direct fallback when MCP was unavailable. Windows, ComfyUI Desktop and authenticated third-party MCP servers remain unqualified. [Qualification report](../../research/2026-11-17-live-catalog.md)
+- A real ComfyUI 0.45.3 installation returned 3375 node types and all 797 model files, including direct fallback when MCP was unavailable. Windows, ComfyUI Desktop and authenticated third-party MCP servers remain unqualified. [Qualification report](https://github.com/ZoriyAI/nodewise-studio/blob/v1.3.0/docs/research/2026-11-17-live-catalog.md)
 - Straight from ComfyUI there are no descriptions next to model files, no pack READMEs and no fingerprints, so Find on
   the internet searches by file name only. An MCP server that reads files adds them.
   [What each way shows](../connect/What-Each-Way-Shows.md)
@@ -51,7 +51,7 @@ A real portable installer cycle from 1.2.8 to the 1.3.0 candidate passed with a 
 
 ## Size of a graph
 
-- **Large graphs still need substantial memory.** In the 1000-KSampler measurement, readiness improved from 25.00 to 4.69 seconds after rendering only visible cards. Interaction stalls fell, but memory use did not improve; this is not a speed guarantee for other computers. [Method and results](../../research/2026-11-17-large-canvas.md)
+- **Large graphs still need substantial memory.** In the 1000-KSampler measurement, readiness improved from 25.00 to 4.69 seconds after rendering only visible cards. Interaction stalls fell, but memory use did not improve; this is not a speed guarantee for other computers. [Method and results](https://github.com/ZoriyAI/nodewise-studio/blob/v1.3.0/docs/research/2026-11-17-large-canvas.md)
 - **The cap is 1500 nodes and 3000 links**, subgraphs counted. A larger workflow or project is refused before
   anything changes: "This graph is too large to open…". The largest of 1335 real workflows the app was tried on has
   603 nodes.

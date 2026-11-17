@@ -54,9 +54,9 @@ ComfyUI graphs". Topics: `comfyui`, `comfyui-workflow`, `stable-diffusion`, `gen
 
 Qualified state on 17 November 2026:
 
-- Real ComfyUI 0.45.3: 3375 node types, 797/797 model files, direct reads when MCP is unavailable. [Catalog report](../../research/2026-11-17-live-catalog.md).
-- 678 official workflows passed preservation and editing, with separate checks against current real ComfyUI forms. [Compatibility](../../research/2026-11-17-native-compatibility.md).
-- A real local model passed construction, pause, restart and continuation; native Ollama released GPU memory on exit. [Agent runtime](../../research/2026-11-17-agent-runtime.md).
+- Real ComfyUI 0.45.3: 3375 node types, 797/797 model files, direct reads when MCP is unavailable. [Catalog report](https://github.com/ZoriyAI/nodewise-studio/blob/v1.3.0/docs/research/2026-11-17-live-catalog.md).
+- 678 official workflows passed preservation and editing, with separate checks against current real ComfyUI forms. [Compatibility](https://github.com/ZoriyAI/nodewise-studio/blob/v1.3.0/docs/research/2026-11-17-native-compatibility.md).
+- A real local model passed construction, pause, restart and continuation; native Ollama released GPU memory on exit. [Agent runtime](https://github.com/ZoriyAI/nodewise-studio/blob/v1.3.0/docs/research/2026-11-17-agent-runtime.md).
 - Isolated Electron windows passed at 200% on 1080p and 100% on 4K. Real AT-SPI events and Orca-generated speech were checked; human listening was not. [Accessibility](../trust/Accessibility.md).
 
 Separate acceptance remains for:

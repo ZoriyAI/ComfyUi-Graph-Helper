@@ -40,7 +40,7 @@ From an MCP server, only if you added one:
   delete), only its read action is allowed, and only for the file names above.
 - **No running.** The app has no button and no assistant tool that queues a workflow. You run the result in ComfyUI
   yourself: [Running the result in ComfyUI](../graph/Running-In-ComfyUI.md).
-- **Tested.** Unit tests check refused routes, tools, actions and paths. A separate real ComfyUI 0.45.3 qualification read 3375 node types and all 797 model files; unavailable MCP did not stop direct reads. This does not qualify an authenticated third-party MCP. [Results](../../research/2026-11-17-live-catalog.md)
+- **Tested.** Unit tests check refused routes, tools, actions and paths. A separate real ComfyUI 0.45.3 qualification read 3375 node types and all 797 model files; unavailable MCP did not stop direct reads. This does not qualify an authenticated third-party MCP. [Results](https://github.com/ZoriyAI/nodewise-studio/blob/v1.3.0/docs/research/2026-11-17-live-catalog.md)
 
 ## What this means for you
 

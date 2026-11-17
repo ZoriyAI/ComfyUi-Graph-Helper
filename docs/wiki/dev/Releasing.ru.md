@@ -54,9 +54,9 @@ ComfyUI graphs». Темы: `comfyui`, `comfyui-workflow`, `stable-diffusion`, `
 
 Проверенное состояние на 17 ноября 2026:
 
-- Настоящий ComfyUI 0.45.3: 3375 типов нод, 797/797 прочитанных файлов, прямое чтение при недоступном MCP. [Каталог](../../research/2026-11-17-live-catalog.md).
-- 678 официальных workflow прошли сохранение и правку, отдельно проверены реальные формы текущего ComfyUI. [Совместимость](../../research/2026-11-17-native-compatibility.md).
-- Настоящая локальная модель прошла построение, паузу, перезапуск и продолжение; native Ollama освободила GPU при выходе. [Агент](../../research/2026-11-17-agent-runtime.md).
+- Настоящий ComfyUI 0.45.3: 3375 типов нод, 797/797 прочитанных файлов, прямое чтение при недоступном MCP. [Каталог](https://github.com/ZoriyAI/nodewise-studio/blob/v1.3.0/docs/research/2026-11-17-live-catalog.md).
+- 678 официальных workflow прошли сохранение и правку, отдельно проверены реальные формы текущего ComfyUI. [Совместимость](https://github.com/ZoriyAI/nodewise-studio/blob/v1.3.0/docs/research/2026-11-17-native-compatibility.md).
+- Настоящая локальная модель прошла построение, паузу, перезапуск и продолжение; native Ollama освободила GPU при выходе. [Агент](https://github.com/ZoriyAI/nodewise-studio/blob/v1.3.0/docs/research/2026-11-17-agent-runtime.md).
 - Изолированные окна Electron проверены при 200% на 1080p и 100% на 4K, реальные события AT-SPI и сформированная Orca речь проверены. Это не прослушивание человеком. [Доступность](../trust/Accessibility.ru.md).
 
 Остаётся отдельной приёмкой:
