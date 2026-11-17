@@ -166,7 +166,7 @@
 .searchTitle { padding: 2px 4px 6px; color: var(--text-dim, #a3b1c6); font-size: var(--text-xs); }
 .resultDesc { color: var(--text-dim, #a3b1c6); font-size: var(--text-xs); line-height: 16px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; white-space: normal; }
 
-.crumbBar { position: absolute; z-index: 5; top: 64px; left: 16px; display: flex; flex-direction: column; gap: 4px; max-width: calc(100% - 32px); }
+.crumbBar { position: absolute; z-index: 5; top: var(--canvas-toolbar-bottom, 64px); left: 16px; display: flex; flex-direction: column; gap: 4px; max-width: calc(100% - 32px); }
 .crumbs {
   display: inline-flex;
   align-items: center;
